@@ -216,6 +216,30 @@
 .ipp-item .ipp-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ipp-item .ipp-use{font-size:.62rem;color:var(--muted);font-weight:600;flex-shrink:0}
 .ipp-empty{padding:12px;font-size:.75rem;color:var(--muted);text-align:center}
+#inlinePickerPortal.mobile-picker{
+  left:8px !important;
+  right:8px !important;
+  width:auto !important;
+  top:auto !important;
+  bottom:calc(8px + env(safe-area-inset-bottom,0px)) !important;
+  max-height:min(68vh, 420px);
+  border-radius:20px;
+}
+#inlinePickerPortal.mobile-picker .ipp-search{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:linear-gradient(180deg,#10203a,#0a1424);
+}
+#inlinePickerPortal.mobile-picker .ipp-list{
+  max-height:min(56vh, 320px);
+}
+@media (max-width:760px){
+  .ipp-input{font-size:16px}
+  .ipp-item{padding:8px 9px}
+  .ipp-item img{width:28px;height:28px}
+}
+
 
 
 .saved-team-card{background:linear-gradient(180deg,#12233c,#0c1729);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:12px;display:grid;gap:10px;box-shadow:0 10px 24px rgba(0,0,0,.18)}
@@ -511,44 +535,68 @@ function renderStickyBar(){
 
 // ═══ INLINE PICKER PORTAL ═══
 (function(){
-  let _side=null,_idx=null,_hilite=-1,_filtered=[];
+  let _side=null,_idx=null,_hilite=-1,_filtered=[],_triggerEl=null;
   const portal=document.getElementById('inlinePickerPortal');
   const input=document.getElementById('ippInput');
   const list=document.getElementById('ippList');
+  const vv=window.visualViewport;
+
+  function isMobilePicker(){
+    return window.matchMedia('(max-width:760px)').matches;
+  }
 
   function positionPortal(triggerEl){
-    const r=triggerEl.getBoundingClientRect();
-    const spaceBelow=window.innerHeight - r.bottom;
-    const spaceAbove=r.top;
-    portal.style.width=Math.max(220,r.width)+'px';
-    if(spaceBelow>=240||spaceBelow>=spaceAbove){
-      portal.style.top=(r.bottom+6+window.scrollY)+'px';
-      portal.style.bottom='auto';
-    } else {
+    if(!triggerEl) return;
+    portal.classList.toggle('mobile-picker', isMobilePicker());
+    if(isMobilePicker()){
+      portal.style.left='8px';
+      portal.style.right='8px';
+      portal.style.width='auto';
       portal.style.top='auto';
-      portal.style.bottom=(window.innerHeight - r.top + 6)+'px';
+      portal.style.bottom='calc(8px + env(safe-area-inset-bottom,0px))';
+      if(vv){
+        const maxH=Math.max(250, Math.min(420, vv.height-24));
+        const listH=Math.max(160, Math.min(320, vv.height-92));
+        portal.style.maxHeight=maxH+'px';
+        list.style.maxHeight=listH+'px';
+      }
+      return;
     }
-    const left=Math.min(r.left, window.innerWidth - parseInt(portal.style.width) - 8);
-    portal.style.left=Math.max(8,left)+'px';
+    const r=triggerEl.getBoundingClientRect();
+    const viewH=vv?vv.height:window.innerHeight;
+    const viewW=vv?vv.width:window.innerWidth;
+    const offsetLeft=vv?vv.offsetLeft:0;
+    const offsetTop=vv?vv.offsetTop:0;
+    const width=Math.max(220, r.width);
+    portal.style.right='auto';
+    portal.style.bottom='auto';
+    portal.style.width=width+'px';
+    const left=Math.max(8+offsetLeft, Math.min(r.left+offsetLeft, viewW+offsetLeft-width-8));
+    const wantsBelow=r.bottom+246 <= viewH;
+    portal.style.left=left+'px';
+    portal.style.top=(wantsBelow ? (r.bottom+6+offsetTop) : Math.max(8+offsetTop, r.top-246+offsetTop))+'px';
+    portal.style.maxHeight='none';
+    list.style.maxHeight='220px';
   }
 
   function openPicker(side,idx,triggerEl){
-    _side=side; _idx=idx; _hilite=-1;
+    _side=side; _idx=idx; _hilite=-1; _triggerEl=triggerEl;
     input.value='';
     portal.style.display='block';
     positionPortal(triggerEl);
     renderList('');
-    setTimeout(()=>input.focus(),30);
+    requestAnimationFrame(()=>{positionPortal(triggerEl); setTimeout(()=>input.focus({preventScroll:true}),40);});
   }
 
   function closePicker(){
     portal.style.display='none';
-    _side=null; _idx=null;
+    portal.classList.remove('mobile-picker');
+    _side=null; _idx=null; _triggerEl=null;
   }
 
   function renderList(q){
     const low=q.toLowerCase().trim();
-    _filtered=pokemonMeta.filter(p=>!low||p.display_name.toLowerCase().includes(low)||p.norm_name.includes(low)).slice(0,12);
+    _filtered=pokemonMeta.filter(p=>!low||p.display_name.toLowerCase().includes(low)||p.norm_name.includes(low)).slice(0,14);
     if(!_filtered.length){list.innerHTML='<div class="ipp-empty">Sin resultados</div>';return;}
     list.innerHTML=_filtered.map((p,i)=>{
       const sel=appState[_side||'self'].includes(p.norm_name);
@@ -565,6 +613,7 @@ function renderStickyBar(){
   }
 
   input.addEventListener('input',()=>{_hilite=-1;renderList(input.value);});
+  input.addEventListener('focus',()=>{if(portal.style.display==='block'&&_triggerEl) positionPortal(_triggerEl);});
 
   input.addEventListener('keydown',(e)=>{
     const items=list.querySelectorAll('.ipp-item[data-norm]');
@@ -584,10 +633,13 @@ function renderStickyBar(){
     if(portal.style.display==='block'&&!portal.contains(e.target)&&!e.target.closest('.qs-empty')){closePicker();}
   });
 
-  window.addEventListener('scroll',()=>{if(portal.style.display==='block')closePicker();},{passive:true});
-  window.addEventListener('resize',()=>{if(portal.style.display==='block')closePicker();});
+  window.addEventListener('resize',()=>{if(portal.style.display==='block'&&_triggerEl) positionPortal(_triggerEl);});
+  window.addEventListener('scroll',()=>{if(portal.style.display==='block'&&!isMobilePicker()&&_triggerEl) positionPortal(_triggerEl);},{passive:true});
+  if(vv){
+    vv.addEventListener('resize',()=>{if(portal.style.display==='block'&&_triggerEl) positionPortal(_triggerEl);});
+    vv.addEventListener('scroll',()=>{if(portal.style.display==='block'&&_triggerEl) positionPortal(_triggerEl);});
+  }
 
-  // Single event delegation — handles both grids
   document.addEventListener('click',(e)=>{
     const empty=e.target.closest('.qs-empty');
     if(empty){
