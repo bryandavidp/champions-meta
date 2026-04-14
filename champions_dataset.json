@@ -1,7 +1,7 @@
 {
   "meta": {
     "created_at_utc": "2026-04-12T20:19:59.472205+00:00",
-    "official_context_confirmed": true,
+    "official_context_confirmed": false,
     "source_status": {
       "serebii": {
         "ok": true,
@@ -20,12 +20,18 @@
       }
     },
     "counts": {
-      "total_records": 272,
-      "compatible_true": 272,
+      "total_records": 381,
+      "compatible_true": 234,
       "pokeapi_verified": 234,
       "serebii_listed": 244,
       "game8_listed": 162,
-      "corrected_roster_records": 272
+      "original_total_records": 381,
+      "cleaned_base_records": 186,
+      "cleaned_mega_records": 58,
+      "cleaned_total_records": 244,
+      "removed_non_pokemon_records": 137,
+      "compatibility_records_corrected_to_true": 10,
+      "normalized_mega_name_fixes": 64
     },
     "parser_debug": {
       "serebii_rows": 244,
@@ -36,47 +42,11 @@
       "official_context uses both accents and non-accents for Pokemon HOME detection.",
       "game8 and serebii parsers are filtered to reduce non-Pokémon false positives before PokeAPI verification."
     ],
-    "correction_basis": {
-      "primary_sources": [
-        "https://www.serebii.net/pokemonchampions/pokemon.shtml",
-        "https://www.wikidex.net/wiki/Lista_de_Pok%C3%A9mon_de_Pok%C3%A9mon_Champions"
-      ],
-      "corrected_at_utc": "2026-04-13T22:33:00Z"
-    },
-    "removed_non_pokemon_records": [
-      "all-bags",
-      "all-battle-songs",
-      "all-beauty-marks",
-      "all-color-contacts",
-      "all-daily-tasks-and-activities",
-      "all-eye-designs",
-      "all-eyebrow-colors",
-      "all-eyebrows",
-      "all-eyelash-colors",
-      "all-eyelash-designs",
-      "all-freckle-designs",
-      "all-glasses",
-      "all-gloves",
-      "all-hair-color",
-      "all-hairstyles",
-      "all-hats",
-      "all-headbands",
-      "all-known-bugs-and-fixes",
-      "all-legends-z-a-mega-evolution-abilities",
-      "all-leggings",
-      "all-lip-designs",
-      "all-mouth-designs",
-      "all-pants",
-      "all-pre-battle-poses",
-      "all-shirts",
-      "all-terrains-and-their-effects",
-      "all-weather-conditions-explained",
-      "aura-and-pulse-moves",
-      "available-battle-modes",
-      "ball-and-bomb-moves",
-      "berries",
-      "biting-moves",
-      "bug-type-moves"
+    "cleaned_at_utc": "2026-04-14T23:07:45.324003+00:00",
+    "cleanup_actions": [
+      "Removed non-Pokémon entries by invalid or missing National Dex and known junk slugs",
+      "Separated Mega entries from the base roster",
+      "Forced champions_compatible=true for all valid official roster entries kept from the dataset"
     ]
   },
   "data": [
@@ -113,19 +83,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-venusaur",
-      "display_name": "Mega Venusaur",
-      "name": "Mega Venusaur",
-      "ndex": "0003",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -163,30 +121,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-charizard-x",
-      "display_name": "Mega Charizard X",
-      "name": "Mega Charizard X",
-      "ndex": "0006",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-charizard-y",
-      "display_name": "Mega Charizard Y",
-      "name": "Mega Charizard Y",
-      "ndex": "0006",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -221,19 +156,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-blastoise",
-      "display_name": "Mega Blastoise",
-      "name": "Mega Blastoise",
-      "ndex": "0009",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -269,19 +192,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-beedrill",
-      "display_name": "Mega Beedrill",
-      "name": "Mega Beedrill",
-      "ndex": "0015",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -318,19 +229,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-pidgeot",
-      "display_name": "Mega Pidgeot",
-      "name": "Mega Pidgeot",
-      "ndex": "0018",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -366,8 +265,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -402,8 +300,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -438,19 +335,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "alolan-raichu",
-      "display_name": "Alolan Raichu",
-      "name": "Alolan Raichu",
-      "ndex": "0026",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -486,19 +371,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-clefable",
-      "display_name": "Mega Clefable",
-      "name": "Mega Clefable",
-      "ndex": "0036",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -533,19 +406,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "alolan-ninetales",
-      "display_name": "Alolan Ninetales",
-      "name": "Alolan Ninetales",
-      "ndex": "0038",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -581,19 +442,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "hisuian-arcanine",
-      "display_name": "Hisuian Arcanine",
-      "name": "Hisuian Arcanine",
-      "ndex": "0059",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -629,19 +478,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-alakazam",
-      "display_name": "Mega Alakazam",
-      "name": "Mega Alakazam",
-      "ndex": "0065",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -677,8 +514,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -714,19 +550,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-victreebel",
-      "display_name": "Mega Victreebel",
-      "name": "Mega Victreebel",
-      "ndex": "0071",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -763,30 +587,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-slowbro",
-      "display_name": "Mega Slowbro",
-      "name": "Mega Slowbro",
-      "ndex": "0080",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "galarian-slowbro",
-      "display_name": "Galarian Slowbro",
-      "name": "Galarian Slowbro",
-      "ndex": "0080",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -823,19 +624,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-gengar",
-      "display_name": "Mega Gengar",
-      "name": "Mega Gengar",
-      "ndex": "0094",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -871,19 +660,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-kangaskhan",
-      "display_name": "Mega Kangaskhan",
-      "name": "Mega Kangaskhan",
-      "ndex": "0115",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -922,19 +699,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-starmie",
-      "display_name": "Mega Starmie",
-      "name": "Mega Starmie",
-      "ndex": "0121",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -970,19 +735,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-pinsir",
-      "display_name": "Mega Pinsir",
-      "name": "Mega Pinsir",
-      "ndex": "0127",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1018,41 +771,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "paldean-tauros",
-      "display_name": "Paldean Tauros",
-      "name": "Paldean Tauros",
-      "ndex": "0128",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "paldean-tauros-blaze-breed",
-      "display_name": "Paldean Tauros Blaze Breed",
-      "name": "Paldean Tauros Blaze Breed",
-      "ndex": "0128",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "paldean-tauros-aqua-breed",
-      "display_name": "Paldean Tauros Aqua Breed",
-      "name": "Paldean Tauros Aqua Breed",
-      "ndex": "0128",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1088,19 +807,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-gyarados",
-      "display_name": "Mega Gyarados",
-      "name": "Mega Gyarados",
-      "ndex": "0130",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1135,8 +842,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1171,8 +877,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1207,8 +912,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1243,8 +947,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1281,19 +984,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-aerodactyl",
-      "display_name": "Mega Aerodactyl",
-      "name": "Mega Aerodactyl",
-      "ndex": "0142",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1329,8 +1020,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1368,19 +1058,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-dragonite",
-      "display_name": "Mega Dragonite",
-      "name": "Mega Dragonite",
-      "ndex": "0149",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1417,19 +1095,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-meganium",
-      "display_name": "Mega Meganium",
-      "name": "Mega Meganium",
-      "ndex": "0154",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1464,19 +1130,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "hisuian-typhlosion",
-      "display_name": "Hisuian Typhlosion",
-      "name": "Hisuian Typhlosion",
-      "ndex": "0157",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1511,19 +1165,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-feraligatr",
-      "display_name": "Mega Feraligatr",
-      "name": "Mega Feraligatr",
-      "ndex": "0160",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1560,8 +1202,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1596,19 +1237,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-ampharos",
-      "display_name": "Mega Ampharos",
-      "name": "Mega Ampharos",
-      "ndex": "0181",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1645,8 +1274,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1682,8 +1310,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1718,8 +1345,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1754,8 +1380,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1792,19 +1417,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "galarian-slowking",
-      "display_name": "Galarian Slowking",
-      "name": "Galarian Slowking",
-      "ndex": "0199",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1840,8 +1453,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1878,19 +1490,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-steelix",
-      "display_name": "Mega Steelix",
-      "name": "Mega Steelix",
-      "ndex": "0208",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1927,19 +1527,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-scizor",
-      "display_name": "Mega Scizor",
-      "name": "Mega Scizor",
-      "ndex": "0212",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -1976,19 +1564,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-heracross",
-      "display_name": "Mega Heracross",
-      "name": "Mega Heracross",
-      "ndex": "0214",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2025,19 +1601,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-skarmory",
-      "display_name": "Mega Skarmory",
-      "name": "Mega Skarmory",
-      "ndex": "0227",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2074,19 +1638,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-houndoom",
-      "display_name": "Mega Houndoom",
-      "name": "Mega Houndoom",
-      "ndex": "0229",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2124,19 +1676,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-tyranitar",
-      "display_name": "Mega Tyranitar",
-      "name": "Mega Tyranitar",
-      "ndex": "0248",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2175,8 +1715,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2213,19 +1752,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-gardevoir",
-      "display_name": "Mega Gardevoir",
-      "name": "Mega Gardevoir",
-      "ndex": "0282",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2262,19 +1789,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-sableye",
-      "display_name": "Mega Sableye",
-      "name": "Mega Sableye",
-      "ndex": "0302",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2311,19 +1826,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-aggron",
-      "display_name": "Mega Aggron",
-      "name": "Mega Aggron",
-      "ndex": "0306",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2359,19 +1862,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-medicham",
-      "display_name": "Mega Medicham",
-      "name": "Mega Medicham",
-      "ndex": "0308",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2407,19 +1898,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-manectric",
-      "display_name": "Mega Manectric",
-      "name": "Mega Manectric",
-      "ndex": "0310",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2455,19 +1934,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-sharpedo",
-      "display_name": "Mega Sharpedo",
-      "name": "Mega Sharpedo",
-      "ndex": "0319",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2504,19 +1971,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-camerupt",
-      "display_name": "Mega Camerupt",
-      "name": "Mega Camerupt",
-      "ndex": "0323",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2552,8 +2007,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2589,19 +2043,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-altaria",
-      "display_name": "Mega Altaria",
-      "name": "Mega Altaria",
-      "ndex": "0334",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2637,8 +2079,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2672,8 +2113,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2709,19 +2149,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-banette",
-      "display_name": "Mega Banette",
-      "name": "Mega Banette",
-      "ndex": "0354",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2755,19 +2183,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-chimecho",
-      "display_name": "Mega Chimecho",
-      "name": "Mega Chimecho",
-      "ndex": "0358",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2803,19 +2219,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-absol",
-      "display_name": "Mega Absol",
-      "name": "Mega Absol",
-      "ndex": "0359",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2851,19 +2255,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-glalie",
-      "display_name": "Mega Glalie",
-      "name": "Mega Glalie",
-      "ndex": "0362",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2899,8 +2291,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2936,8 +2327,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -2973,8 +2363,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3010,8 +2399,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3048,8 +2436,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3084,8 +2471,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3121,8 +2507,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3158,19 +2543,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-lopunny",
-      "display_name": "Mega Lopunny",
-      "name": "Mega Lopunny",
-      "ndex": "0428",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3206,8 +2579,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3245,19 +2617,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-garchomp",
-      "display_name": "Mega Garchomp",
-      "name": "Mega Garchomp",
-      "ndex": "0445",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3294,19 +2654,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-lucario",
-      "display_name": "Mega Lucario",
-      "name": "Mega Lucario",
-      "ndex": "0448",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3343,8 +2691,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3381,8 +2728,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3418,19 +2764,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-abomasnow",
-      "display_name": "Mega Abomasnow",
-      "name": "Mega Abomasnow",
-      "ndex": "0460",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3468,8 +2802,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3506,8 +2839,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3542,8 +2874,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3578,8 +2909,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3616,8 +2946,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3654,8 +2983,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3692,19 +3020,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-gallade",
-      "display_name": "Mega Gallade",
-      "name": "Mega Gallade",
-      "ndex": "0475",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3742,19 +3058,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-froslass",
-      "display_name": "Mega Froslass",
-      "name": "Mega Froslass",
-      "ndex": "0478",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3789,63 +3093,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "rotom-heat",
-      "display_name": "Rotom Heat",
-      "name": "Rotom Heat",
-      "ndex": "0479",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "rotom-wash",
-      "display_name": "Rotom Wash",
-      "name": "Rotom Wash",
-      "ndex": "0479",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "rotom-frost",
-      "display_name": "Rotom Frost",
-      "name": "Rotom Frost",
-      "ndex": "0479",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "rotom-fan",
-      "display_name": "Rotom Fan",
-      "name": "Rotom Fan",
-      "ndex": "0479",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "rotom-mow",
-      "display_name": "Rotom Mow",
-      "name": "Rotom Mow",
-      "ndex": "0479",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3880,8 +3128,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3917,19 +3164,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-emboar",
-      "display_name": "Mega Emboar",
-      "name": "Mega Emboar",
-      "ndex": "0500",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -3964,19 +3199,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "hisuian-samurott",
-      "display_name": "Hisuian Samurott",
-      "name": "Hisuian Samurott",
-      "ndex": "0503",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4012,8 +3235,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4049,8 +3271,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4085,8 +3306,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4121,8 +3341,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4157,8 +3376,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4197,19 +3415,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-excadrill",
-      "display_name": "Mega Excadrill",
-      "name": "Mega Excadrill",
-      "ndex": "0530",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4245,19 +3451,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-audino",
-      "display_name": "Mega Audino",
-      "name": "Mega Audino",
-      "ndex": "0531",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4293,8 +3487,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4333,8 +3526,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4371,8 +3563,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4406,8 +3597,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4443,8 +3633,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4478,19 +3667,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "hisuian-zoroark",
-      "display_name": "Hisuian Zoroark",
-      "name": "Hisuian Zoroark",
-      "ndex": "0571",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4526,8 +3703,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4563,8 +3739,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4600,8 +3775,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4638,19 +3812,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-chandelure",
-      "display_name": "Mega Chandelure",
-      "name": "Mega Chandelure",
-      "ndex": "0609",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4686,8 +3848,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4724,19 +3885,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "galarian-stunfisk",
-      "display_name": "Galarian Stunfisk",
-      "name": "Galarian Stunfisk",
-      "ndex": "0618",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4773,19 +3922,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-golurk",
-      "display_name": "Mega Golurk",
-      "name": "Mega Golurk",
-      "ndex": "0623",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4820,8 +3957,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4857,8 +3993,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4894,19 +4029,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-chesnaught",
-      "display_name": "Mega Chesnaught",
-      "name": "Mega Chesnaught",
-      "ndex": "0652",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4944,19 +4067,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-delphox",
-      "display_name": "Mega Delphox",
-      "name": "Mega Delphox",
-      "ndex": "0655",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -4994,19 +4105,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-greninja",
-      "display_name": "Mega Greninja",
-      "name": "Mega Greninja",
-      "ndex": "0658",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5043,8 +4142,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5080,8 +4178,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5118,30 +4215,42 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
-      "norm_name": "floette-eternal",
-      "display_name": "Floette Eternal",
-      "name": "Floette Eternal",
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "floette",
+      "display_name": "Floette",
+      "name": "Floette",
       "ndex": "0670",
+      "pokeapi_verified": true,
+      "pokeapi_id": 670,
+      "types": [
+        "fairy"
+      ],
+      "abilities": [
+        "flower-veil",
+        "symbiosis"
+      ],
+      "base_stats": {
+        "hp": 54,
+        "attack": 45,
+        "defense": 47,
+        "special-attack": 75,
+        "special-defense": 98,
+        "speed": 52
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-floette",
-      "display_name": "Mega Floette",
-      "name": "Mega Floette",
-      "ndex": "0670",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5176,8 +4285,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5214,8 +4322,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5249,41 +4356,25 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
-      "norm_name": "meowstic-male",
-      "display_name": "Meowstic Male",
-      "name": "Meowstic Male",
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "meowstic",
+      "display_name": "Meowstic",
+      "name": "Meowstic",
       "ndex": "0678",
+      "pokeapi_verified": false,
+      "confidence_score": 0.45,
+      "confidence_reasons": [
+        "serebii"
+      ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "meowstic-female",
-      "display_name": "Meowstic Female",
-      "name": "Meowstic Female",
-      "ndex": "0678",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-meowstic",
-      "display_name": "Mega Meowstic",
-      "name": "Mega Meowstic",
-      "ndex": "0678",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5301,8 +4392,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5337,8 +4427,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5373,8 +4462,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5408,8 +4496,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5446,8 +4533,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5483,8 +4569,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5520,8 +4605,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5556,8 +4640,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5596,19 +4679,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-hawlucha",
-      "display_name": "Mega Hawlucha",
-      "name": "Mega Hawlucha",
-      "ndex": "0701",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5645,8 +4716,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5682,19 +4752,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "hisuian-goodra",
-      "display_name": "Hisuian Goodra",
-      "name": "Hisuian Goodra",
-      "ndex": "0706",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5730,8 +4788,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5768,8 +4825,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5787,8 +4843,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5824,19 +4879,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "hisuian-avalugg",
-      "display_name": "Hisuian Avalugg",
-      "name": "Hisuian Avalugg",
-      "ndex": "0713",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5873,8 +4916,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5910,19 +4952,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "hisuian-decidueye",
-      "display_name": "Hisuian Decidueye",
-      "name": "Hisuian Decidueye",
-      "ndex": "0724",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5960,8 +4990,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -5999,8 +5028,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6037,8 +5065,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6075,52 +5102,25 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
-      "norm_name": "mega-crabominable",
-      "display_name": "Mega Crabominable",
-      "name": "Mega Crabominable",
-      "ndex": "0740",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "lycanroc-midday",
-      "display_name": "Lycanroc Midday",
-      "name": "Lycanroc Midday",
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "lycanroc",
+      "display_name": "Lycanroc",
+      "name": "Lycanroc",
       "ndex": "0745",
+      "pokeapi_verified": false,
+      "confidence_score": 0.45,
+      "confidence_reasons": [
+        "serebii"
+      ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "lycanroc-midnight",
-      "display_name": "Lycanroc Midnight",
-      "name": "Lycanroc Midnight",
-      "ndex": "0745",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "lycanroc-dusk",
-      "display_name": "Lycanroc Dusk",
-      "name": "Lycanroc Dusk",
-      "ndex": "0745",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6157,8 +5157,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6194,8 +5193,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6231,8 +5229,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6268,8 +5265,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6305,8 +5301,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6343,8 +5338,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6379,8 +5373,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6398,8 +5391,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6436,19 +5428,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-drampa",
-      "display_name": "Mega Drampa",
-      "name": "Mega Drampa",
-      "ndex": "0780",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6485,8 +5465,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6523,8 +5502,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6561,8 +5539,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6599,8 +5576,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6636,8 +5612,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6672,8 +5647,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6712,8 +5686,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6750,8 +5723,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6786,8 +5758,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6822,30 +5793,25 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
-      "norm_name": "morpeko-full-belly",
-      "display_name": "Morpeko Full Belly",
-      "name": "Morpeko Full Belly",
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "morpeko",
+      "display_name": "Morpeko",
+      "name": "Morpeko",
       "ndex": "0877",
+      "pokeapi_verified": false,
+      "confidence_score": 0.45,
+      "confidence_reasons": [
+        "serebii"
+      ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "morpeko-hangry",
-      "display_name": "Morpeko Hangry",
-      "name": "Morpeko Hangry",
-      "ndex": "0877",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6882,8 +5848,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6920,8 +5885,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -6958,30 +5922,25 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
-      "norm_name": "basculegion-male",
-      "display_name": "Basculegion Male",
-      "name": "Basculegion Male",
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "basculegion",
+      "display_name": "Basculegion",
+      "name": "Basculegion",
       "ndex": "0902",
+      "pokeapi_verified": false,
+      "confidence_score": 0.45,
+      "confidence_reasons": [
+        "serebii"
+      ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "basculegion-female",
-      "display_name": "Basculegion Female",
-      "name": "Basculegion Female",
-      "ndex": "0902",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7020,8 +5979,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7059,8 +6017,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7096,8 +6053,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7133,30 +6089,25 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
-      "norm_name": "maushold-family-of-four",
-      "display_name": "Maushold Family of Four",
-      "name": "Maushold Family of Four",
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "maushold",
+      "display_name": "Maushold",
+      "name": "Maushold",
       "ndex": "0925",
+      "pokeapi_verified": false,
+      "confidence_score": 0.45,
+      "confidence_reasons": [
+        "serebii"
+      ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "maushold-family-of-three",
-      "display_name": "Maushold Family of Three",
-      "name": "Maushold Family of Three",
-      "ndex": "0925",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7192,8 +6143,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7229,8 +6179,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7266,8 +6215,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7303,8 +6251,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7341,19 +6288,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-scovillain",
-      "display_name": "Mega Scovillain",
-      "name": "Mega Scovillain",
-      "ndex": "0952",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7389,8 +6324,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7427,30 +6361,25 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
-      "norm_name": "palafin-zero",
-      "display_name": "Palafin Zero",
-      "name": "Palafin Zero",
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "palafin",
+      "display_name": "Palafin",
+      "name": "Palafin",
       "ndex": "0964",
+      "pokeapi_verified": false,
+      "confidence_score": 0.45,
+      "confidence_reasons": [
+        "serebii"
+      ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "palafin-hero",
-      "display_name": "Palafin Hero",
-      "name": "Palafin Hero",
-      "ndex": "0964",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7487,8 +6416,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7526,19 +6454,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
-      }
-    },
-    {
-      "norm_name": "mega-glimmora",
-      "display_name": "Mega Glimmora",
-      "name": "Mega Glimmora",
-      "ndex": "0970",
-      "champions_compatible": true,
-      "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7575,8 +6491,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7615,8 +6530,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7654,8 +6568,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7692,8 +6605,7 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
     },
     {
@@ -7730,9 +6642,2837 @@
       ],
       "champions_compatible": true,
       "availability_verified": {
-        "serebii": true,
-        "wikidex": true
+        "serebii": true
       }
+    }
+  ],
+  "mega_data": [
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-venusaur",
+      "display_name": "Mega Venusaur",
+      "name": "Mega Venusaur",
+      "ndex": "0003",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10033,
+      "types": [
+        "grass",
+        "poison"
+      ],
+      "abilities": [
+        "thick-fat"
+      ],
+      "base_stats": {
+        "hp": 80,
+        "attack": 100,
+        "defense": 123,
+        "special-attack": 122,
+        "special-defense": 120,
+        "speed": 80
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-charizard",
+      "display_name": "Mega Charizard",
+      "name": "Mega Charizard",
+      "ndex": "0006",
+      "pokeapi_verified": false,
+      "confidence_score": 0.45,
+      "confidence_reasons": [
+        "serebii"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-blastoise",
+      "display_name": "Mega Blastoise",
+      "name": "Mega Blastoise",
+      "ndex": "0009",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10036,
+      "types": [
+        "water"
+      ],
+      "abilities": [
+        "mega-launcher"
+      ],
+      "base_stats": {
+        "hp": 79,
+        "attack": 103,
+        "defense": 120,
+        "special-attack": 135,
+        "special-defense": 115,
+        "speed": 78
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-beedrill",
+      "display_name": "Mega Beedrill",
+      "name": "Mega Beedrill",
+      "ndex": "0015",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10090,
+      "types": [
+        "bug",
+        "poison"
+      ],
+      "abilities": [
+        "adaptability"
+      ],
+      "base_stats": {
+        "hp": 65,
+        "attack": 150,
+        "defense": 40,
+        "special-attack": 15,
+        "special-defense": 80,
+        "speed": 145
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-pidgeot",
+      "display_name": "Mega Pidgeot",
+      "name": "Mega Pidgeot",
+      "ndex": "0018",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10073,
+      "types": [
+        "normal",
+        "flying"
+      ],
+      "abilities": [
+        "no-guard"
+      ],
+      "base_stats": {
+        "hp": 83,
+        "attack": 80,
+        "defense": 80,
+        "special-attack": 135,
+        "special-defense": 80,
+        "speed": 121
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-clefable",
+      "display_name": "Mega Clefable",
+      "name": "Mega Clefable",
+      "ndex": "0036",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10278,
+      "types": [
+        "fairy",
+        "flying"
+      ],
+      "abilities": [
+        "magic-bounce"
+      ],
+      "base_stats": {
+        "hp": 95,
+        "attack": 80,
+        "defense": 93,
+        "special-attack": 135,
+        "special-defense": 110,
+        "speed": 70
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-alakazam",
+      "display_name": "Mega Alakazam",
+      "name": "Mega Alakazam",
+      "ndex": "0065",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10037,
+      "types": [
+        "psychic"
+      ],
+      "abilities": [
+        "trace"
+      ],
+      "base_stats": {
+        "hp": 55,
+        "attack": 50,
+        "defense": 65,
+        "special-attack": 175,
+        "special-defense": 105,
+        "speed": 150
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-victreebel",
+      "display_name": "Mega Victreebel",
+      "name": "Mega Victreebel",
+      "ndex": "0071",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10279,
+      "types": [
+        "grass",
+        "poison"
+      ],
+      "abilities": [
+        "innards-out"
+      ],
+      "base_stats": {
+        "hp": 80,
+        "attack": 125,
+        "defense": 85,
+        "special-attack": 135,
+        "special-defense": 95,
+        "speed": 70
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-slowbro",
+      "display_name": "Mega Slowbro",
+      "name": "Mega Slowbro",
+      "ndex": "0080",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10071,
+      "types": [
+        "water",
+        "psychic"
+      ],
+      "abilities": [
+        "shell-armor"
+      ],
+      "base_stats": {
+        "hp": 95,
+        "attack": 75,
+        "defense": 180,
+        "special-attack": 130,
+        "special-defense": 80,
+        "speed": 30
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-gengar",
+      "display_name": "Mega Gengar",
+      "name": "Mega Gengar",
+      "ndex": "0094",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10038,
+      "types": [
+        "ghost",
+        "poison"
+      ],
+      "abilities": [
+        "shadow-tag"
+      ],
+      "base_stats": {
+        "hp": 60,
+        "attack": 65,
+        "defense": 80,
+        "special-attack": 170,
+        "special-defense": 95,
+        "speed": 130
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-kangaskhan",
+      "display_name": "Mega Kangaskhan",
+      "name": "Mega Kangaskhan",
+      "ndex": "0115",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10039,
+      "types": [
+        "normal"
+      ],
+      "abilities": [
+        "parental-bond"
+      ],
+      "base_stats": {
+        "hp": 105,
+        "attack": 125,
+        "defense": 100,
+        "special-attack": 60,
+        "special-defense": 100,
+        "speed": 100
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-starmie",
+      "display_name": "Mega Starmie",
+      "name": "Mega Starmie",
+      "ndex": "0121",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10280,
+      "types": [
+        "water",
+        "psychic"
+      ],
+      "abilities": [
+        "huge-power"
+      ],
+      "base_stats": {
+        "hp": 60,
+        "attack": 100,
+        "defense": 105,
+        "special-attack": 130,
+        "special-defense": 105,
+        "speed": 120
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-pinsir",
+      "display_name": "Mega Pinsir",
+      "name": "Mega Pinsir",
+      "ndex": "0127",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10040,
+      "types": [
+        "bug",
+        "flying"
+      ],
+      "abilities": [
+        "aerilate"
+      ],
+      "base_stats": {
+        "hp": 65,
+        "attack": 155,
+        "defense": 120,
+        "special-attack": 65,
+        "special-defense": 90,
+        "speed": 105
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-gyarados",
+      "display_name": "Mega Gyarados",
+      "name": "Mega Gyarados",
+      "ndex": "0130",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10041,
+      "types": [
+        "water",
+        "dark"
+      ],
+      "abilities": [
+        "mold-breaker"
+      ],
+      "base_stats": {
+        "hp": 95,
+        "attack": 155,
+        "defense": 109,
+        "special-attack": 70,
+        "special-defense": 130,
+        "speed": 81
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-aerodactyl",
+      "display_name": "Mega Aerodactyl",
+      "name": "Mega Aerodactyl",
+      "ndex": "0142",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10042,
+      "types": [
+        "rock",
+        "flying"
+      ],
+      "abilities": [
+        "tough-claws"
+      ],
+      "base_stats": {
+        "hp": 80,
+        "attack": 135,
+        "defense": 85,
+        "special-attack": 70,
+        "special-defense": 95,
+        "speed": 150
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-dragonite",
+      "display_name": "Mega Dragonite",
+      "name": "Mega Dragonite",
+      "ndex": "0149",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10281,
+      "types": [
+        "dragon",
+        "flying"
+      ],
+      "abilities": [
+        "multiscale"
+      ],
+      "base_stats": {
+        "hp": 91,
+        "attack": 124,
+        "defense": 115,
+        "special-attack": 145,
+        "special-defense": 125,
+        "speed": 100
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-meganium",
+      "display_name": "Mega Meganium",
+      "name": "Mega Meganium",
+      "ndex": "0154",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10282,
+      "types": [
+        "grass",
+        "fairy"
+      ],
+      "abilities": [
+        "mega-sol"
+      ],
+      "base_stats": {
+        "hp": 80,
+        "attack": 92,
+        "defense": 115,
+        "special-attack": 143,
+        "special-defense": 115,
+        "speed": 80
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-feraligatr",
+      "display_name": "Mega Feraligatr",
+      "name": "Mega Feraligatr",
+      "ndex": "0160",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10283,
+      "types": [
+        "water",
+        "dragon"
+      ],
+      "abilities": [
+        "dragonize"
+      ],
+      "base_stats": {
+        "hp": 85,
+        "attack": 160,
+        "defense": 125,
+        "special-attack": 89,
+        "special-defense": 93,
+        "speed": 78
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-ampharos",
+      "display_name": "Mega Ampharos",
+      "name": "Mega Ampharos",
+      "ndex": "0181",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10045,
+      "types": [
+        "electric",
+        "dragon"
+      ],
+      "abilities": [
+        "mold-breaker"
+      ],
+      "base_stats": {
+        "hp": 90,
+        "attack": 95,
+        "defense": 105,
+        "special-attack": 165,
+        "special-defense": 110,
+        "speed": 45
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-steelix",
+      "display_name": "Mega Steelix",
+      "name": "Mega Steelix",
+      "ndex": "0208",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10072,
+      "types": [
+        "steel",
+        "ground"
+      ],
+      "abilities": [
+        "sand-force"
+      ],
+      "base_stats": {
+        "hp": 75,
+        "attack": 125,
+        "defense": 230,
+        "special-attack": 55,
+        "special-defense": 95,
+        "speed": 30
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-scizor",
+      "display_name": "Mega Scizor",
+      "name": "Mega Scizor",
+      "ndex": "0212",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10046,
+      "types": [
+        "bug",
+        "steel"
+      ],
+      "abilities": [
+        "technician"
+      ],
+      "base_stats": {
+        "hp": 70,
+        "attack": 150,
+        "defense": 140,
+        "special-attack": 65,
+        "special-defense": 100,
+        "speed": 75
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-heracross",
+      "display_name": "Mega Heracross",
+      "name": "Mega Heracross",
+      "ndex": "0214",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10047,
+      "types": [
+        "bug",
+        "fighting"
+      ],
+      "abilities": [
+        "skill-link"
+      ],
+      "base_stats": {
+        "hp": 80,
+        "attack": 185,
+        "defense": 115,
+        "special-attack": 40,
+        "special-defense": 105,
+        "speed": 75
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-skarmory",
+      "display_name": "Mega Skarmory",
+      "name": "Mega Skarmory",
+      "ndex": "0227",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10284,
+      "types": [
+        "steel",
+        "flying"
+      ],
+      "abilities": [
+        "stalwart"
+      ],
+      "base_stats": {
+        "hp": 65,
+        "attack": 140,
+        "defense": 110,
+        "special-attack": 40,
+        "special-defense": 100,
+        "speed": 110
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-houndoom",
+      "display_name": "Mega Houndoom",
+      "name": "Mega Houndoom",
+      "ndex": "0229",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10048,
+      "types": [
+        "dark",
+        "fire"
+      ],
+      "abilities": [
+        "solar-power"
+      ],
+      "base_stats": {
+        "hp": 75,
+        "attack": 90,
+        "defense": 90,
+        "special-attack": 140,
+        "special-defense": 90,
+        "speed": 115
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-tyranitar",
+      "display_name": "Mega Tyranitar",
+      "name": "Mega Tyranitar",
+      "ndex": "0248",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10049,
+      "types": [
+        "rock",
+        "dark"
+      ],
+      "abilities": [
+        "sand-stream"
+      ],
+      "base_stats": {
+        "hp": 100,
+        "attack": 164,
+        "defense": 150,
+        "special-attack": 95,
+        "special-defense": 120,
+        "speed": 71
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-gardevoir",
+      "display_name": "Mega Gardevoir",
+      "name": "Mega Gardevoir",
+      "ndex": "0282",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10051,
+      "types": [
+        "psychic",
+        "fairy"
+      ],
+      "abilities": [
+        "pixilate"
+      ],
+      "base_stats": {
+        "hp": 68,
+        "attack": 85,
+        "defense": 65,
+        "special-attack": 165,
+        "special-defense": 135,
+        "speed": 100
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-sableye",
+      "display_name": "Mega Sableye",
+      "name": "Mega Sableye",
+      "ndex": "0302",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10066,
+      "types": [
+        "dark",
+        "ghost"
+      ],
+      "abilities": [
+        "magic-bounce"
+      ],
+      "base_stats": {
+        "hp": 50,
+        "attack": 85,
+        "defense": 125,
+        "special-attack": 85,
+        "special-defense": 115,
+        "speed": 20
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-aggron",
+      "display_name": "Mega Aggron",
+      "name": "Mega Aggron",
+      "ndex": "0306",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10053,
+      "types": [
+        "steel"
+      ],
+      "abilities": [
+        "filter"
+      ],
+      "base_stats": {
+        "hp": 70,
+        "attack": 140,
+        "defense": 230,
+        "special-attack": 60,
+        "special-defense": 80,
+        "speed": 50
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-medicham",
+      "display_name": "Mega Medicham",
+      "name": "Mega Medicham",
+      "ndex": "0308",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10054,
+      "types": [
+        "fighting",
+        "psychic"
+      ],
+      "abilities": [
+        "pure-power"
+      ],
+      "base_stats": {
+        "hp": 60,
+        "attack": 100,
+        "defense": 85,
+        "special-attack": 80,
+        "special-defense": 85,
+        "speed": 100
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-manectric",
+      "display_name": "Mega Manectric",
+      "name": "Mega Manectric",
+      "ndex": "0310",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10055,
+      "types": [
+        "electric"
+      ],
+      "abilities": [
+        "intimidate"
+      ],
+      "base_stats": {
+        "hp": 70,
+        "attack": 75,
+        "defense": 80,
+        "special-attack": 135,
+        "special-defense": 80,
+        "speed": 135
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-sharpedo",
+      "display_name": "Mega Sharpedo",
+      "name": "Mega Sharpedo",
+      "ndex": "0319",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10070,
+      "types": [
+        "water",
+        "dark"
+      ],
+      "abilities": [
+        "strong-jaw"
+      ],
+      "base_stats": {
+        "hp": 70,
+        "attack": 140,
+        "defense": 70,
+        "special-attack": 110,
+        "special-defense": 65,
+        "speed": 105
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-camerupt",
+      "display_name": "Mega Camerupt",
+      "name": "Mega Camerupt",
+      "ndex": "0323",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10087,
+      "types": [
+        "fire",
+        "ground"
+      ],
+      "abilities": [
+        "sheer-force"
+      ],
+      "base_stats": {
+        "hp": 70,
+        "attack": 120,
+        "defense": 100,
+        "special-attack": 145,
+        "special-defense": 105,
+        "speed": 20
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-altaria",
+      "display_name": "Mega Altaria",
+      "name": "Mega Altaria",
+      "ndex": "0334",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10067,
+      "types": [
+        "dragon",
+        "fairy"
+      ],
+      "abilities": [
+        "pixilate"
+      ],
+      "base_stats": {
+        "hp": 75,
+        "attack": 110,
+        "defense": 110,
+        "special-attack": 110,
+        "special-defense": 105,
+        "speed": 80
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-banette",
+      "display_name": "Mega Banette",
+      "name": "Mega Banette",
+      "ndex": "0354",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10056,
+      "types": [
+        "ghost"
+      ],
+      "abilities": [
+        "prankster"
+      ],
+      "base_stats": {
+        "hp": 64,
+        "attack": 165,
+        "defense": 75,
+        "special-attack": 93,
+        "special-defense": 83,
+        "speed": 75
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-chimecho",
+      "display_name": "Mega Chimecho",
+      "name": "Mega Chimecho",
+      "ndex": "0358",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10306,
+      "types": [
+        "psychic",
+        "steel"
+      ],
+      "abilities": [
+        "levitate"
+      ],
+      "base_stats": {
+        "hp": 75,
+        "attack": 50,
+        "defense": 110,
+        "special-attack": 135,
+        "special-defense": 120,
+        "speed": 65
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-absol",
+      "display_name": "Mega Absol",
+      "name": "Mega Absol",
+      "ndex": "0359",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10057,
+      "types": [
+        "dark"
+      ],
+      "abilities": [
+        "magic-bounce"
+      ],
+      "base_stats": {
+        "hp": 65,
+        "attack": 150,
+        "defense": 60,
+        "special-attack": 115,
+        "special-defense": 60,
+        "speed": 115
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-glalie",
+      "display_name": "Mega Glalie",
+      "name": "Mega Glalie",
+      "ndex": "0362",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10074,
+      "types": [
+        "ice"
+      ],
+      "abilities": [
+        "refrigerate"
+      ],
+      "base_stats": {
+        "hp": 80,
+        "attack": 120,
+        "defense": 80,
+        "special-attack": 120,
+        "special-defense": 80,
+        "speed": 100
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-lopunny",
+      "display_name": "Mega Lopunny",
+      "name": "Mega Lopunny",
+      "ndex": "0428",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10088,
+      "types": [
+        "normal",
+        "fighting"
+      ],
+      "abilities": [
+        "scrappy"
+      ],
+      "base_stats": {
+        "hp": 65,
+        "attack": 136,
+        "defense": 94,
+        "special-attack": 54,
+        "special-defense": 96,
+        "speed": 135
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-garchomp",
+      "display_name": "Mega Garchomp",
+      "name": "Mega Garchomp",
+      "ndex": "0445",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10058,
+      "types": [
+        "dragon",
+        "ground"
+      ],
+      "abilities": [
+        "sand-force"
+      ],
+      "base_stats": {
+        "hp": 108,
+        "attack": 170,
+        "defense": 115,
+        "special-attack": 120,
+        "special-defense": 95,
+        "speed": 92
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-lucario",
+      "display_name": "Mega Lucario",
+      "name": "Mega Lucario",
+      "ndex": "0448",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10059,
+      "types": [
+        "fighting",
+        "steel"
+      ],
+      "abilities": [
+        "adaptability"
+      ],
+      "base_stats": {
+        "hp": 70,
+        "attack": 145,
+        "defense": 88,
+        "special-attack": 140,
+        "special-defense": 70,
+        "speed": 112
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-abomasnow",
+      "display_name": "Mega Abomasnow",
+      "name": "Mega Abomasnow",
+      "ndex": "0460",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10060,
+      "types": [
+        "grass",
+        "ice"
+      ],
+      "abilities": [
+        "snow-warning"
+      ],
+      "base_stats": {
+        "hp": 90,
+        "attack": 132,
+        "defense": 105,
+        "special-attack": 132,
+        "special-defense": 105,
+        "speed": 30
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-gallade",
+      "display_name": "Mega Gallade",
+      "name": "Mega Gallade",
+      "ndex": "0475",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10068,
+      "types": [
+        "psychic",
+        "fighting"
+      ],
+      "abilities": [
+        "inner-focus"
+      ],
+      "base_stats": {
+        "hp": 68,
+        "attack": 165,
+        "defense": 95,
+        "special-attack": 65,
+        "special-defense": 115,
+        "speed": 110
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-froslass",
+      "display_name": "Mega Froslass",
+      "name": "Mega Froslass",
+      "ndex": "0478",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10285,
+      "types": [
+        "ice",
+        "ghost"
+      ],
+      "abilities": [
+        "snow-warning"
+      ],
+      "base_stats": {
+        "hp": 70,
+        "attack": 80,
+        "defense": 70,
+        "special-attack": 140,
+        "special-defense": 100,
+        "speed": 120
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-emboar",
+      "display_name": "Mega Emboar",
+      "name": "Mega Emboar",
+      "ndex": "0500",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10286,
+      "types": [
+        "fire",
+        "fighting"
+      ],
+      "abilities": [
+        "mold-breaker"
+      ],
+      "base_stats": {
+        "hp": 110,
+        "attack": 148,
+        "defense": 75,
+        "special-attack": 110,
+        "special-defense": 110,
+        "speed": 75
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-excadrill",
+      "display_name": "Mega Excadrill",
+      "name": "Mega Excadrill",
+      "ndex": "0530",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10287,
+      "types": [
+        "ground",
+        "steel"
+      ],
+      "abilities": [
+        "piercing-drill"
+      ],
+      "base_stats": {
+        "hp": 110,
+        "attack": 165,
+        "defense": 100,
+        "special-attack": 65,
+        "special-defense": 65,
+        "speed": 103
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-audino",
+      "display_name": "Mega Audino",
+      "name": "Mega Audino",
+      "ndex": "0531",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10069,
+      "types": [
+        "normal",
+        "fairy"
+      ],
+      "abilities": [
+        "healer"
+      ],
+      "base_stats": {
+        "hp": 103,
+        "attack": 60,
+        "defense": 126,
+        "special-attack": 80,
+        "special-defense": 126,
+        "speed": 50
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-chandelure",
+      "display_name": "Mega Chandelure",
+      "name": "Mega Chandelure",
+      "ndex": "0609",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10291,
+      "types": [
+        "ghost",
+        "fire"
+      ],
+      "abilities": [
+        "infiltrator"
+      ],
+      "base_stats": {
+        "hp": 60,
+        "attack": 75,
+        "defense": 110,
+        "special-attack": 175,
+        "special-defense": 110,
+        "speed": 90
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-golurk",
+      "display_name": "Mega Golurk",
+      "name": "Mega Golurk",
+      "ndex": "0623",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10313,
+      "types": [
+        "ground",
+        "ghost"
+      ],
+      "abilities": [
+        "unseen-fist"
+      ],
+      "base_stats": {
+        "hp": 89,
+        "attack": 159,
+        "defense": 105,
+        "special-attack": 70,
+        "special-defense": 105,
+        "speed": 55
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-chesnaught",
+      "display_name": "Mega Chesnaught",
+      "name": "Mega Chesnaught",
+      "ndex": "0652",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10292,
+      "types": [
+        "grass",
+        "fighting"
+      ],
+      "abilities": [
+        "bulletproof"
+      ],
+      "base_stats": {
+        "hp": 88,
+        "attack": 137,
+        "defense": 172,
+        "special-attack": 74,
+        "special-defense": 115,
+        "speed": 44
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-delphox",
+      "display_name": "Mega Delphox",
+      "name": "Mega Delphox",
+      "ndex": "0655",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10293,
+      "types": [
+        "fire",
+        "psychic"
+      ],
+      "abilities": [
+        "levitate"
+      ],
+      "base_stats": {
+        "hp": 75,
+        "attack": 69,
+        "defense": 72,
+        "special-attack": 159,
+        "special-defense": 125,
+        "speed": 134
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-greninja",
+      "display_name": "Mega Greninja",
+      "name": "Mega Greninja",
+      "ndex": "0658",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10294,
+      "types": [
+        "water",
+        "dark"
+      ],
+      "abilities": [
+        "protean"
+      ],
+      "base_stats": {
+        "hp": 72,
+        "attack": 125,
+        "defense": 77,
+        "special-attack": 133,
+        "special-defense": 81,
+        "speed": 142
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-floette",
+      "display_name": "Mega Floette",
+      "name": "Mega Floette",
+      "ndex": "0670",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10296,
+      "types": [
+        "fairy"
+      ],
+      "abilities": [
+        "fairy-aura"
+      ],
+      "base_stats": {
+        "hp": 74,
+        "attack": 85,
+        "defense": 87,
+        "special-attack": 155,
+        "special-defense": 148,
+        "speed": 102
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-meowstic",
+      "display_name": "Mega Meowstic",
+      "name": "Mega Meowstic",
+      "ndex": "0678",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10314,
+      "types": [
+        "psychic"
+      ],
+      "abilities": [
+        "trace"
+      ],
+      "base_stats": {
+        "hp": 74,
+        "attack": 48,
+        "defense": 76,
+        "special-attack": 143,
+        "special-defense": 101,
+        "speed": 124
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-hawlucha",
+      "display_name": "Mega Hawlucha",
+      "name": "Mega Hawlucha",
+      "ndex": "0701",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10300,
+      "types": [
+        "fighting",
+        "flying"
+      ],
+      "abilities": [
+        "no-guard"
+      ],
+      "base_stats": {
+        "hp": 78,
+        "attack": 137,
+        "defense": 100,
+        "special-attack": 74,
+        "special-defense": 93,
+        "speed": 118
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-crabominable",
+      "display_name": "Mega Crabominable",
+      "name": "Mega Crabominable",
+      "ndex": "0740",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10315,
+      "types": [
+        "fighting",
+        "ice"
+      ],
+      "abilities": [
+        "iron-fist"
+      ],
+      "base_stats": {
+        "hp": 97,
+        "attack": 157,
+        "defense": 122,
+        "special-attack": 62,
+        "special-defense": 107,
+        "speed": 33
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-drampa",
+      "display_name": "Mega Drampa",
+      "name": "Mega Drampa",
+      "ndex": "0780",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10302,
+      "types": [
+        "normal",
+        "dragon"
+      ],
+      "abilities": [
+        "berserk"
+      ],
+      "base_stats": {
+        "hp": 78,
+        "attack": 85,
+        "defense": 110,
+        "special-attack": 160,
+        "special-defense": 116,
+        "speed": 36
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-scovillain",
+      "display_name": "Mega Scovillain",
+      "name": "Mega Scovillain",
+      "ndex": "0952",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10320,
+      "types": [
+        "grass",
+        "fire"
+      ],
+      "abilities": [
+        "spicy-spray"
+      ],
+      "base_stats": {
+        "hp": 65,
+        "attack": 138,
+        "defense": 85,
+        "special-attack": 138,
+        "special-defense": 85,
+        "speed": 75
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    },
+    {
+      "sources": {
+        "serebii": true
+      },
+      "norm_name": "mega-glimmora",
+      "display_name": "Mega Glimmora",
+      "name": "Mega Glimmora",
+      "ndex": "0970",
+      "pokeapi_verified": true,
+      "pokeapi_id": 10321,
+      "types": [
+        "rock",
+        "poison"
+      ],
+      "abilities": [
+        "adaptability"
+      ],
+      "base_stats": {
+        "hp": 83,
+        "attack": 90,
+        "defense": 105,
+        "special-attack": 150,
+        "special-defense": 96,
+        "speed": 101
+      },
+      "confidence_score": 0.75,
+      "confidence_reasons": [
+        "serebii",
+        "pokeapi"
+      ],
+      "champions_compatible": true,
+      "availability_verified": {
+        "serebii": true
+      }
+    }
+  ],
+  "removed_entries": [
+    {
+      "norm_name": "all-bags",
+      "display_name": "All Bags",
+      "name": "All Bags",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-battle-songs",
+      "display_name": "All Battle Songs",
+      "name": "All Battle Songs",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-beauty-marks",
+      "display_name": "All Beauty Marks",
+      "name": "All Beauty Marks",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-color-contacts",
+      "display_name": "All Color Contacts",
+      "name": "All Color Contacts",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-daily-tasks-and-activities",
+      "display_name": "All Daily Tasks and Activities",
+      "name": "All Daily Tasks and Activities",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-eye-designs",
+      "display_name": "All Eye Designs",
+      "name": "All Eye Designs",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-eyebrow-colors",
+      "display_name": "All Eyebrow Colors",
+      "name": "All Eyebrow Colors",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-eyebrows",
+      "display_name": "All Eyebrows",
+      "name": "All Eyebrows",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-eyelash-colors",
+      "display_name": "All Eyelash Colors",
+      "name": "All Eyelash Colors",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-eyelash-designs",
+      "display_name": "All Eyelash Designs",
+      "name": "All Eyelash Designs",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-freckle-designs",
+      "display_name": "All Freckle Designs",
+      "name": "All Freckle Designs",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-glasses",
+      "display_name": "All Glasses",
+      "name": "All Glasses",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-gloves",
+      "display_name": "All Gloves",
+      "name": "All Gloves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-hair-color",
+      "display_name": "All Hair Color",
+      "name": "All Hair Color",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-hairstyles",
+      "display_name": "All Hairstyles",
+      "name": "All Hairstyles",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-hats",
+      "display_name": "All Hats",
+      "name": "All Hats",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-headbands",
+      "display_name": "All Headbands",
+      "name": "All Headbands",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-known-bugs-and-fixes",
+      "display_name": "All Known Bugs and Fixes",
+      "name": "All Known Bugs and Fixes",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-leggings",
+      "display_name": "All Leggings",
+      "name": "All Leggings",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-lip-designs",
+      "display_name": "All Lip Designs",
+      "name": "All Lip Designs",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-mouth-designs",
+      "display_name": "All Mouth Designs",
+      "name": "All Mouth Designs",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-pants",
+      "display_name": "All Pants",
+      "name": "All Pants",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-pre-battle-poses",
+      "display_name": "All Pre-Battle Poses",
+      "name": "All Pre-Battle Poses",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-shirts",
+      "display_name": "All Shirts",
+      "name": "All Shirts",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-terrains-and-their-effects",
+      "display_name": "All Terrains and Their Effects",
+      "name": "All Terrains and Their Effects",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "all-weather-conditions-explained",
+      "display_name": "All Weather Conditions Explained",
+      "name": "All Weather Conditions Explained",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "aura-and-pulse-moves",
+      "display_name": "Aura and Pulse Moves",
+      "name": "Aura and Pulse Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "available-battle-modes",
+      "display_name": "Available Battle Modes",
+      "name": "Available Battle Modes",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "ball-and-bomb-moves",
+      "display_name": "Ball and Bomb Moves",
+      "name": "Ball and Bomb Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "berries",
+      "display_name": "Berries",
+      "name": "Berries",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "biting-moves",
+      "display_name": "Biting Moves",
+      "name": "Biting Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "bug-type-moves",
+      "display_name": "Bug-Type Moves",
+      "name": "Bug-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "bug-type-pokemon",
+      "display_name": "Bug-type Pokemon",
+      "name": "Bug-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "character-customization",
+      "display_name": "Character Customization",
+      "name": "Character Customization",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "coming-to-switch-and-mobile",
+      "display_name": "Coming to Switch and Mobile",
+      "name": "Coming to Switch and Mobile",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "confirmed-battle-mechanics",
+      "display_name": "Confirmed Battle Mechanics",
+      "name": "Confirmed Battle Mechanics",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "contact-moves",
+      "display_name": "Contact Moves",
+      "name": "Contact Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "dark-type-moves",
+      "display_name": "Dark-Type Moves",
+      "name": "Dark-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "dark-type-pokemon",
+      "display_name": "Dark-type Pokemon",
+      "name": "Dark-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "defense-items",
+      "display_name": "Defense Items",
+      "name": "Defense Items",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "dragon-type-moves",
+      "display_name": "Dragon-Type Moves",
+      "name": "Dragon-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "dragon-type-pokemon",
+      "display_name": "Dragon-type Pokemon",
+      "name": "Dragon-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "dragonite-early-download-bonus",
+      "display_name": "Dragonite Early Download Bonus",
+      "name": "Dragonite Early Download Bonus",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "electric-type-moves",
+      "display_name": "Electric-Type Moves",
+      "name": "Electric-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "electric-type-pokemon",
+      "display_name": "Electric-type Pokemon",
+      "name": "Electric-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "entry-hazard-moves",
+      "display_name": "Entry Hazard Moves",
+      "name": "Entry Hazard Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "eternal-flower-floette",
+      "display_name": "Eternal Flower Floette",
+      "name": "Eternal Flower Floette",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "fairy-type-moves",
+      "display_name": "Fairy-Type Moves",
+      "name": "Fairy-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "fairy-type-pokemon",
+      "display_name": "Fairy-type Pokemon",
+      "name": "Fairy-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "fighting-type-moves",
+      "display_name": "Fighting-Type Moves",
+      "name": "Fighting-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "fighting-type-pokemon",
+      "display_name": "Fighting-type Pokemon",
+      "name": "Fighting-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "fire-type-moves",
+      "display_name": "Fire-Type Moves",
+      "name": "Fire-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "fire-type-pokemon",
+      "display_name": "Fire-type Pokemon",
+      "name": "Fire-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "flying-type-moves",
+      "display_name": "Flying-Type Moves",
+      "name": "Flying-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "flying-type-pokemon",
+      "display_name": "Flying-type Pokemon",
+      "name": "Flying-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "frost-rotom",
+      "display_name": "Frost Rotom",
+      "name": "Frost Rotom",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "ghost-type-moves",
+      "display_name": "Ghost-Type Moves",
+      "name": "Ghost-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "ghost-type-pokemon",
+      "display_name": "Ghost-type Pokemon",
+      "name": "Ghost-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "grass-type-moves",
+      "display_name": "Grass-Type Moves",
+      "name": "Grass-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "grass-type-pokemon",
+      "display_name": "Grass-type Pokemon",
+      "name": "Grass-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "ground-type-moves",
+      "display_name": "Ground-Type Moves",
+      "name": "Ground-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "ground-type-pokemon",
+      "display_name": "Ground-type Pokemon",
+      "name": "Ground-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "high-critical-hit-moves",
+      "display_name": "High Critical-Hit Moves",
+      "name": "High Critical-Hit Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-battle-with-friends",
+      "display_name": "How to Battle with Friends",
+      "name": "How to Battle with Friends",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-change-moves",
+      "display_name": "How to Change Moves",
+      "name": "How to Change Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-change-your-name-and-gender",
+      "display_name": "How to Change Your Name and Gender",
+      "name": "How to Change Your Name and Gender",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-get-and-use-training-tickets",
+      "display_name": "How to Get and Use Training Tickets",
+      "name": "How to Get and Use Training Tickets",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-increase-box-size",
+      "display_name": "How to Increase Box Size",
+      "name": "How to Increase Box Size",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-increase-critical-hit-chance",
+      "display_name": "How to Increase Critical Hit Chance",
+      "name": "How to Increase Critical Hit Chance",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-obtain-pokemon",
+      "display_name": "How to Obtain Pokemon",
+      "name": "How to Obtain Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-prepare-for-pokemon-champions",
+      "display_name": "How to Prepare for Pokemon Champions",
+      "name": "How to Prepare for Pokemon Champions",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-release-pokemon-from-your-box",
+      "display_name": "How to Release Pokemon From Your Box",
+      "name": "How to Release Pokemon From Your Box",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-set-nicknames",
+      "display_name": "How to Set Nicknames",
+      "name": "How to Set Nicknames",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-train-pokemon",
+      "display_name": "How to Train Pokemon",
+      "name": "How to Train Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "how-to-use-quick-coupons",
+      "display_name": "How to Use Quick Coupons",
+      "name": "How to Use Quick Coupons",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "ice-type-moves",
+      "display_name": "Ice-Type Moves",
+      "name": "Ice-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "ice-type-pokemon",
+      "display_name": "Ice-type Pokemon",
+      "name": "Ice-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "list-of-abilities",
+      "display_name": "List of Abilities",
+      "name": "List of Abilities",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "list-of-all-items",
+      "display_name": "List of All Items",
+      "name": "List of All Items",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "list-of-all-moves",
+      "display_name": "List of All Moves",
+      "name": "List of All Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "list-of-available-pokemon",
+      "display_name": "List of Available Pokemon",
+      "name": "List of Available Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "list-of-changes-from-previous-games",
+      "display_name": "List of Changes from Previous Games",
+      "name": "List of Changes from Previous Games",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "list-of-in-game-purchases",
+      "display_name": "List of In-Game Purchases",
+      "name": "List of In-Game Purchases",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "list-of-pokemon-by-base-stats",
+      "display_name": "List of Pokemon by Base Stats",
+      "name": "List of Pokemon by Base Stats",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "mega-all-legends-z-a-evolution-abilities",
+      "display_name": "All Legends Z-A Mega Evolution Abilities",
+      "name": "All Legends Z-A Mega Evolution Abilities",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "mega-how-to-equip-stones",
+      "display_name": "How to Equip Mega Stones",
+      "name": "How to Equip Mega Stones",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "mega-list-of-all-evolutions",
+      "display_name": "List of All Mega Evolutions",
+      "name": "List of All Mega Evolutions",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "mega-list-of-all-stones",
+      "display_name": "List of All Mega Stones",
+      "name": "List of All Mega Stones",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "mega-stones",
+      "display_name": "Mega Stones",
+      "name": "Mega Stones",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "mega-stones-collaboration-event",
+      "display_name": "Mega Stones Collaboration Event",
+      "name": "Mega Stones Collaboration Event",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "moves-with-60-power-or-less",
+      "display_name": "Moves with 60 Power or Less",
+      "name": "Moves with 60 Power or Less",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "moves-with-secondary-effects",
+      "display_name": "Moves with Secondary Effects",
+      "name": "Moves with Secondary Effects",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "multi-hit-moves",
+      "display_name": "Multi-Hit Moves",
+      "name": "Multi-Hit Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "multi-target-moves",
+      "display_name": "Multi-Target Moves",
+      "name": "Multi-Target Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "new-abilities",
+      "display_name": "New Abilities",
+      "name": "New Abilities",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "normal-type-moves",
+      "display_name": "Normal-Type Moves",
+      "name": "Normal-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "normal-type-pokemon",
+      "display_name": "Normal-type Pokemon",
+      "name": "Normal-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "other-items",
+      "display_name": "Other Items",
+      "name": "Other Items",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "physical-moves",
+      "display_name": "Physical Moves",
+      "name": "Physical Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "poison-type-moves",
+      "display_name": "Poison-Type Moves",
+      "name": "Poison-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "poison-type-pokemon",
+      "display_name": "Poison-type Pokemon",
+      "name": "Poison-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "pokemon-by-base-stats",
+      "display_name": "Pokemon by Base Stats",
+      "name": "Pokemon by Base Stats",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "pokemon-champions-mobile-release-date",
+      "display_name": "Pokemon Champions Mobile Release Date",
+      "name": "Pokemon Champions Mobile Release Date",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "pokemon-champions-release-date",
+      "display_name": "Pokemon Champions Release Date",
+      "name": "Pokemon Champions Release Date",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "pokemon-type-chart",
+      "display_name": "Pokemon Type Chart",
+      "name": "Pokemon Type Chart",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "pokemon-world-championships-2026",
+      "display_name": "Pokemon World Championships 2026",
+      "name": "Pokemon World Championships 2026",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "power-boost-item",
+      "display_name": "Power Boost Item",
+      "name": "Power Boost Item",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "priority-brackets-explained",
+      "display_name": "Priority Brackets Explained",
+      "name": "Priority Brackets Explained",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "priority-moves",
+      "display_name": "Priority Moves",
+      "name": "Priority Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "psychic-type-moves",
+      "display_name": "Psychic-Type Moves",
+      "name": "Psychic-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "psychic-type-pokemon",
+      "display_name": "Psychic-type Pokemon",
+      "name": "Psychic-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "punching-moves",
+      "display_name": "Punching Moves",
+      "name": "Punching Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "ranked-battles",
+      "display_name": "Ranked Battles",
+      "name": "Ranked Battles",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "recoil-moves",
+      "display_name": "Recoil Moves",
+      "name": "Recoil Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "recovery-items",
+      "display_name": "Recovery Items",
+      "name": "Recovery Items",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "rock-type-moves",
+      "display_name": "Rock-Type Moves",
+      "name": "Rock-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "rock-type-pokemon",
+      "display_name": "Rock-type Pokemon",
+      "name": "Rock-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "season-1-battle-pass-rewards",
+      "display_name": "Season 1 Battle Pass Rewards",
+      "name": "Season 1 Battle Pass Rewards",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "shiny-pokemon-confirmed",
+      "display_name": "Shiny Pokemon Confirmed",
+      "name": "Shiny Pokemon Confirmed",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "slicing-moves",
+      "display_name": "Slicing Moves",
+      "name": "Slicing Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "sound-moves",
+      "display_name": "Sound Moves",
+      "name": "Sound Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "special-moves",
+      "display_name": "Special Moves",
+      "name": "Special Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "stat-alignment-explained",
+      "display_name": "Stat Alignment Explained",
+      "name": "Stat Alignment Explained",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "stat-boost-items",
+      "display_name": "Stat Boost Items",
+      "name": "Stat Boost Items",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "stat-boosting-moves",
+      "display_name": "Stat-Boosting Moves",
+      "name": "Stat-Boosting Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "stat-lowering-moves",
+      "display_name": "Stat-Lowering Moves",
+      "name": "Stat-Lowering Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "status-inflicting-moves",
+      "display_name": "Status Inflicting Moves",
+      "name": "Status Inflicting Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "status-moves",
+      "display_name": "Status Moves",
+      "name": "Status Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "steel-type-moves",
+      "display_name": "Steel-Type Moves",
+      "name": "Steel-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "steel-type-pokemon",
+      "display_name": "Steel-type Pokemon",
+      "name": "Steel-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "title-date",
+      "display_name": ":title :date",
+      "name": ":title :date",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "warm-up-challenge-event",
+      "display_name": "Warm-Up Challenge Event",
+      "name": "Warm-Up Challenge Event",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "wash-rotom",
+      "display_name": "Wash Rotom",
+      "name": "Wash Rotom",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "water-type-moves",
+      "display_name": "Water-Type Moves",
+      "name": "Water-Type Moves",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "water-type-pokemon",
+      "display_name": "Water-type Pokemon",
+      "name": "Water-type Pokemon",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "what-are-victory-points",
+      "display_name": "What are Victory Points",
+      "name": "What are Victory Points",
+      "reason": "non_pokemon_or_invalid_ndex"
+    },
+    {
+      "norm_name": "what-to-do-first",
+      "display_name": "What to Do First",
+      "name": "What to Do First",
+      "reason": "non_pokemon_or_invalid_ndex"
     }
   ]
 }
