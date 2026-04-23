@@ -3,13 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Herramienta táctica para VGC Dobles — preview de equipos Pokémon" />
+  <meta name="description" content="Herramienta táctica para Team Preview Pokémon dobles 4v4" />
   <title>Champions Meta · Team Preview</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-
-  <!-- HERO -->
   <header class="hero">
     <div class="hero__inner">
       <h1 class="hero__title">Champions Meta</h1>
@@ -20,51 +18,53 @@
     </button>
   </header>
 
-  <!-- MAIN -->
   <main class="main">
-
-    <!-- MI EQUIPO -->
     <section class="team-section" id="myTeamSection" aria-label="Mi equipo">
       <div class="section-header">
         <h2 class="section-title">
           <span class="section-title__dot dot--my"></span>Mi equipo
         </h2>
         <div class="section-actions">
-          <button class="btn btn--ghost btn--sm" id="saveTeamBtn" title="Guardar equipo">
-            💾 Guardar
-          </button>
-          <button class="btn btn--ghost btn--sm btn--danger" id="clearMyTeamBtn" title="Limpiar equipo">
-            🗑️
-          </button>
+          <button class="btn btn--ghost btn--sm" id="saveTeamBtn">Guardar</button>
+          <button class="btn btn--ghost btn--sm btn--danger" id="clearMyTeamBtn">Limpiar</button>
         </div>
       </div>
-      <div class="team-grid" id="myTeamGrid" role="list">
-        <!-- slots se renderizan aquí -->
-      </div>
+      <div class="team-grid" id="myTeamGrid" role="list"></div>
     </section>
 
-    <!-- EQUIPO RIVAL -->
     <section class="team-section" id="rivalTeamSection" aria-label="Equipo rival">
       <div class="section-header">
         <h2 class="section-title">
           <span class="section-title__dot dot--rival"></span>Equipo rival
         </h2>
         <div class="section-actions">
-          <button class="btn btn--ghost btn--sm btn--danger" id="clearRivalTeamBtn" title="Limpiar rival">
-            🗑️
-          </button>
+          <button class="btn btn--ghost btn--sm btn--danger" id="clearRivalTeamBtn">Limpiar</button>
         </div>
       </div>
-      <div class="team-grid" id="rivalTeamGrid" role="list">
-        <!-- slots se renderizan aquí -->
-      </div>
+      <div class="team-grid" id="rivalTeamGrid" role="list"></div>
     </section>
 
+    <section class="analysis-section" id="matchupOverviewSection" aria-label="Visión general del matchup">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-title__dot dot--analysis"></span>Visión general del matchup
+        </h2>
+      </div>
+      <div class="analysis-panel" id="matchupOverview"></div>
+    </section>
+
+    <section class="analysis-section" id="tacticalReadSection" aria-label="Lectura táctica básica">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-title__dot dot--tactical"></span>Lectura táctica básica
+        </h2>
+      </div>
+      <div class="analysis-panel" id="tacticalRead"></div>
+    </section>
   </main>
 
-  <!-- FOOTER -->
   <footer class="footer">
-    <p>Champions Meta · Fase 1 · Datos: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a></p>
+    <p>Champions Meta · Fase 2 · Datos: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a></p>
   </footer>
 
   <script src="app.js"></script>
