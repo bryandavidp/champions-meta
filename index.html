@@ -3,131 +3,86 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>PokéTactics Preview - Phase 1</title>
+  <title>PokéTactics Preview - UI Refinada</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   
   <header class="app-header">
-    <div class="logo">
-      <span class="logo-icon">⚡</span>
+    <div class="logo-area">
       <h1>PokéTactics</h1>
+      <div class="team-title">Equipo VGC 4v4 Mock</div>
     </div>
-    <button class="icon-btn" aria-label="Configuración">⚙️</button>
+    <div class="header-actions">
+      <button class="btn btn-primary"><span class="icon">🔗</span> Compartir</button>
+      <button class="btn btn-secondary">Guardar</button>
+      <button class="btn btn-danger">🗑 Limpiar</button>
+    </div>
   </header>
 
+  <!-- Global Alerts -->
+  <div class="global-alerts">
+    <div class="alert-item">⚠️ Objeto duplicado: Banda Focus</div>
+  </div>
+
   <main class="app-main">
-    <!-- Hero -->
-    <section class="hero module">
-      <h2>VGC Preview <span>4v4</span></h2>
-      <p>Analiza el equipo rival y decide tus 4 picks en segundos.</p>
-    </section>
-
-    <!-- Mi Equipo -->
-    <section class="module" id="mi-equipo">
-      <div class="module-header">
-        <h3>Mi Equipo</h3>
-        <span class="badge count-badge">3/6</span>
-      </div>
-      <div class="team-grid" id="my-team-grid">
-        <!-- Renderizado vía JS -->
-      </div>
-    </section>
-
-    <!-- Equipo Rival -->
-    <section class="module" id="equipo-rival">
-      <div class="module-header">
-        <h3>Equipo Rival <span class="threat-indicator">🔴 Alta amenaza</span></h3>
-        <span class="badge count-badge">6/6</span>
-      </div>
-      <div class="team-grid" id="rival-team-grid">
-        <!-- Renderizado vía JS -->
-      </div>
-    </section>
-
-    <!-- Visión General del Matchup -->
-    <section class="module analytical-module">
-      <div class="module-header">
-        <h3>Visión del Matchup</h3>
-      </div>
-      <div class="matchup-card">
-        <div class="matchup-pulse pulse-favorable">Ventaja Ligera</div>
-        <p class="matchup-summary">Tienes ventaja de velocidad, pero sufres contra atacantes físicos tipo Tierra.</p>
-        
-        <div class="tactical-chips">
-          <div class="chip-group">
-            <span class="chip-label">Debilidad común:</span>
-            <span class="type-badge type-ground">Tierra (3)</span>
-            <span class="type-badge type-rock">Roca (2)</span>
-          </div>
-          <div class="chip-group">
-            <span class="chip-label">Inmunidades clave:</span>
-            <span class="type-badge type-electric">Eléctrico</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Recomendación Táctica -->
-    <section class="module analytical-module">
-      <div class="module-header">
-        <h3>Recomendación (VGC 4v4)</h3>
-      </div>
-      <div class="recommendation-grid">
-        <div class="rec-card rec-lead">
-          <h4>Mejor Lead</h4>
-          <div class="rec-sprites">
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/197.png" alt="Umbreon">
-            <span class="plus">+</span>
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/59.png" alt="Arcanine">
-          </div>
-          <p>Presión con Intimidación y soporte.</p>
-        </div>
-        
-        <div class="rec-card rec-core">
-          <h4>Top 4 Picks</h4>
-          <div class="rec-sprites small-sprites">
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/197.png" alt="Umbreon">
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/59.png" alt="Arcanine">
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/130.png" alt="Gyarados">
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/212.png" alt="Scizor">
-          </div>
-        </div>
-
-        <div class="rec-card rec-warning">
-          <h4>Evitar llevar</h4>
-          <p class="warning-text">Gengar (Sufre contra Sucker Punch rival).</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Detalles por Pokémon (Tabs) -->
-    <section class="module">
-      <div class="module-header">
-        <h3>Detalles y Matchups</h3>
-      </div>
-      <div class="segmented-control">
-        <button class="segment-btn active" data-target="details-ally">Mi Equipo</button>
-        <button class="segment-btn" data-target="details-rival">Rival</button>
+    
+    <!-- Panel Izquierdo / Superior en móvil: Análisis del Equipo -->
+    <aside class="analysis-panel panel">
+      <div class="panel-header">
+        <span class="icon">🧠</span>
+        <h2>Análisis del Equipo</h2>
       </div>
       
-      <div class="details-content active" id="details-ally">
-        <!-- Renderizado vía JS para mantener el index corto -->
+      <div class="score-section">
+        <div class="score-circle">
+          <span class="score-value">65</span>
+        </div>
+        <div class="score-text">
+          <h3>Fuerte</h3>
+          <p>4/6 Pokémon</p>
+        </div>
       </div>
-      <div class="details-content" id="details-rival">
-        <div class="empty-state">Selecciona el equipo rival para ver detalles.</div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <span class="stat-num">53</span>
+          <span class="stat-label">Tipos</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num">75</span>
+          <span class="stat-label">Velocidad</span>
+        </div>
       </div>
+
+      <div class="analysis-details">
+        <div class="detail-group">
+          <h4>Fortalezas</h4>
+          <ul class="check-list">
+            <li>✓ Excelente cobertura ofensiva</li>
+            <li>✓ Movimientos de prioridad</li>
+          </ul>
+        </div>
+        <div class="detail-group">
+          <h4>Problemas</h4>
+          <ul class="warning-list">
+            <li>⚠ Debilidad crítica a Planta</li>
+            <li>⚠ Sin Intimidación</li>
+          </ul>
+        </div>
+        <div class="critical-weakness">
+          <h4>Debilidades Críticas</h4>
+          <span class="type-badge type-grass">Planta</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Módulo Central: Grid del Equipo -->
+    <section class="team-builder panel" id="team-builder">
+      <!-- Generado vía JS -->
     </section>
 
   </main>
-
-  <footer class="app-footer">
-    <p>PokéTactics v0.1.0 - Phase 1 Mock</p>
-  </footer>
-
-  <div class="sticky-cta-container">
-    <button class="btn-primary cta-button">Analizar Matchup <span>⚡</span></button>
-  </div>
 
   <script src="app.js"></script>
 </body>
