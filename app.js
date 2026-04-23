@@ -1,2070 +1,824 @@
-const POKE_API_BASE = "https://pokeapi.co/api/v2";
-const STORAGE_KEYS = {
-  myTeam: "pokedoubles-preview-my-team-v1",
-  theme: "pokedoubles-preview-theme-v1"
+/* ============================================================
+   CHAMPIONS META · app.js
+   Fase 1 — Team Preview Pokémon Dobles 4v4
+   ============================================================ */
+
+'use strict';
+
+/* ============================================================
+   CONSTANTES
+   ============================================================ */
+const TEAM_SIZE = 6;
+const DEBOUNCE_MS = 280;
+const LS_KEY = 'champions_meta_myTeam_v1';
+const API = 'https://pokeapi.co/api/v2';
+
+/* ============================================================
+   CACHE
+   ============================================================ */
+const cache = {
+  pokemonList: null,       // [{name, url, id}] — lista completa en inglés
+  pokemon: new Map(),      // id → full pokemon object
+  species: new Map(),      // id → species (con nombres ES)
+  types: new Map(),        // slug → type data (con nombres ES y damage_relations)
+  abilities: new Map(),    // slug → ability (con nombres ES)
+  typeChart: new Map(),    // slug → {name_es, damage_relations}
 };
 
-const TYPE_NAMES = [
-  "normal", "fire", "water", "electric", "grass", "ice",
-  "fighting", "poison", "ground", "flying", "psychic",
-  "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"
-];
-
-const SUPPORT_MOVE_WEIGHTS = {
-  "protect": 2,
-  "fake-out": 7,
-  "tailwind": 9,
-  "trick-room": 9,
-  "icy-wind": 6,
-  "electroweb": 6,
-  "thunder-wave": 5,
-  "will-o-wisp": 5,
-  "helping-hand": 5,
-  "rage-powder": 7,
-  "follow-me": 7,
-  "wide-guard": 7,
-  "quick-guard": 4,
-  "spore": 8,
-  "snarl": 5,
-  "taunt": 4,
-  "encore": 4,
-  "parting-shot": 6,
-  "coaching": 4,
-  "ally-switch": 4,
-  "breaking-swipe": 5
-};
-
-const ABILITY_WEIGHTS = {
-  "intimidate": 6,
-  "prankster": 6,
-  "levitate": 4,
-  "lightning-rod": 5,
-  "storm-drain": 5,
-  "flash-fire": 4,
-  "water-absorb": 4,
-  "volt-absorb": 4,
-  "motor-drive": 4,
-  "dry-skin": 4,
-  "friend-guard": 6,
-  "magic-bounce": 5,
-  "regenerator": 3,
-  "drizzle": 4,
-  "drought": 4,
-  "snow-warning": 3,
-  "sand-stream": 3,
-  "inner-focus": 2
-};
-
-const SELF_HIT_MOVES = {
-  "earthquake": { immuneTypes: ["flying"], immuneAbilities: ["levitate"] },
-  "discharge": { immuneTypes: ["ground"], immuneAbilities: ["lightning-rod", "volt-absorb", "motor-drive"] },
-  "surf": { immuneAbilities: ["storm-drain", "water-absorb", "dry-skin"] }
-};
+/* ============================================================
+   ESTADO
+   ============================================================ */
+function makeSlot() {
+  return {
+    nameInput: '',
+    pokemon: null,    // objeto completo resuelto
+    status: 'empty',  // 'empty' | 'input' | 'loading' | 'error' | 'filled'
+    error: null,
+    moves: [null, null, null, null], // para Fase 2
+  };
+}
 
 const state = {
-  myTeam: Array.from({ length: 6 }, createEmptySlot),
-  rivalTeam: Array.from({ length: 6 }, createEmptySlot),
-  detailsTab: "my",
-  analysis: null,
-  loadingAnalysis: false
+  myTeam:    Array.from({ length: TEAM_SIZE }, makeSlot),
+  rivalTeam: Array.from({ length: TEAM_SIZE }, makeSlot),
 };
 
-const cache = {
-  pokemon: new Map(),
-  moves: new Map(),
-  types: new Map(),
-  pokemonIndex: null,
-  moveIndex: null,
-  allTypesReady: false,
-  typePromise: null,
-  pokemonIndexPromise: null,
-  moveIndexPromise: null
-};
-
-const storageFallback = {
-  myTeam: null,
-  theme: null
-};
-
-const runtime = {
-  autocomplete: {
-    open: false,
-    kind: null,
-    teamKey: null,
-    slotIndex: null,
-    moveIndex: null,
-    items: [],
-    activeIndex: 0
-  },
-  debounceId: null,
-  latestInputToken: 0
-};
-
-document.addEventListener("DOMContentLoaded", init);
-
-function init() {
-  try {
-    applyInitialTheme();
-    hydrateMyTeam();
-    bindGlobalEvents();
-    bindKeyboardViewportMode();
-    scheduleWarmup();
-    renderAll();
-  } catch (error) {
-    console.error("Init error:", error);
-    renderFatalError();
-  }
-}
-
-function createEmptySlot() {
-  return {
-    nameInput: "",
-    pokemon: null,
-    moves: ["", "", "", ""],
-    status: "empty",
-    error: ""
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
   };
 }
 
-function bindGlobalEvents() {
-  const byId = (id) => document.getElementById(id);
+function capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
-  byId("themeToggle")?.addEventListener("click", toggleTheme);
-  byId("heroAnalyzeBtn")?.addEventListener("click", analyzeMatchup);
-  byId("stickyAnalyzeBtn")?.addEventListener("click", analyzeMatchup);
-  byId("loadSavedTeamBtn")?.addEventListener("click", hydrateMyTeamAndRender);
-  byId("clearMyTeamBtn")?.addEventListener("click", clearMyTeam);
-  byId("clearRivalTeamBtn")?.addEventListener("click", clearRivalTeam);
+function extractId(url) {
+  const m = url.match(/\/(\d+)\/?$/);
+  return m ? parseInt(m[1], 10) : null;
+}
 
-  byId("detailsMyTab")?.addEventListener("click", () => setDetailsTab("my"));
-  byId("detailsRivalTab")?.addEventListener("click", () => setDetailsTab("rival"));
+function getSpanishName(namesArray, fallback = '') {
+  if (!Array.isArray(namesArray)) return fallback;
+  const entry = namesArray.find(n => n.language?.name === 'es');
+  return entry ? entry.name : fallback;
+}
 
-  byId("myTeamGrid")?.addEventListener("click", onTeamGridClick);
-  byId("rivalTeamGrid")?.addEventListener("click", onTeamGridClick);
-  byId("myTeamGrid")?.addEventListener("pointerdown", onAutocompletePointerDown);
-  byId("rivalTeamGrid")?.addEventListener("pointerdown", onAutocompletePointerDown);
+function showToast(msg, duration = 2200) {
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.className = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('is-visible');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('is-visible'), duration);
+}
 
-  byId("myTeamGrid")?.addEventListener("input", onTeamGridInput);
-  byId("rivalTeamGrid")?.addEventListener("input", onTeamGridInput);
+/* ============================================================
+   TABLA DE TIPOS (cálculo de debilidades/resistencias)
+   ============================================================ */
 
-  byId("myTeamGrid")?.addEventListener("change", onTeamGridChange);
-  byId("rivalTeamGrid")?.addEventListener("change", onTeamGridChange);
+// Tabla de efectividad estática (evita múltiples fetches encadenados)
+const TYPE_EFFECTIVENESS = {
+  normal:   { weakTo: ['fighting'], immuneTo: ['ghost'], resistantTo: [] },
+  fire:     { weakTo: ['water','ground','rock'], immuneTo: [], resistantTo: ['fire','grass','ice','bug','steel','fairy'] },
+  water:    { weakTo: ['electric','grass'], immuneTo: [], resistantTo: ['fire','water','ice','steel'] },
+  electric: { weakTo: ['ground'], immuneTo: [], resistantTo: ['electric','flying','steel'] },
+  grass:    { weakTo: ['fire','ice','poison','flying','bug'], immuneTo: [], resistantTo: ['water','electric','grass','ground'] },
+  ice:      { weakTo: ['fire','fighting','rock','steel'], immuneTo: [], resistantTo: ['ice'] },
+  fighting: { weakTo: ['flying','psychic','fairy'], immuneTo: [], resistantTo: ['bug','rock','dark'] },
+  poison:   { weakTo: ['ground','psychic'], immuneTo: [], resistantTo: ['grass','fighting','poison','bug','fairy'] },
+  ground:   { weakTo: ['water','grass','ice'], immuneTo: ['electric'], resistantTo: ['poison','rock'] },
+  flying:   { weakTo: ['electric','ice','rock'], immuneTo: ['ground'], resistantTo: ['grass','fighting','bug'] },
+  psychic:  { weakTo: ['bug','ghost','dark'], immuneTo: [], resistantTo: ['fighting','psychic'] },
+  bug:      { weakTo: ['fire','flying','rock'], immuneTo: [], resistantTo: ['grass','fighting','ground'] },
+  rock:     { weakTo: ['water','grass','fighting','ground','steel'], immuneTo: [], resistantTo: ['normal','fire','poison','flying'] },
+  ghost:    { weakTo: ['ghost','dark'], immuneTo: ['normal','fighting'], resistantTo: ['poison','bug'] },
+  dragon:   { weakTo: ['ice','dragon','fairy'], immuneTo: [], resistantTo: ['fire','water','electric','grass'] },
+  dark:     { weakTo: ['fighting','bug','fairy'], immuneTo: ['psychic'], resistantTo: ['ghost','dark'] },
+  steel:    { weakTo: ['fire','fighting','ground'], immuneTo: ['poison'], resistantTo: ['normal','grass','ice','flying','psychic','bug','rock','dragon','steel','fairy'] },
+  fairy:    { weakTo: ['poison','steel'], immuneTo: ['dragon'], resistantTo: ['fighting','bug','dark'] },
+};
 
-  byId("myTeamGrid")?.addEventListener("focusin", onTeamGridFocusIn);
-  byId("rivalTeamGrid")?.addEventListener("focusin", onTeamGridFocusIn);
+const TYPE_ES = {
+  normal:'Normal', fire:'Fuego', water:'Agua', electric:'Eléctrico', grass:'Planta',
+  ice:'Hielo', fighting:'Lucha', poison:'Veneno', ground:'Tierra', flying:'Volador',
+  psychic:'Psíquico', bug:'Bicho', rock:'Roca', ghost:'Fantasma', dragon:'Dragón',
+  dark:'Siniestro', steel:'Acero', fairy:'Hada', stellar:'Estelar',
+};
 
-  byId("myTeamGrid")?.addEventListener("keydown", onTeamGridKeyDown);
-  byId("rivalTeamGrid")?.addEventListener("keydown", onTeamGridKeyDown);
+function computeWeaknesses(types) {
+  // types: array de strings en inglés (slugs)
+  const mult = {};
 
-  document.addEventListener("click", (event) => {
-    const insideInput = event.target.closest(".pokemon-input, .move-input");
-    const insideInlineAutocomplete = event.target.closest(".inline-autocomplete");
-    if (!insideInput && !insideInlineAutocomplete) {
-      closeAutocomplete();
-    }
+  // inicializar todos en 1
+  Object.keys(TYPE_EFFECTIVENESS).forEach(t => { mult[t] = 1; });
+
+  types.forEach(atkType => {
+    const entry = TYPE_EFFECTIVENESS[atkType];
+    if (!entry) return;
+
+    // Para cada tipo del Pokémon defensor recibimos daño de atkType según las reglas inversas
+    // Reinterpretamos: iteramos tipos atacantes y revisamos qué tipos defensores son weak/resist/immune
   });
+
+  // Enfoque correcto: por cada tipo atacante (atkType), miramos el Pokémon defensor
+  // Resetear
+  const allTypes = Object.keys(TYPE_EFFECTIVENESS);
+  const result = {};
+  allTypes.forEach(atk => { result[atk] = 1; });
+
+  allTypes.forEach(atk => {
+    const entry = TYPE_EFFECTIVENESS[atk];
+    if (!entry) return;
+    // ¿Los tipos del Pokémon están en weakTo del atacante?
+    types.forEach(defType => {
+      if (entry.weakTo.includes(defType)) result[atk] *= 2;
+      if (entry.resistantTo.includes(defType)) result[atk] *= 0.5;
+      if (entry.immuneTo.includes(defType)) result[atk] = 0;
+    });
+  });
+
+  return result;
 }
 
-function onAutocompletePointerDown(event) {
-  const option = event.target.closest("[data-autocomplete-value]");
-  if (!option) return;
-  event.preventDefault();
+function getWeaknessGroups(types) {
+  const mult = computeWeaknesses(types);
+  const weak4x = [], weak2x = [], resist4x = [], resist2x = [], immune = [];
+  Object.entries(mult).forEach(([t, m]) => {
+    if (m === 0) immune.push(t);
+    else if (m >= 4) weak4x.push(t);
+    else if (m >= 2) weak2x.push(t);
+    else if (m <= 0.25) resist4x.push(t);
+    else if (m <= 0.5) resist2x.push(t);
+  });
+  return { weak4x, weak2x, resist4x, resist2x, immune };
 }
 
-function onTeamGridFocusIn(event) {
-  if (event.target.matches(".pokemon-input")) {
-    void ensurePokemonIndex();
-    prewarmFromIntent("pokemon");
-  }
-
-  if (event.target.matches(".move-input")) {
-    void ensureMoveIndex();
-    prewarmFromIntent("move");
-  }
+/* ============================================================
+   API FETCH
+   ============================================================ */
+async function loadPokemonList() {
+  if (cache.pokemonList) return cache.pokemonList;
+  const res = await fetch(`${API}/pokemon?limit=10000`);
+  if (!res.ok) throw new Error('No se pudo cargar la lista de Pokémon');
+  const data = await res.json();
+  cache.pokemonList = data.results.map(p => ({
+    name: p.name,
+    id: extractId(p.url),
+    url: p.url,
+  }));
+  return cache.pokemonList;
 }
 
-function onTeamGridInput(event) {
-  const el = event.target;
-  const teamKey = el.dataset.team;
-  const index = Number(el.dataset.index);
-
-  if (!teamKey || Number.isNaN(index) || !state[teamKey]) return;
-
-  if (el.matches(".pokemon-input")) {
-    state[teamKey][index].nameInput = el.value;
-    scheduleAutocompleteSearch(el);
-    prewarmFromIntent("pokemon");
-  }
-
-  if (el.matches(".move-input")) {
-    const moveIndex = Number(el.dataset.moveIndex);
-    if (Number.isNaN(moveIndex)) return;
-    state[teamKey][index].moves[moveIndex] = el.value;
-    scheduleAutocompleteSearch(el);
-    prewarmFromIntent("move");
-
-    if (teamKey === "myTeam") {
-      persistMyTeam();
-      updateSaveIndicator("Equipo guardado");
-    }
-  }
+async function fetchPokemon(id) {
+  if (cache.pokemon.has(id)) return cache.pokemon.get(id);
+  const res = await fetch(`${API}/pokemon/${id}`);
+  if (!res.ok) throw new Error(`Pokémon #${id} no encontrado`);
+  const data = await res.json();
+  cache.pokemon.set(id, data);
+  return data;
 }
 
-function onTeamGridChange(event) {
-  const el = event.target;
-  if (!el.matches(".pokemon-input")) return;
-
-  const teamKey = el.dataset.team;
-  const index = Number(el.dataset.index);
-  const typed = el.value.trim();
-
-  if (!teamKey || Number.isNaN(index) || !state[teamKey]) return;
-  if (typed.length < 2) return;
-
-  const ac = runtime.autocomplete;
-  if (ac.open && ac.kind === "pokemon" && ac.teamKey === teamKey && ac.slotIndex === index && ac.items.length) {
-    return;
-  }
-
-  void loadPokemonIntoSlot(teamKey, index, typed);
+async function fetchSpecies(id) {
+  if (cache.species.has(id)) return cache.species.get(id);
+  const res = await fetch(`${API}/pokemon-species/${id}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  cache.species.set(id, data);
+  return data;
 }
 
-function onTeamGridKeyDown(event) {
-  const ac = runtime.autocomplete;
-  if (!ac.open) return;
-
-  const eventTeam = event.target.dataset.team;
-  const eventSlot = Number(event.target.dataset.index);
-  const sameTarget = ac.teamKey === eventTeam && ac.slotIndex === eventSlot;
-  if (!sameTarget) return;
-
-  if (event.key === "ArrowDown") {
-    event.preventDefault();
-    ac.activeIndex = Math.min(ac.activeIndex + 1, ac.items.length - 1);
-    renderAutocompleteHost();
-    return;
-  }
-
-  if (event.key === "ArrowUp") {
-    event.preventDefault();
-    ac.activeIndex = Math.max(ac.activeIndex - 1, 0);
-    renderAutocompleteHost();
-    return;
-  }
-
-  if (event.key === "Enter") {
-    if (ac.items.length) {
-      event.preventDefault();
-      const item = ac.items[ac.activeIndex];
-      applyAutocompleteSelection(item.displayName, ac.kind);
-    }
-    return;
-  }
-
-  if (event.key === "Escape") {
-    closeAutocomplete();
-  }
+async function fetchAbility(slug) {
+  if (cache.abilities.has(slug)) return cache.abilities.get(slug);
+  const res = await fetch(`${API}/ability/${slug}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  cache.abilities.set(slug, data);
+  return data;
 }
 
-function onTeamGridClick(event) {
-  const loadBtn = event.target.closest("[data-action='load-slot']");
-  const clearBtn = event.target.closest("[data-action='clear-slot']");
-  const autoBtn = event.target.closest("[data-autocomplete-value]");
-
-  if (autoBtn) {
-    event.preventDefault();
-    event.stopPropagation();
-    applyAutocompleteSelection(
-      autoBtn.dataset.autocompleteValue,
-      autoBtn.dataset.autocompleteKind
-    );
-    return;
+async function resolvePokemon(nameOrId) {
+  // 1. Buscar en la lista cargada
+  const list = await loadPokemonList();
+  const query = String(nameOrId).toLowerCase().trim();
+  let entry = list.find(p => p.name === query || String(p.id) === query);
+  if (!entry) {
+    // intento directo por si acaso el nombre es un id numérico
+    const byId = parseInt(query, 10);
+    if (!isNaN(byId)) entry = list.find(p => p.id === byId);
   }
+  if (!entry) throw new Error(`"${nameOrId}" no encontrado`);
 
-  if (loadBtn) {
-    const teamKey = loadBtn.dataset.team;
-    const index = Number(loadBtn.dataset.index);
-    const input = document.querySelector(
-      `.pokemon-input[data-team="${teamKey}"][data-index="${index}"]`
-    );
-    if (input) {
-      void loadPokemonIntoSlot(teamKey, index, input.value.trim());
-    }
-    return;
-  }
+  const id = entry.id;
 
-  if (clearBtn) {
-    const teamKey = clearBtn.dataset.team;
-    const index = Number(clearBtn.dataset.index);
-    if (!teamKey || Number.isNaN(index) || !state[teamKey]) return;
-    clearSlot(teamKey, index);
-  }
-}
+  // 2. Pokémon base
+  const pokemon = await fetchPokemon(id);
 
-function setDetailsTab(tab) {
-  state.detailsTab = tab;
+  // 3. Species → nombre ES
+  const species = await fetchSpecies(id);
+  const nameEs = species ? getSpanishName(species.names, capitalize(entry.name)) : capitalize(entry.name);
 
-  const myTab = document.getElementById("detailsMyTab");
-  const rivalTab = document.getElementById("detailsRivalTab");
+  // 4. Tipos en ES (usamos tabla estática para no disparar fetches adicionales)
+  const types = pokemon.types.map(t => t.type.name);
+  const typesEs = types.map(t => TYPE_ES[t] || capitalize(t));
 
-  myTab?.classList.toggle("is-active", tab === "my");
-  rivalTab?.classList.toggle("is-active", tab === "rival");
-  myTab?.setAttribute("aria-selected", String(tab === "my"));
-  rivalTab?.setAttribute("aria-selected", String(tab === "rival"));
+  // 5. Habilidades en ES
+  const abilitySlugs = pokemon.abilities.map(a => a.ability.name);
+  const abilityDataArr = await Promise.all(abilitySlugs.map(s => fetchAbility(s)));
+  const abilitiesEs = abilityDataArr.map((data, i) => {
+    if (!data) return capitalize(abilitySlugs[i]);
+    return getSpanishName(data.names, capitalize(abilitySlugs[i]));
+  });
 
-  renderDetails();
-}
+  // 6. Stats
+  const statsMap = {};
+  pokemon.stats.forEach(s => { statsMap[s.stat.name] = s.base_stat; });
 
-function clearSlot(teamKey, index) {
-  const oldSlot = state[teamKey][index];
-  const fresh = createEmptySlot();
+  // 7. Debilidades/Resistencias
+  const weaknessGroups = getWeaknessGroups(types);
 
-  if (teamKey === "myTeam") {
-    fresh.moves = ["", "", "", ""];
-  } else {
-    fresh.moves = oldSlot.moves ? [...oldSlot.moves] : ["", "", "", ""];
-  }
+  // 8. Sprite
+  const sprite =
+    pokemon.sprites?.front_default ||
+    `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 
-  state[teamKey][index] = fresh;
-  state.analysis = null;
-
-  if (runtime.autocomplete.teamKey === teamKey && runtime.autocomplete.slotIndex === index) {
-    closeAutocomplete();
-  }
-
-  if (teamKey === "myTeam") {
-    persistMyTeam();
-    updateSaveIndicator("Equipo guardado");
-  }
-
-  renderAll();
-}
-
-function clearMyTeam() {
-  state.myTeam = Array.from({ length: 6 }, createEmptySlot);
-  state.analysis = null;
-  closeAutocomplete();
-  persistMyTeam();
-  updateSaveIndicator("Equipo borrado");
-  renderAll();
-}
-
-function clearRivalTeam() {
-  state.rivalTeam = Array.from({ length: 6 }, createEmptySlot);
-  state.analysis = null;
-  closeAutocomplete();
-  renderAll();
-}
-
-async function loadPokemonIntoSlot(teamKey, index, rawName) {
-  const nameInput = rawName.trim();
-  if (!nameInput) return;
-
-  state[teamKey][index].status = "loading";
-  state[teamKey][index].error = "";
-  state[teamKey][index].nameInput = nameInput;
-
-  if (runtime.autocomplete.teamKey === teamKey && runtime.autocomplete.slotIndex === index) {
-    closeAutocomplete();
-  }
-
-  renderTeamGrid(teamKey);
-
-  try {
-    const pokemon = await fetchPokemonData(nameInput);
-    state[teamKey][index].pokemon = pokemon;
-    state[teamKey][index].status = "ready";
-    state[teamKey][index].error = "";
-    state[teamKey][index].nameInput = pokemon.displayName;
-
-    scheduleIdleTask(() => {
-      void ensureTypeChart();
-    }, 500);
-
-    if (teamKey === "myTeam") {
-      persistMyTeam();
-      updateSaveIndicator("Equipo guardado");
-      scheduleIdleTask(() => {
-        void ensureMoveIndex();
-      }, 900);
-    }
-  } catch (error) {
-    console.error("loadPokemonIntoSlot error:", error);
-    state[teamKey][index].pokemon = null;
-    state[teamKey][index].status = "error";
-    state[teamKey][index].error = "No se pudo cargar ese Pokémon.";
-  }
-
-  state.analysis = null;
-  renderAll();
-}
-
-async function fetchPokemonData(name) {
-  const normalized = normalizeApiName(name);
-
-  if (cache.pokemon.has(normalized)) {
-    return deepCopy(cache.pokemon.get(normalized));
-  }
-
-  const data = await fetchJSON(`${POKE_API_BASE}/pokemon/${normalized}`);
-  await ensureTypeChart();
-
-  const types = [...data.types]
-    .sort((a, b) => a.slot - b.slot)
-    .map((entry) => entry.type.name);
-
-  const stats = {};
-  for (const statEntry of data.stats) {
-    stats[statEntry.stat.name] = statEntry.base_stat;
-  }
-
-  const abilities = data.abilities
-    .map((entry) => ({
-      name: entry.ability.name,
-      displayName: formatDisplayName(entry.ability.name),
-      hidden: entry.is_hidden
-    }))
-    .sort((a, b) => Number(a.hidden) - Number(b.hidden));
-
-  const pokemon = {
-    id: data.id,
-    name: data.name,
-    displayName: formatDisplayName(data.name),
-    sprite:
-      data.sprites?.other?.["official-artwork"]?.front_default ||
-      data.sprites?.other?.home?.front_default ||
-      data.sprites?.front_default ||
-      "",
-    types,
+  return {
+    id,
+    nameEn: entry.name,
+    nameEs,
+    sprite,
+    types,       // ['fire', 'flying']
+    typesEs,     // ['Fuego', 'Volador']
     stats: {
-      hp: stats.hp || 0,
-      attack: stats.attack || 0,
-      defense: stats.defense || 0,
-      "special-attack": stats["special-attack"] || 0,
-      "special-defense": stats["special-defense"] || 0,
-      speed: stats.speed || 0
+      hp:   statsMap['hp'],
+      atk:  statsMap['attack'],
+      def:  statsMap['defense'],
+      spa:  statsMap['special-attack'],
+      spd:  statsMap['special-defense'],
+      spe:  statsMap['speed'],
     },
-    abilities,
-    baseStatTotal: Object.values(stats).reduce((sum, value) => sum + value, 0),
-    matchup: buildTypeProfile(types)
-  };
-
-  cache.pokemon.set(normalized, pokemon);
-  return deepCopy(pokemon);
-}
-
-async function fetchMoveData(name) {
-  const normalized = normalizeApiName(name);
-  if (!normalized) return null;
-
-  if (cache.moves.has(normalized)) {
-    return deepCopy(cache.moves.get(normalized));
-  }
-
-  const data = await fetchJSON(`${POKE_API_BASE}/move/${normalized}`);
-
-  const move = {
-    name: data.name,
-    displayName: formatDisplayName(data.name),
-    type: data.type?.name || "normal",
-    power: data.power || 0,
-    accuracy: data.accuracy || 100,
-    pp: data.pp || 0,
-    target: data.target?.name || "selected-pokemon",
-    damageClass: data.damage_class?.name || "status",
-    metaCategory: data.meta?.category?.name || "",
-    isSpread: isSpreadTarget(data.target?.name || ""),
-    supportWeight: SUPPORT_MOVE_WEIGHTS[data.name] || inferSupportWeight(data),
-    priority: data.priority || 0
-  };
-
-  cache.moves.set(normalized, move);
-  return deepCopy(move);
-}
-
-function inferSupportWeight(moveData) {
-  const moveName = moveData.name;
-  if (SUPPORT_MOVE_WEIGHTS[moveName]) return SUPPORT_MOVE_WEIGHTS[moveName];
-
-  const target = moveData.target?.name || "";
-  const damageClass = moveData.damage_class?.name || "";
-  const metaCategory = moveData.meta?.category?.name || "";
-
-  if (damageClass === "status" && ["users-field", "entire-field", "user-and-allies"].includes(target)) {
-    return 5;
-  }
-
-  if (damageClass === "status" && ["net-good-stats", "heal", "ailment"].includes(metaCategory)) {
-    return 4;
-  }
-
-  return 0;
-}
-
-async function ensureTypeChart() {
-  if (cache.allTypesReady) return;
-  if (cache.typePromise) {
-    await cache.typePromise;
-    return;
-  }
-
-  cache.typePromise = Promise.all(
-    TYPE_NAMES.map(async (typeName) => {
-      const data = await fetchJSON(`${POKE_API_BASE}/type/${typeName}`);
-      cache.types.set(typeName, {
-        name: typeName,
-        doubleTo: data.damage_relations.double_damage_to.map((t) => t.name),
-        halfTo: data.damage_relations.half_damage_to.map((t) => t.name),
-        noneTo: data.damage_relations.no_damage_to.map((t) => t.name)
-      });
-    })
-  ).then(() => {
-    cache.allTypesReady = true;
-  }).finally(() => {
-    cache.typePromise = null;
-  });
-
-  await cache.typePromise;
-}
-
-async function ensurePokemonIndex() {
-  if (cache.pokemonIndex) return cache.pokemonIndex;
-  if (cache.pokemonIndexPromise) return cache.pokemonIndexPromise;
-
-  cache.pokemonIndexPromise = fetchJSON(`${POKE_API_BASE}/pokemon?limit=1500&offset=0`)
-    .then((data) => {
-      cache.pokemonIndex = data.results.map((entry) => ({
-        name: entry.name,
-        displayName: formatDisplayName(entry.name)
-      }));
-      return cache.pokemonIndex;
-    })
-    .catch((error) => {
-      console.error("Pokemon index error:", error);
-      cache.pokemonIndex = [];
-      return [];
-    })
-    .finally(() => {
-      cache.pokemonIndexPromise = null;
-    });
-
-  return cache.pokemonIndexPromise;
-}
-
-async function ensureMoveIndex() {
-  if (cache.moveIndex) return cache.moveIndex;
-  if (cache.moveIndexPromise) return cache.moveIndexPromise;
-
-  cache.moveIndexPromise = fetchJSON(`${POKE_API_BASE}/move?limit=10000&offset=0`)
-    .then((data) => {
-      cache.moveIndex = data.results.map((entry) => ({
-        name: entry.name,
-        displayName: formatDisplayName(entry.name)
-      }));
-      return cache.moveIndex;
-    })
-    .catch((error) => {
-      console.error("Move index error:", error);
-      cache.moveIndex = [];
-      return [];
-    })
-    .finally(() => {
-      cache.moveIndexPromise = null;
-    });
-
-  return cache.moveIndexPromise;
-}
-
-async function analyzeMatchup() {
-  const myEntries = getFilledEntries("myTeam");
-  const rivalEntries = getFilledEntries("rivalTeam");
-
-  if (!myEntries.length || !rivalEntries.length) {
-    state.analysis = {
-      error: "Necesitas al menos 1 Pokémon en tu equipo y 1 en el rival para analizar."
-    };
-    state.loadingAnalysis = false;
-    renderAll();
-    return;
-  }
-
-  state.loadingAnalysis = true;
-  closeAutocomplete();
-  renderOverview();
-  renderRecommendation();
-
-  try {
-    await ensureTypeChart();
-
-    const preparedMyEntries = await Promise.all(
-      myEntries.map(async (entry) => {
-        const movesResolved = await resolveMoves(entry.slot.moves);
-        return {
-          ...entry,
-          movesResolved
-        };
-      })
-    );
-
-    const scoredMy = preparedMyEntries.map((entry) =>
-      scoreMyPokemon(entry, preparedMyEntries, rivalEntries)
-    ).sort((a, b) => b.score - a.score);
-
-    const top4 = scoredMy.slice(0, 4);
-
-    const leadPairs = buildLeadPairs(top4.length >= 2 ? top4 : scoredMy, rivalEntries)
-      .sort((a, b) => b.score - a.score);
-
-    const bestLead = leadPairs[0] || null;
-    const altLead = leadPairs.find((pair) => !samePair(pair, bestLead)) || null;
-
-    const threats = rivalEntries
-      .map((entry) => scoreRivalThreat(entry, preparedMyEntries))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 4);
-
-    const weakPicks = [...scoredMy]
-      .sort((a, b) => a.score - b.score)
-      .slice(0, Math.min(2, scoredMy.length));
-
-    const summary = buildSummary(top4, rivalEntries, scoredMy, threats);
-
-    state.analysis = {
-      error: null,
-      scoredMy,
-      top4,
-      bestLead,
-      altLead,
-      threats,
-      weakPicks,
-      summary
-    };
-  } catch (error) {
-    console.error("analyzeMatchup error:", error);
-    state.analysis = {
-      error: "Ha fallado el análisis. Revisa conexión o nombres de Pokémon/movimientos."
-    };
-  } finally {
-    state.loadingAnalysis = false;
-    renderAll();
-  }
-}
-
-function getFilledEntries(teamKey) {
-  return state[teamKey]
-    .map((slot, index) => ({ slot, index }))
-    .filter((entry) => entry.slot?.pokemon);
-}
-
-async function resolveMoves(moveNames) {
-  const cleaned = moveNames
-    .map((name) => name.trim())
-    .filter(Boolean);
-
-  if (!cleaned.length) return [];
-
-  const resolved = await Promise.all(
-    cleaned.map(async (name) => {
-      try {
-        return await fetchMoveData(name);
-      } catch (error) {
-        console.warn("Move resolve failed:", name, error);
-        return null;
-      }
-    })
-  );
-
-  return resolved.filter(Boolean);
-}
-
-function scoreMyPokemon(entry, allMyEntries, rivalEntries) {
-  const pokemon = entry.slot.pokemon;
-  const movesResolved = entry.movesResolved;
-  const attackOptions = getAttackOptions(pokemon, movesResolved);
-
-  let offensiveScore = 0;
-  let defensiveScore = 0;
-  let utilityScore = 0;
-  let sharedWeakPenalty = 0;
-
-  const goodInto = [];
-  const badInto = [];
-  const reasons = [];
-  const cautions = [];
-
-  rivalEntries.forEach((rivalEntry) => {
-    const rival = rivalEntry.slot.pokemon;
-    const bestAttack = getBestAttackVsTarget(attackOptions, rival);
-
-    offensiveScore += bestAttack.value;
-
-    if (bestAttack.multiplier >= 2) {
-      goodInto.push(rival.displayName);
-    } else if (bestAttack.multiplier <= 0.5) {
-      badInto.push(rival.displayName);
-    }
-
-    const incomingMultiplier = getBestStabMultiplier(rival.types, pokemon.types);
-    if (incomingMultiplier === 0) defensiveScore += 7;
-    else if (incomingMultiplier <= 0.5) defensiveScore += 4;
-    else if (incomingMultiplier === 1) defensiveScore += 1;
-    else if (incomingMultiplier >= 4) defensiveScore -= 9;
-    else defensiveScore -= 5;
-  });
-
-  const supportSummary = summarizeSupport(movesResolved);
-  utilityScore += supportSummary.score;
-
-  const abilityUtility = pokemon.abilities.reduce((sum, ability) => {
-    return sum + (ABILITY_WEIGHTS[ability.name] || 0);
-  }, 0);
-  utilityScore += Math.min(abilityUtility, 8);
-
-  const speed = pokemon.stats.speed || 0;
-  if (speed >= 120) utilityScore += 5;
-  else if (speed >= 100) utilityScore += 3;
-  else if (speed >= 80) utilityScore += 1;
-
-  const allies = allMyEntries.filter((ally) => ally.index !== entry.index);
-  allies.forEach((ally) => {
-    const overlap = intersection(
-      pokemon.matchup.weaknesses,
-      ally.slot.pokemon.matchup.weaknesses
-    );
-    sharedWeakPenalty += overlap.length * 1.6;
-  });
-
-  const movePressurePenalty = goodInto.length === 0 ? 5 : 0;
-  const score =
-    round1(offensiveScore * 1.05 + defensiveScore + utilityScore - sharedWeakPenalty - movePressurePenalty);
-
-  if (goodInto.length) {
-    reasons.push(`Buena cobertura contra ${goodInto.slice(0, 3).join(", ")}.`);
-  }
-
-  if (supportSummary.labels.length) {
-    reasons.push(`${supportSummary.labels.slice(0, 2).join(" + ")} aporta utilidad real en dobles.`);
-  }
-
-  if (pokemon.matchup.immunities.length) {
-    reasons.push(`Aporta inmunidades útiles: ${pokemon.matchup.immunities.slice(0, 2).join(", ")}.`);
-  }
-
-  if (badInto.length >= Math.max(2, Math.ceil(rivalEntries.length / 2))) {
-    cautions.push(`Tus movimientos presionan mal a ${badInto.slice(0, 3).join(", ")}.`);
-  }
-
-  if (sharedWeakPenalty >= 3.2) {
-    cautions.push("Comparte debilidades importantes con otros picks.");
-  }
-
-  if (!movesResolved.some((move) => move.damageClass !== "status")) {
-    cautions.push("No tiene suficiente presión ofensiva real con el moveset actual.");
-  }
-
-  return {
-    ...entry,
-    score,
-    offensiveScore: round1(offensiveScore),
-    defensiveScore: round1(defensiveScore),
-    utilityScore: round1(utilityScore),
-    sharedWeakPenalty: round1(sharedWeakPenalty),
-    goodInto,
-    badInto,
-    reasons: uniqueShort(reasons),
-    cautions: uniqueShort(cautions),
-    supportSummary
+    abilitiesEs,
+    weaknessGroups,
   };
 }
 
-function buildLeadPairs(candidates, rivalEntries) {
-  const pairs = [];
-
-  for (let i = 0; i < candidates.length; i += 1) {
-    for (let j = i + 1; j < candidates.length; j += 1) {
-      const a = candidates[i];
-      const b = candidates[j];
-
-      let score = a.score + b.score;
-      const reasons = [];
-
-      const coverageUnion = new Set([...a.goodInto, ...b.goodInto]);
-      score += coverageUnion.size * 1.8;
-      if (coverageUnion.size >= 2) {
-        reasons.push("Lead fuerte por cobertura ofensiva conjunta.");
-      }
-
-      const sharedWeak = intersection(
-        a.slot.pokemon.matchup.weaknesses,
-        b.slot.pokemon.matchup.weaknesses
-      );
-      if (sharedWeak.length) {
-        score -= sharedWeak.length * 3;
-        reasons.push(`Ojo con debilidad compartida a ${sharedWeak.slice(0, 2).join(", ")}.`);
-      }
-
-      const aSupport = a.supportSummary.names;
-      const bSupport = b.supportSummary.names;
-      const pairSupport = [...aSupport, ...bSupport];
-
-      if (pairSupport.includes("fake-out") && pairSupport.some((m) => ["tailwind", "trick-room", "spore", "rage-powder", "follow-me"].includes(m))) {
-        score += 6;
-        reasons.push("Turno 1 fuerte: presión + setup/soporte.");
-      }
-
-      if (pairSupport.includes("tailwind")) {
-        const avgSpeed = (a.slot.pokemon.stats.speed + b.slot.pokemon.stats.speed) / 2;
-        if (avgSpeed >= 85) {
-          score += 4;
-          reasons.push("Tailwind mejora mucho el plan de lead.");
-        }
-      }
-
-      if (pairSupport.includes("trick-room")) {
-        const avgSpeed = (a.slot.pokemon.stats.speed + b.slot.pokemon.stats.speed) / 2;
-        if (avgSpeed <= 75) {
-          score += 4;
-          reasons.push("Lead coherente para activar Trick Room.");
-        } else {
-          score -= 2;
-        }
-      }
-
-      const selfHitCheck = evaluateSelfHitSynergy(a, b);
-      score += selfHitCheck.score;
-      reasons.push(...selfHitCheck.reasons);
-
-      rivalEntries.forEach((rivalEntry) => {
-        const rival = rivalEntry.slot.pokemon;
-        const pairWeak = Math.max(
-          getBestStabMultiplier(rival.types, a.slot.pokemon.types),
-          getBestStabMultiplier(rival.types, b.slot.pokemon.types)
-        );
-        if (pairWeak >= 2) score -= 0.8;
-      });
-
-      pairs.push({
-        score: round1(score),
-        members: [a, b],
-        reasons: uniqueShort(reasons).slice(0, 4)
-      });
-    }
-  }
-
-  return pairs;
-}
-
-function evaluateSelfHitSynergy(a, b) {
-  let score = 0;
-  const reasons = [];
-  const aMoves = a.movesResolved.map((move) => move.name);
-  const bMoves = b.movesResolved.map((move) => move.name);
-
-  aMoves.forEach((moveName) => {
-    if (!SELF_HIT_MOVES[moveName]) return;
-    if (partnerIsSafeFromSelfHit(b.slot.pokemon, SELF_HIT_MOVES[moveName])) {
-      score += 3;
-      reasons.push(`Buen encaje: ${formatDisplayName(moveName)} no castiga a tu compañero.`);
-    } else {
-      score -= 5;
-      reasons.push(`Evita abrir con ${formatDisplayName(moveName)} si dañas a tu compañero.`);
-    }
-  });
-
-  bMoves.forEach((moveName) => {
-    if (!SELF_HIT_MOVES[moveName]) return;
-    if (partnerIsSafeFromSelfHit(a.slot.pokemon, SELF_HIT_MOVES[moveName])) {
-      score += 3;
-    } else {
-      score -= 5;
-    }
-  });
-
-  return { score, reasons };
-}
-
-function partnerIsSafeFromSelfHit(pokemon, rule) {
-  const hasImmuneType = (rule.immuneTypes || []).some((type) => pokemon.types.includes(type));
-  const hasImmuneAbility = (rule.immuneAbilities || []).some((ability) =>
-    pokemon.abilities.some((entry) => entry.name === ability)
-  );
-  return hasImmuneType || hasImmuneAbility;
-}
-
-function scoreRivalThreat(entry, myEntries) {
-  const rival = entry.slot.pokemon;
-  let score = 0;
-  const punishes = [];
-
-  myEntries.forEach((myEntry) => {
-    const myPokemon = myEntry.slot.pokemon;
-    const mult = getBestStabMultiplier(rival.types, myPokemon.types);
-
-    if (mult >= 4) {
-      score += 11;
-      punishes.push(myPokemon.displayName);
-    } else if (mult >= 2) {
-      score += 7;
-      punishes.push(myPokemon.displayName);
-    } else if (mult <= 0.5) {
-      score += 1;
-    } else {
-      score += 3;
-    }
-  });
-
-  const speed = rival.stats.speed || 0;
-  if (speed >= 120) score += 5;
-  else if (speed >= 100) score += 3;
-  else if (speed >= 80) score += 1;
-
-  const abilityScore = rival.abilities.reduce((sum, ability) => sum + (ABILITY_WEIGHTS[ability.name] || 0), 0);
-  score += Math.min(abilityScore, 7);
-
-  const reasons = [];
-  if (punishes.length) {
-    reasons.push(`Presiona a ${uniqueShort(punishes).slice(0, 3).join(", ")}.`);
-  }
-  if (speed >= 100) {
-    reasons.push("Amenaza por velocidad base alta.");
-  }
-  const supportAbility = rival.abilities.find((ability) => ABILITY_WEIGHTS[ability.name] >= 5);
-  if (supportAbility) {
-    reasons.push(`Habilidad molesta: ${supportAbility.displayName}.`);
-  }
-
-  return {
-    ...entry,
-    score: round1(score),
-    reasons: uniqueShort(reasons)
-  };
-}
-
-function buildSummary(top4, rivalEntries, scoredMy, threats) {
-  const sharedWeaknessCounts = countTypeOccurrences(top4.flatMap((entry) => entry.slot.pokemon.matchup.weaknesses));
-  const sharedWeaknesses = Object.entries(sharedWeaknessCounts)
-    .filter(([, count]) => count >= 2)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
-    .map(([type, count]) => ({ type, count }));
-
-  const immunityCounts = countTypeOccurrences(top4.flatMap((entry) => entry.slot.pokemon.matchup.immunities));
-  const usefulImmunities = Object.entries(immunityCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
-    .map(([type, count]) => ({ type, count }));
-
-  const favorable = scoredMy.filter((entry) => entry.goodInto.length >= 2).length;
-  const risky = scoredMy.filter((entry) => entry.cautions.length >= 2).length;
-  const mainThreat = threats[0]?.slot?.pokemon?.displayName || "—";
-  const rivalCore = rivalEntries.slice(0, 3).map((entry) => entry.slot.pokemon.displayName);
-
-  return {
-    favorable,
-    risky,
-    mainThreat,
-    rivalCore,
-    sharedWeaknesses,
-    usefulImmunities
-  };
-}
-
-function getAttackOptions(pokemon, movesResolved) {
-  const damagingMoves = movesResolved.filter((move) => move.damageClass !== "status");
-
-  if (damagingMoves.length) {
-    return damagingMoves.map((move) => ({
-      name: move.name,
-      displayName: move.displayName,
-      type: move.type,
-      power: move.power || 60,
-      accuracy: move.accuracy || 100,
-      isSpread: move.isSpread,
-      stab: pokemon.types.includes(move.type),
-      priority: move.priority || 0
-    }));
-  }
-
-  return pokemon.types.map((type) => ({
-    name: `${type}-stab`,
-    displayName: formatDisplayName(type),
-    type,
-    power: 60,
-    accuracy: 100,
-    isSpread: false,
-    stab: true,
-    priority: 0
+/* ============================================================
+   PERSISTENCIA
+   ============================================================ */
+function serializeTeam(team) {
+  return team.map(slot => ({
+    nameEn: slot.pokemon?.nameEn || null,
+    status: slot.status === 'filled' ? 'filled' : 'empty',
   }));
 }
 
-function getBestAttackVsTarget(options, targetPokemon) {
-  let best = {
-    multiplier: 0,
-    value: 0,
-    move: null
-  };
-
-  options.forEach((option) => {
-    const multiplier = getTypeMultiplier(option.type, targetPokemon.types);
-    const stabBonus = option.stab ? 1.25 : 1;
-    const powerFactor = Math.max(1.2, (option.power || 60) / 35);
-    const spreadFactor = option.isSpread ? 1.1 : 1;
-    const priorityFactor = option.priority > 0 ? 1.08 : 1;
-    const accuracyFactor = (option.accuracy || 100) / 100;
-    const value = multiplier * stabBonus * powerFactor * spreadFactor * priorityFactor * accuracyFactor * 4;
-
-    if (value > best.value) {
-      best = {
-        multiplier,
-        value,
-        move: option
-      };
-    }
-  });
-
-  return {
-    ...best,
-    value: round1(best.value)
-  };
-}
-
-function getBestStabMultiplier(attackerTypes, defenderTypes) {
-  return Math.max(...attackerTypes.map((type) => getTypeMultiplier(type, defenderTypes)));
-}
-
-function getTypeMultiplier(attackingType, defendingTypes) {
-  const attack = cache.types.get(attackingType);
-  if (!attack) return 1;
-
-  return defendingTypes.reduce((multiplier, defendingType) => {
-    if (attack.noneTo.includes(defendingType)) return multiplier * 0;
-    if (attack.doubleTo.includes(defendingType)) return multiplier * 2;
-    if (attack.halfTo.includes(defendingType)) return multiplier * 0.5;
-    return multiplier * 1;
-  }, 1);
-}
-
-function buildTypeProfile(types) {
-  const weaknesses = [];
-  const resistances = [];
-  const immunities = [];
-
-  TYPE_NAMES.forEach((attackType) => {
-    const multiplier = getTypeMultiplier(attackType, types);
-    if (multiplier === 0) immunities.push(attackType);
-    else if (multiplier > 1) weaknesses.push(attackType);
-    else if (multiplier < 1) resistances.push(attackType);
-  });
-
-  return { weaknesses, resistances, immunities };
-}
-
-function summarizeSupport(movesResolved) {
-  const names = [];
-  let score = 0;
-
-  movesResolved.forEach((move) => {
-    if (move.supportWeight > 0) {
-      names.push(move.name);
-      score += move.supportWeight;
-    }
-    if (move.name === "protect") score += 1;
-    if (move.isSpread && move.damageClass !== "status") score += 1.5;
-  });
-
-  return {
-    names: uniqueShort(names),
-    labels: uniqueShort(names.map((name) => formatDisplayName(name))),
-    score: Math.min(score, 14)
-  };
-}
-
-function renderAll() {
-  renderTeamGrid("myTeam");
-  renderTeamGrid("rivalTeam");
-  renderOverview();
-  renderRecommendation();
-  renderDetails();
-}
-
-function renderTeamGrid(teamKey) {
-  const container = document.getElementById(teamKey === "myTeam" ? "myTeamGrid" : "rivalTeamGrid");
-  if (!container) return;
-
-  container.innerHTML = state[teamKey]
-    .map((slot, index) => renderTeamSlot(slot, teamKey, index))
-    .join("");
-
-  if (runtime.autocomplete.open && runtime.autocomplete.teamKey === teamKey) {
-    renderAutocompleteHost();
+function saveMyTeam() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(serializeTeam(state.myTeam)));
+    showToast('✅ Equipo guardado');
+  } catch (e) {
+    showToast('❌ Error al guardar');
   }
 }
 
-function renderTeamSlot(slot, teamKey, index) {
-  const slotTitle = `${teamKey === "myTeam" ? "Mi slot" : "Rival"} ${index + 1}`;
-  const isMyTeam = teamKey === "myTeam";
-
-  let content = `
-    <div class="slot-placeholder">
-      Busca un Pokémon y pulsa cargar.
-    </div>
-  `;
-
-  if (slot.status === "loading") {
-    content = `
-      <div class="slot-summary">
-        <div class="skeleton skeleton-line lg"></div>
-        <div class="skeleton skeleton-line md"></div>
-        <div class="skeleton skeleton-line sm"></div>
-      </div>
-    `;
-  } else if (slot.status === "error") {
-    content = `
-      <div class="error-state">
-        <h3>Error al cargar</h3>
-        <p>${escapeHtml(slot.error || "No se pudo cargar.")}</p>
-      </div>
-    `;
-  } else if (slot.pokemon) {
-    content = `
-      <div class="slot-summary">
-        <div class="pokemon-row">
-          <div class="sprite-frame">
-            ${slot.pokemon.sprite
-              ? `<img src="${escapeHtml(slot.pokemon.sprite)}" alt="${escapeHtml(slot.pokemon.displayName)}" width="64" height="64" loading="lazy" decoding="async">`
-              : `<span>${escapeHtml(slot.pokemon.displayName.slice(0, 2).toUpperCase())}</span>`}
-          </div>
-
-          <div>
-            <div class="pokemon-name">
-              <strong>${escapeHtml(slot.pokemon.displayName)}</strong>
-              <span class="small-chip">${slot.pokemon.baseStatTotal} BST</span>
-            </div>
-
-            <div class="badge-row">
-              ${slot.pokemon.types.map(renderTypeChip).join("")}
-            </div>
-          </div>
-        </div>
-
-        <div class="chips-wrap">
-          ${slot.pokemon.abilities.slice(0, 3).map((ability) => `<span class="small-chip">${escapeHtml(ability.displayName)}</span>`).join("")}
-        </div>
-
-        <div class="stat-grid">
-          ${renderStatPill("HP", slot.pokemon.stats.hp)}
-          ${renderStatPill("Atk", slot.pokemon.stats.attack)}
-          ${renderStatPill("Def", slot.pokemon.stats.defense)}
-          ${renderStatPill("SpA", slot.pokemon.stats["special-attack"])}
-          ${renderStatPill("SpD", slot.pokemon.stats["special-defense"])}
-          ${renderStatPill("Spe", slot.pokemon.stats.speed)}
-        </div>
-
-        <div class="chips-wrap">
-          ${slot.pokemon.matchup.weaknesses.slice(0, 5).map((type) => `<span class="small-chip weak">Débil a ${escapeHtml(formatDisplayName(type))}</span>`).join("")}
-          ${slot.pokemon.matchup.resistances.slice(0, 5).map((type) => `<span class="small-chip good">Resiste ${escapeHtml(formatDisplayName(type))}</span>`).join("")}
-          ${slot.pokemon.matchup.immunities.slice(0, 3).map((type) => `<span class="small-chip warn">Inmune a ${escapeHtml(formatDisplayName(type))}</span>`).join("")}
-        </div>
-      </div>
-    `;
+async function loadSavedTeam() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (!Array.isArray(saved)) return;
+    const promises = saved.map(async (entry, i) => {
+      if (entry.status === 'filled' && entry.nameEn) {
+        state.myTeam[i].status = 'loading';
+        renderSlot('my', i);
+        try {
+          const resolved = await resolvePokemon(entry.nameEn);
+          state.myTeam[i].pokemon = resolved;
+          state.myTeam[i].status = 'filled';
+        } catch {
+          state.myTeam[i].status = 'empty';
+        }
+        renderSlot('my', i);
+      }
+    });
+    await Promise.all(promises);
+  } catch (e) {
+    // fail silently
   }
+}
 
-  const movesPanel = isMyTeam
-    ? `
-      <details class="moves-panel">
-        <summary>
-          <span>Movimientos reales</span>
-          <span>${countFilled(slot.moves)}/4</span>
-        </summary>
-        <div class="moves-grid">
-          ${slot.moves.map((move, moveIndex) => `
-            <div class="inline-input-stack">
-              <input
-                class="text-input move-input"
-                type="text"
-                placeholder="Movimiento ${moveIndex + 1}"
-                value="${escapeAttribute(move)}"
-                data-team="${teamKey}"
-                data-index="${index}"
-                data-move-index="${moveIndex}"
-                autocomplete="off"
-                autocapitalize="off"
-                autocorrect="off"
-                spellcheck="false"
-                inputmode="text"
-              />
-              <div
-                class="inline-autocomplete"
-                data-ac-host="move"
-                data-team="${teamKey}"
-                data-index="${index}"
-                data-move-index="${moveIndex}"
-                hidden
-              ></div>
-            </div>
-          `).join("")}
-        </div>
-      </details>
-    `
-    : "";
+/* ============================================================
+   RENDER — quirúrgico por slot
+   ============================================================ */
+function getSlotEl(team, index) {
+  const gridId = team === 'my' ? 'myTeamGrid' : 'rivalTeamGrid';
+  const grid = document.getElementById(gridId);
+  return grid?.querySelector(`[data-slot-index="${index}"]`);
+}
 
+function renderTypeBadges(typesEs, typesEn) {
+  return typesEs.map((tEs, i) => {
+    const tEn = typesEn[i] || '';
+    return `<span class="type-badge type--${tEn}" title="${tEs}">${tEs}</span>`;
+  }).join('');
+}
+
+function renderStats(stats) {
+  const labels = { hp:'HP', atk:'Atk', def:'Def', spa:'SpA', spd:'SpD', spe:'Vel' };
+  return Object.entries(labels).map(([key, label]) =>
+    `<div class="stat-item">
+      <span class="stat-label">${label}</span>
+      <span class="stat-value">${stats[key] ?? '–'}</span>
+    </div>`
+  ).join('');
+}
+
+function renderWeaknesses(groups) {
+  const rows = [];
+
+  const renderBadges = (arr, cls, title) => {
+    if (!arr.length) return '';
+    const badges = arr.map(t => {
+      const tEs = TYPE_ES[t] || capitalize(t);
+      return `<span class="matchup-badge type--${t} ${cls}" title="${tEs}">${tEs}</span>`;
+    }).join('');
+    return `<div class="matchup-row">
+      <span class="matchup-label" title="${title}">${title}</span>
+      ${badges}
+    </div>`;
+  };
+
+  rows.push(renderBadges(groups.weak4x, 'matchup-badge--4x', '4×'));
+  rows.push(renderBadges(groups.weak2x, 'matchup-badge--2x', '2×'));
+  rows.push(renderBadges(groups.immune, 'matchup-badge--immune', '0×'));
+  rows.push(renderBadges(groups.resist2x, 'matchup-badge--half', '½'));
+  rows.push(renderBadges(groups.resist4x, 'matchup-badge--quarter', '¼'));
+
+  const content = rows.filter(Boolean).join('');
+  if (!content) return '';
+  return `<div class="slot__matchup">${content}</div>`;
+}
+
+function renderFilledCard(pokemon, team, index) {
   return `
-    <article class="team-slot">
-      <div class="slot-head">
-        <span class="slot-label">${escapeHtml(slotTitle)}</span>
-        <div class="slot-tools">
-          <button
-            class="micro-btn"
-            type="button"
-            data-action="clear-slot"
-            data-team="${teamKey}"
-            data-index="${index}"
-            aria-label="Vaciar slot ${index + 1}"
-          >
-            Vaciar
-          </button>
+    <div class="slot__card">
+      <div class="slot__card-header">
+        <div class="slot__sprite-wrap">
+          <img class="slot__sprite" src="${pokemon.sprite}" alt="${pokemon.nameEs}" loading="lazy" decoding="async" />
         </div>
+        <div class="slot__meta">
+          <span class="slot__name">${pokemon.nameEs}</span>
+          <div class="slot__types">${renderTypeBadges(pokemon.typesEs, pokemon.types)}</div>
+        </div>
+        <button class="slot__btn-remove" data-team="${team}" data-index="${index}" aria-label="Eliminar ${pokemon.nameEs}">✕</button>
       </div>
+      <div class="slot__stats">${renderStats(pokemon.stats)}</div>
+      <div class="slot__abilities">${pokemon.abilitiesEs.map(a => `<span class="ability-badge">${a}</span>`).join('')}</div>
+      ${renderWeaknesses(pokemon.weaknessGroups)}
+    </div>`;
+}
 
-      <div class="search-row">
-        <div class="inline-input-stack">
+function renderSlot(team, index) {
+  const slotEl = getSlotEl(team, index);
+  if (!slotEl) return;
+
+  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  const colorClass = team === 'my' ? 'slot--my' : 'slot--rival';
+
+  // Limpiar clases de estado previas
+  slotEl.className = `slot ${colorClass}`;
+
+  switch (slot.status) {
+    case 'empty': {
+      slotEl.innerHTML = `
+        <div class="slot__empty" data-team="${team}" data-index="${index}" role="button" tabindex="0" aria-label="Añadir Pokémon al slot ${index + 1}">
+          <span class="slot__empty-icon">＋</span>
+          <span class="slot__empty-label">Añadir</span>
+        </div>`;
+      break;
+    }
+
+    case 'input': {
+      slotEl.classList.add('slot--active');
+      slotEl.innerHTML = `
+        <div class="slot__input-wrap">
           <input
-            class="text-input pokemon-input"
-            type="text"
-            placeholder="Ej: Incineroar"
-            value="${escapeAttribute(slot.nameInput)}"
-            data-team="${teamKey}"
-            data-index="${index}"
+            class="slot__input"
+            type="search"
+            inputmode="search"
             autocomplete="off"
-            autocapitalize="off"
             autocorrect="off"
+            autocapitalize="off"
             spellcheck="false"
-            inputmode="text"
-          />
-          <div
-            class="inline-autocomplete"
-            data-ac-host="pokemon"
-            data-team="${teamKey}"
+            placeholder="Buscar Pokémon…"
+            data-team="${team}"
             data-index="${index}"
-            hidden
-          ></div>
-        </div>
+            value="${escapeHtml(slot.nameInput)}"
+            aria-label="Buscar Pokémon para slot ${index + 1}"
+            aria-autocomplete="list"
+          />
+          <ul class="autocomplete-list" id="ac-${team}-${index}" role="listbox" aria-label="Sugerencias"></ul>
+        </div>`;
 
-        <button
-          class="icon-btn"
-          type="button"
-          data-action="load-slot"
-          data-team="${teamKey}"
-          data-index="${index}"
-          aria-label="Cargar Pokémon"
-          title="Cargar"
-        >
-          ↗
-        </button>
-      </div>
-
-      ${content}
-      ${movesPanel}
-    </article>
-  `;
-}
-
-function getAutocompleteHost(kind, teamKey, slotIndex, moveIndex = null) {
-  const selector =
-    kind === "pokemon"
-      ? `.inline-autocomplete[data-ac-host="pokemon"][data-team="${teamKey}"][data-index="${slotIndex}"]`
-      : `.inline-autocomplete[data-ac-host="move"][data-team="${teamKey}"][data-index="${slotIndex}"][data-move-index="${moveIndex}"]`;
-
-  return document.querySelector(selector);
-}
-
-function clearAutocompleteHost(ac = runtime.autocomplete) {
-  if (!ac || !ac.kind || !ac.teamKey || Number.isNaN(ac.slotIndex)) return;
-  const host = getAutocompleteHost(ac.kind, ac.teamKey, ac.slotIndex, ac.moveIndex);
-  if (!host) return;
-  host.hidden = true;
-  host.innerHTML = "";
-}
-
-function renderAutocompleteHost() {
-  const ac = runtime.autocomplete;
-  if (!ac.open || !ac.items.length) {
-    clearAutocompleteHost(ac);
-    return;
-  }
-
-  const host = getAutocompleteHost(ac.kind, ac.teamKey, ac.slotIndex, ac.moveIndex);
-  if (!host) return;
-
-  host.innerHTML = ac.items
-    .map((item, index) => `
-      <button
-        type="button"
-        class="inline-autocomplete-item ${index === ac.activeIndex ? "is-active" : ""}"
-        data-autocomplete-kind="${escapeAttribute(ac.kind)}"
-        data-autocomplete-value="${escapeAttribute(item.displayName)}"
-        data-autocomplete-team="${escapeAttribute(ac.teamKey)}"
-        data-autocomplete-slot="${ac.slotIndex}"
-        ${ac.kind === "move" ? `data-autocomplete-move-index="${ac.moveIndex}"` : ""}
-        role="option"
-        aria-selected="${index === ac.activeIndex ? "true" : "false"}"
-      >
-        <span>${escapeHtml(item.displayName)}</span>
-        <small>${ac.kind === "pokemon" ? "Pokémon" : "Movimiento"}</small>
-      </button>
-    `)
-    .join("");
-
-  host.hidden = false;
-}
-
-function openAutocomplete({ kind, teamKey, slotIndex, moveIndex = null, items }) {
-  clearAutocompleteHost(runtime.autocomplete);
-
-  runtime.autocomplete = {
-    open: true,
-    kind,
-    teamKey,
-    slotIndex,
-    moveIndex,
-    items,
-    activeIndex: 0
-  };
-
-  renderAutocompleteHost();
-}
-
-function closeAutocomplete() {
-  clearAutocompleteHost(runtime.autocomplete);
-
-  runtime.autocomplete = {
-    open: false,
-    kind: null,
-    teamKey: null,
-    slotIndex: null,
-    moveIndex: null,
-    items: [],
-    activeIndex: 0
-  };
-}
-
-function applyAutocompleteSelection(displayValue, kind) {
-  const ac = runtime.autocomplete;
-  if (!ac.open) return;
-
-  if (kind === "pokemon") {
-    const selector = `.pokemon-input[data-team="${ac.teamKey}"][data-index="${ac.slotIndex}"]`;
-    const input = document.querySelector(selector);
-
-    if (input) {
-      input.value = displayValue;
+      // Montar autocomplete y enfocar SIN scroll
+      const input = slotEl.querySelector('.slot__input');
+      const list = slotEl.querySelector('.autocomplete-list');
+      initAutocomplete(input, list, team, index);
+      // Foco sin scroll
+      input.focus({ preventScroll: true });
+      break;
     }
 
-    state[ac.teamKey][ac.slotIndex].nameInput = displayValue;
-    closeAutocomplete();
-
-    setTimeout(() => {
-      void loadPokemonIntoSlot(ac.teamKey, ac.slotIndex, displayValue);
-    }, 0);
-
-    return;
-  }
-
-  const selector = `.move-input[data-team="${ac.teamKey}"][data-index="${ac.slotIndex}"][data-move-index="${ac.moveIndex}"]`;
-  const input = document.querySelector(selector);
-
-  if (input) {
-    input.value = displayValue;
-  }
-
-  state[ac.teamKey][ac.slotIndex].moves[ac.moveIndex] = displayValue;
-
-  if (ac.teamKey === "myTeam") {
-    persistMyTeam();
-    updateSaveIndicator("Equipo guardado");
-  }
-
-  closeAutocomplete();
-
-  requestAnimationFrame(() => {
-    const sameInput = document.querySelector(selector);
-    if (sameInput) {
-      sameInput.focus({ preventScroll: true });
-      const len = sameInput.value.length;
-      sameInput.setSelectionRange(len, len);
+    case 'loading': {
+      slotEl.innerHTML = `
+        <div class="slot__loading">
+          <div class="spinner"></div>
+          <span>Cargando…</span>
+        </div>`;
+      break;
     }
-  });
+
+    case 'error': {
+      slotEl.innerHTML = `
+        <div class="slot__error">
+          <span class="slot__error-msg">⚠️ ${escapeHtml(slot.error || 'Error desconocido')}</span>
+          <button class="slot__error-retry" data-team="${team}" data-index="${index}">Reintentar</button>
+        </div>`;
+      break;
+    }
+
+    case 'filled': {
+      slotEl.classList.add('slot--filled');
+      slotEl.innerHTML = renderFilledCard(slot.pokemon, team, index);
+      break;
+    }
+  }
 }
 
-function scheduleAutocompleteSearch(inputEl) {
-  clearTimeout(runtime.debounceId);
-  const token = ++runtime.latestInputToken;
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
-  runtime.debounceId = setTimeout(async () => {
-    const teamKey = inputEl.dataset.team;
-    const slotIndex = Number(inputEl.dataset.index);
+function renderAllSlots(team) {
+  const arr = team === 'my' ? state.myTeam : state.rivalTeam;
+  arr.forEach((_, i) => renderSlot(team, i));
+}
 
-    if (!document.body.contains(inputEl)) {
-      closeAutocomplete();
+/* ============================================================
+   AUTOCOMPLETE
+   ============================================================ */
+function initAutocomplete(input, listEl, team, index) {
+  let currentQuery = '';
+  let pokemonListLoaded = false;
+  let highlighted = -1;
+
+  function getSlotState() {
+    return team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  }
+
+  function updateHighlight(items, newIdx) {
+    if (highlighted >= 0 && items[highlighted]) {
+      items[highlighted].classList.remove('is-highlighted');
+    }
+    highlighted = newIdx;
+    if (highlighted >= 0 && items[highlighted]) {
+      items[highlighted].classList.add('is-highlighted');
+    }
+  }
+
+  const doSearch = debounce(async (query) => {
+    // Re-verificar que el slot sigue en modo input
+    if (getSlotState().status !== 'input') return;
+    if (!query || query.length < 2) {
+      listEl.innerHTML = '';
+      listEl.classList.remove('is-open');
       return;
     }
 
-    if (inputEl.matches(".pokemon-input")) {
-      const query = inputEl.value.trim();
-
-      if (query.length < 2) {
-        closeAutocomplete();
-        return;
-      }
-
-      const index = await ensurePokemonIndex();
-      if (token !== runtime.latestInputToken) return;
-
-      const results = searchIndex(index, query).slice(0, 8);
-
-      if (!results.length) {
-        closeAutocomplete();
-        return;
-      }
-
-      openAutocomplete({
-        kind: "pokemon",
-        teamKey,
-        slotIndex,
-        items: results
-      });
+    let list;
+    try {
+      list = await loadPokemonList();
+      pokemonListLoaded = true;
+    } catch {
       return;
     }
 
-    if (inputEl.matches(".move-input")) {
-      const moveIndex = Number(inputEl.dataset.moveIndex);
-      const query = inputEl.value.trim();
+    // Si el input ha cambiado mientras cargaba, no actualizar
+    if (input.value.trim().toLowerCase() !== query) return;
 
-      if (query.length < 2) {
-        closeAutocomplete();
-        return;
+    const q = query.toLowerCase();
+    const results = list
+      .filter(p => p.name.includes(q) || String(p.id) === q)
+      .slice(0, 8);
+
+    if (!results.length) {
+      listEl.innerHTML = '<li style="padding:12px;font-size:.8rem;color:var(--clr-text-muted);">Sin resultados</li>';
+      listEl.classList.add('is-open');
+      return;
+    }
+
+    highlighted = -1;
+    listEl.innerHTML = results.map((p, i) =>
+      `<li class="autocomplete-list__item"
+          role="option"
+          data-name="${p.name}"
+          data-id="${p.id}"
+          tabindex="-1">
+        <img class="autocomplete-list__img"
+             src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png"
+             alt=""
+             loading="lazy"
+             decoding="async" />
+        <span class="autocomplete-list__name">${capitalize(p.name)}</span>
+        <span class="autocomplete-list__id">#${String(p.id).padStart(4,'0')}</span>
+      </li>`
+    ).join('');
+
+    listEl.classList.add('is-open');
+  }, DEBOUNCE_MS);
+
+  async function selectPokemon(nameEn) {
+    const slotState = getSlotState();
+    slotState.status = 'loading';
+    // NO re-renderizar el slot completo para no perder foco — solo cerrar el dropdown
+    listEl.innerHTML = '';
+    listEl.classList.remove('is-open');
+
+    // Renderizar solo el loading
+    renderSlot(team, index);
+
+    try {
+      const resolved = await resolvePokemon(nameEn);
+      slotState.pokemon = resolved;
+      slotState.status = 'filled';
+    } catch (e) {
+      slotState.status = 'error';
+      slotState.error = e.message || 'Error al cargar el Pokémon';
+    }
+
+    renderSlot(team, index);
+  }
+
+  // ---- EVENTOS ----
+
+  input.addEventListener('input', () => {
+    const slotState = getSlotState();
+    if (slotState.status !== 'input') return;
+    slotState.nameInput = input.value;
+    const query = input.value.trim().toLowerCase();
+    currentQuery = query;
+    doSearch(query);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const items = Array.from(listEl.querySelectorAll('.autocomplete-list__item'));
+    if (!items.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      updateHighlight(items, Math.min(highlighted + 1, items.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      updateHighlight(items, Math.max(highlighted - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlighted >= 0 && items[highlighted]) {
+        const name = items[highlighted].dataset.name;
+        if (name) selectPokemon(name);
       }
-
-      const index = await ensureMoveIndex();
-      if (token !== runtime.latestInputToken) return;
-
-      const results = searchIndex(index, query).slice(0, 8);
-
-      if (!results.length) {
-        closeAutocomplete();
-        return;
-      }
-
-      openAutocomplete({
-        kind: "move",
-        teamKey,
-        slotIndex,
-        moveIndex,
-        items: results
-      });
-    }
-  }, 90);
-}
-
-function searchIndex(index, query) {
-  const q = normalizeApiName(query);
-  const lowerQuery = query.trim().toLowerCase();
-  const starts = [];
-  const contains = [];
-
-  for (const item of index) {
-    const name = item.name;
-    const display = item.displayName.toLowerCase();
-
-    if (name.startsWith(q) || display.startsWith(lowerQuery)) {
-      starts.push(item);
-    } else if (name.includes(q) || display.includes(lowerQuery)) {
-      contains.push(item);
-    }
-
-    if (starts.length >= 8) break;
-  }
-
-  if (starts.length >= 8) return starts;
-  return [...starts, ...contains].slice(0, 8);
-}
-
-function renderOverview() {
-  const container = document.getElementById("overviewContent");
-  if (!container) return;
-
-  if (state.loadingAnalysis) {
-    container.innerHTML = renderLoadingCards(3);
-    return;
-  }
-
-  if (!state.analysis) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <h3>Aún no hay análisis</h3>
-        <p>Carga tu equipo, mete el rival y pulsa analizar para ver la lectura general del matchup.</p>
-      </div>
-    `;
-    return;
-  }
-
-  if (state.analysis.error) {
-    container.innerHTML = `
-      <div class="error-state">
-        <h3>No se pudo generar el análisis</h3>
-        <p>${escapeHtml(state.analysis.error)}</p>
-      </div>
-    `;
-    return;
-  }
-
-  const summary = state.analysis.summary;
-
-  container.innerHTML = `
-    <div class="summary-grid">
-      <article class="summary-card">
-        <h3 class="summary-title">Pulso del matchup</h3>
-        <p class="card-subtext">Visión rápida antes de decidir tus 4.</p>
-        <div class="chips-wrap">
-          <span class="small-chip good">${summary.favorable} picks con presión clara</span>
-          <span class="small-chip warn">${summary.risky} picks con más riesgo</span>
-          <span class="small-chip">Amenaza principal: ${escapeHtml(summary.mainThreat)}</span>
-        </div>
-      </article>
-
-      <article class="summary-card">
-        <h3 class="summary-title">Núcleo rival visible</h3>
-        <p class="card-subtext">Primeros nombres detectados del rival.</p>
-        <div class="reason-list">
-          ${summary.rivalCore.map((name) => `<span class="reason-bullet">${escapeHtml(name)}</span>`).join("") || `<span class="reason-bullet">Sin datos</span>`}
-        </div>
-      </article>
-
-      <article class="summary-card">
-        <h3 class="summary-title">Debilidades compartidas</h3>
-        <p class="card-subtext">Si repites estas debilidades, evita sobrecargar tu top 4.</p>
-        <div class="chips-wrap">
-          ${summary.sharedWeaknesses.length
-            ? summary.sharedWeaknesses.map((entry) => `<span class="small-chip weak">${escapeHtml(formatDisplayName(entry.type))} ×${entry.count}</span>`).join("")
-            : `<span class="small-chip good">Sin solapamiento grave</span>`}
-        </div>
-      </article>
-
-      <article class="summary-card">
-        <h3 class="summary-title">Inmunidades útiles</h3>
-        <p class="card-subtext">Puntos de entrada o leads que dan margen táctico.</p>
-        <div class="chips-wrap">
-          ${summary.usefulImmunities.length
-            ? summary.usefulImmunities.map((entry) => `<span class="small-chip warn">${escapeHtml(formatDisplayName(entry.type))} ×${entry.count}</span>`).join("")
-            : `<span class="small-chip">Sin inmunidades repetidas</span>`}
-        </div>
-      </article>
-    </div>
-  `;
-}
-
-function renderRecommendation() {
-  const container = document.getElementById("recommendationContent");
-  if (!container) return;
-
-  if (state.loadingAnalysis) {
-    container.innerHTML = renderLoadingCards(4);
-    return;
-  }
-
-  if (!state.analysis) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <h3>Recomendación táctica pendiente</h3>
-        <p>Cuando analices el matchup aparecerán aquí tu top 4, el mejor lead y los picks poco recomendables.</p>
-      </div>
-    `;
-    return;
-  }
-
-  if (state.analysis.error) {
-    container.innerHTML = `
-      <div class="error-state">
-        <h3>Error de recomendación</h3>
-        <p>${escapeHtml(state.analysis.error)}</p>
-      </div>
-    `;
-    return;
-  }
-
-  const { top4, bestLead, altLead, threats, weakPicks } = state.analysis;
-
-  container.innerHTML = `
-    <article class="recommendation-card">
-      <div class="score-card-head">
-        <div>
-          <h3 class="card-title">Top 4 para llevar</h3>
-          <p class="card-subtext">Ordenados por matchup, utilidad y cobertura real.</p>
-        </div>
-      </div>
-
-      <div class="content-stack">
-        ${top4.map((entry, idx) => `
-          <div class="pick-item">
-            <div>
-              <strong>#${idx + 1} ${escapeHtml(entry.slot.pokemon.displayName)}</strong>
-              <div class="reason-list">
-                ${entry.reasons.slice(0, 2).map((reason) => `<span class="reason-bullet">${escapeHtml(reason)}</span>`).join("")}
-              </div>
-            </div>
-            <span class="score-chip small-chip">${entry.score}</span>
-          </div>
-        `).join("")}
-      </div>
-    </article>
-
-    <article class="recommendation-card">
-      <h3 class="card-title">Mejor lead de 2</h3>
-      <p class="card-subtext">La pareja con mejor presión inicial y sinergia táctica.</p>
-      ${bestLead ? `
-        <div class="pick-item">
-          <div>
-            <strong>${escapeHtml(bestLead.members[0].slot.pokemon.displayName)} + ${escapeHtml(bestLead.members[1].slot.pokemon.displayName)}</strong>
-            <div class="reason-list">
-              ${bestLead.reasons.map((reason) => `<span class="reason-bullet">${escapeHtml(reason)}</span>`).join("")}
-            </div>
-          </div>
-          <span class="score-chip small-chip good">${bestLead.score}</span>
-        </div>
-      ` : `<p class="inline-message">No hay suficientes picks para recomendar lead.</p>`}
-    </article>
-
-    <article class="recommendation-card">
-      <h3 class="card-title">Lead alternativo</h3>
-      <p class="card-subtext">Plan B útil si esperas otra apertura rival.</p>
-      ${altLead ? `
-        <div class="pick-item">
-          <div>
-            <strong>${escapeHtml(altLead.members[0].slot.pokemon.displayName)} + ${escapeHtml(altLead.members[1].slot.pokemon.displayName)}</strong>
-            <div class="reason-list">
-              ${altLead.reasons.map((reason) => `<span class="reason-bullet">${escapeHtml(reason)}</span>`).join("")}
-            </div>
-          </div>
-          <span class="score-chip small-chip warn">${altLead.score}</span>
-        </div>
-      ` : `<p class="inline-message">No hay una alternativa clara todavía.</p>`}
-    </article>
-
-    <article class="recommendation-card">
-      <h3 class="card-title">Amenazas y malos picks</h3>
-      <p class="card-subtext">Qué respetar y qué evitar salvo lectura muy concreta.</p>
-
-      <div class="content-stack">
-        <div>
-          <strong>Amenazas rivales</strong>
-          <div class="reason-list">
-            ${threats.map((entry) => `
-              <span class="reason-bullet">
-                ${escapeHtml(entry.slot.pokemon.displayName)} · ${escapeHtml(entry.reasons[0] || "Alta presión general.")}
-              </span>
-            `).join("")}
-          </div>
-        </div>
-
-        <div>
-          <strong>Picks poco recomendables</strong>
-          <div class="reason-list">
-            ${weakPicks.map((entry) => `
-              <span class="reason-bullet">
-                ${escapeHtml(entry.slot.pokemon.displayName)} · ${escapeHtml(entry.cautions[0] || "Menor presión o peor encaje en este matchup.")}
-              </span>
-            `).join("")}
-          </div>
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-function renderDetails() {
-  const container = document.getElementById("detailsContent");
-  if (!container) return;
-
-  const teamKey = state.detailsTab === "my" ? "myTeam" : "rivalTeam";
-  const entries = getFilledEntries(teamKey);
-
-  if (!entries.length) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <h3>Sin detalles todavía</h3>
-        <p>${teamKey === "myTeam" ? "Carga tu equipo principal para ver cada ficha detallada." : "Añade el rival para ver las amenazas una a una."}</p>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = entries.map((entry) => {
-    const pokemon = entry.slot.pokemon;
-    const analysisEntry = state.analysis?.scoredMy?.find((item) => item.index === entry.index && teamKey === "myTeam");
-    const moveLabels = teamKey === "myTeam"
-      ? entry.slot.moves.filter(Boolean).map((move) => `<span class="small-chip">${escapeHtml(move)}</span>`).join("")
-      : "";
-
-    return `
-      <article class="detail-card">
-        <div class="detail-head">
-          <div class="sprite-frame">
-            ${pokemon.sprite
-              ? `<img src="${escapeHtml(pokemon.sprite)}" alt="${escapeHtml(pokemon.displayName)}" width="64" height="64" loading="lazy" decoding="async">`
-              : `<span>${escapeHtml(pokemon.displayName.slice(0, 2).toUpperCase())}</span>`}
-          </div>
-
-          <div>
-            <div class="pokemon-name">
-              <strong>${escapeHtml(pokemon.displayName)}</strong>
-              ${analysisEntry ? `<span class="small-chip good">Score ${analysisEntry.score}</span>` : ""}
-            </div>
-            <div class="badge-row">
-              ${pokemon.types.map(renderTypeChip).join("")}
-            </div>
-          </div>
-        </div>
-
-        <div class="chips-wrap">
-          ${pokemon.abilities.map((ability) => `<span class="small-chip">${escapeHtml(ability.displayName)}</span>`).join("")}
-        </div>
-
-        <div class="stat-grid">
-          ${renderStatPill("HP", pokemon.stats.hp)}
-          ${renderStatPill("Atk", pokemon.stats.attack)}
-          ${renderStatPill("Def", pokemon.stats.defense)}
-          ${renderStatPill("SpA", pokemon.stats["special-attack"])}
-          ${renderStatPill("SpD", pokemon.stats["special-defense"])}
-          ${renderStatPill("Spe", pokemon.stats.speed)}
-        </div>
-
-        <div class="chips-wrap">
-          ${pokemon.matchup.weaknesses.map((type) => `<span class="small-chip weak">${escapeHtml(formatDisplayName(type))}</span>`).join("")}
-          ${pokemon.matchup.resistances.map((type) => `<span class="small-chip good">${escapeHtml(formatDisplayName(type))}</span>`).join("")}
-          ${pokemon.matchup.immunities.map((type) => `<span class="small-chip warn">${escapeHtml(formatDisplayName(type))}</span>`).join("")}
-        </div>
-
-        ${teamKey === "myTeam" ? `
-          <div>
-            <p class="detail-copy">Movimientos introducidos</p>
-            <div class="chips-wrap">
-              ${moveLabels || `<span class="small-chip">Sin movimientos aún</span>`}
-            </div>
-          </div>
-        ` : ""}
-
-        ${analysisEntry ? `
-          <div>
-            <p class="detail-copy">Razones para este pick</p>
-            <div class="reason-list">
-              ${analysisEntry.reasons.map((reason) => `<span class="reason-bullet">${escapeHtml(reason)}</span>`).join("")}
-              ${analysisEntry.cautions.map((reason) => `<span class="reason-bullet">${escapeHtml(reason)}</span>`).join("")}
-            </div>
-          </div>
-        ` : ""}
-      </article>
-    `;
-  }).join("");
-}
-
-function renderLoadingCards(count) {
-  return Array.from({ length: count }, () => `
-    <article class="summary-card">
-      <div class="skeleton skeleton-line lg"></div>
-      <div class="skeleton skeleton-line md"></div>
-      <div class="skeleton skeleton-line sm"></div>
-    </article>
-  `).join("");
-}
-
-function hydrateMyTeamAndRender() {
-  hydrateMyTeam();
-  renderAll();
-}
-
-function hydrateMyTeam() {
-  const raw = safeStorageGet(STORAGE_KEYS.myTeam);
-  if (!raw) return;
-
-  let saved;
-  try {
-    saved = JSON.parse(raw);
-  } catch (error) {
-    console.warn("Saved team parse error:", error);
-    return;
-  }
-
-  if (!Array.isArray(saved)) return;
-
-  saved.slice(0, 6).forEach((savedSlot, index) => {
-    const slot = createEmptySlot();
-    slot.moves = Array.isArray(savedSlot?.moves)
-      ? savedSlot.moves.slice(0, 4).map((value) => String(value || ""))
-      : ["", "", "", ""];
-    slot.nameInput = String(savedSlot?.name || "");
-    state.myTeam[index] = slot;
-
-    if (slot.nameInput.trim()) {
-      void loadPokemonIntoSlot("myTeam", index, slot.nameInput.trim());
-    }
-  });
-}
-
-function persistMyTeam() {
-  const payload = state.myTeam.map((slot) => ({
-    name: slot.pokemon?.name || slot.nameInput || "",
-    moves: Array.isArray(slot.moves) ? slot.moves.slice(0, 4) : ["", "", "", ""]
-  }));
-
-  safeStorageSet(STORAGE_KEYS.myTeam, JSON.stringify(payload));
-}
-
-function safeStorageGet(key) {
-  try {
-    return window.localStorage.getItem(key);
-  } catch (error) {
-    return storageFallback[key] ?? null;
-  }
-}
-
-function safeStorageSet(key, value) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch (error) {
-    storageFallback[key] = value;
-  }
-}
-
-function applyInitialTheme() {
-  const saved = safeStorageGet(STORAGE_KEYS.theme);
-  const systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const theme = saved || (systemDark ? "dark" : "light");
-
-  document.documentElement.setAttribute("data-theme", theme);
-  updateThemeToggle(theme);
-}
-
-function toggleTheme() {
-  const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
-  const next = current === "dark" ? "light" : "dark";
-
-  document.documentElement.setAttribute("data-theme", next);
-  safeStorageSet(STORAGE_KEYS.theme, next);
-  updateThemeToggle(next);
-}
-
-function updateThemeToggle(theme) {
-  const btn = document.getElementById("themeToggle");
-  if (!btn) return;
-  btn.setAttribute("aria-label", theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro");
-  btn.innerHTML = `<span class="theme-icon">${theme === "dark" ? "☀" : "◐"}</span>`;
-}
-
-function updateSaveIndicator(message) {
-  const el = document.getElementById("saveIndicator");
-  if (!el) return;
-  el.textContent = message;
-}
-
-async function fetchJSON(url) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} at ${url}`);
-  }
-  return response.json();
-}
-
-function normalizeApiName(value) {
-  if (!value) return "";
-
-  const aliases = {
-    "mr mime": "mr-mime",
-    "mime jr": "mime-jr",
-    "type null": "type-null",
-    "jangmo o": "jangmo-o",
-    "hakamo o": "hakamo-o",
-    "kommo o": "kommo-o",
-    "tapu koko": "tapu-koko",
-    "tapu lele": "tapu-lele",
-    "tapu bulu": "tapu-bulu",
-    "tapu fini": "tapu-fini",
-    "great tusk": "great-tusk",
-    "iron hands": "iron-hands",
-    "iron bundle": "iron-bundle",
-    "roaring moon": "roaring-moon",
-    "flutter mane": "flutter-mane",
-    "chien pao": "chien-pao",
-    "wo chien": "wo-chien",
-    "ting lu": "ting-lu",
-    "chi yu": "chi-yu",
-    "nidoran♀": "nidoran-f",
-    "nidoran♂": "nidoran-m",
-    "nidoran f": "nidoran-f",
-    "nidoran m": "nidoran-m",
-    "farfetch'd": "farfetchd",
-    "sirfetch'd": "sirfetchd",
-    "will o wisp": "will-o-wisp"
-  };
-
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[.:]/g, " ")
-    .replace(/['’]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (aliases[normalized]) return aliases[normalized];
-
-  return normalized
-    .replace(/[%]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
-function formatDisplayName(value) {
-  if (!value) return "";
-  return value
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase())
-    .replace(/\bSp Atk\b/g, "SpA")
-    .replace(/\bSp Def\b/g, "SpD");
-}
-
-function renderTypeChip(type) {
-  return `<span class="type-chip" style="--type-color: var(--type-${escapeAttribute(type)})">${escapeHtml(formatDisplayName(type))}</span>`;
-}
-
-function renderStatPill(label, value) {
-  return `
-    <div class="stat-pill">
-      <span class="stat-label">${escapeHtml(label)}</span>
-      <span class="stat-value">${escapeHtml(String(value))}</span>
-    </div>
-  `;
-}
-
-function renderFatalError() {
-  const targets = ["overviewContent", "recommendationContent", "detailsContent"];
-  targets.forEach((id) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = `
-      <div class="error-state">
-        <h3>Error crítico</h3>
-        <p>La app no pudo inicializarse. Revisa la consola para ver el detalle.</p>
-      </div>
-    `;
-  });
-}
-
-function bindKeyboardViewportMode() {
-  document.addEventListener("focusin", (event) => {
-    if (event.target.matches("input")) {
-      document.body.classList.add("keyboard-open");
-      document.body.classList.add("input-active");
+    } else if (e.key === 'Escape') {
+      listEl.innerHTML = '';
+      listEl.classList.remove('is-open');
+      cancelInput(team, index);
     }
   });
 
-  document.addEventListener("focusout", () => {
+  // mousedown en vez de click para que se ejecute ANTES del blur del input
+  listEl.addEventListener('mousedown', (e) => {
+    e.preventDefault(); // evita que el input pierda el foco
+    const item = e.target.closest('.autocomplete-list__item');
+    if (item && item.dataset.name) {
+      selectPokemon(item.dataset.name);
+    }
+  });
+
+  // Touch: igual que mousedown
+  listEl.addEventListener('touchstart', (e) => {
+    const item = e.target.closest('.autocomplete-list__item');
+    if (item && item.dataset.name) {
+      e.preventDefault();
+      selectPokemon(item.dataset.name);
+    }
+  }, { passive: false });
+
+  input.addEventListener('blur', () => {
+    // Pequeño delay para que mousedown/touchstart se ejecuten primero
     setTimeout(() => {
-      if (!document.querySelector("input:focus")) {
-        document.body.classList.remove("keyboard-open");
-        document.body.classList.remove("input-active");
+      const slotState = getSlotState();
+      if (slotState.status === 'input') {
+        listEl.innerHTML = '';
+        listEl.classList.remove('is-open');
+        // Si no hay nada escrito, volver a empty
+        if (!slotState.nameInput.trim()) {
+          cancelInput(team, index);
+        }
       }
-    }, 120);
+    }, 200);
   });
 }
 
-function scheduleWarmup() {
-  scheduleIdleTask(() => {
-    void ensurePokemonIndex();
-  }, 800);
-  scheduleIdleTask(() => {
-    void ensureTypeChart();
-  }, 1400);
+function cancelInput(team, index) {
+  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  slot.status = 'empty';
+  slot.nameInput = '';
+  renderSlot(team, index);
 }
 
-function prewarmFromIntent(kind) {
-  if (kind === "pokemon") {
-    scheduleIdleTask(() => {
-      void ensurePokemonIndex();
-    }, 600);
-    scheduleIdleTask(() => {
-      void ensureTypeChart();
-    }, 1200);
-  }
-
-  if (kind === "move") {
-    scheduleIdleTask(() => {
-      void ensureMoveIndex();
-    }, 700);
-  }
+/* ============================================================
+   SCAFFOLD DE SLOTS — crear elementos DOM base sin innerHTML
+   ============================================================ */
+function buildSlotScaffold(team, index) {
+  const el = document.createElement('div');
+  el.className = `slot slot--${team === 'my' ? 'my' : 'rival'}`;
+  el.setAttribute('data-slot-index', index);
+  el.setAttribute('role', 'listitem');
+  return el;
 }
 
-function scheduleIdleTask(task, timeout = 1000) {
-  if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(() => task(), { timeout });
-  } else {
-    setTimeout(task, 180);
+function initGrid(team) {
+  const gridId = team === 'my' ? 'myTeamGrid' : 'rivalTeamGrid';
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = '';
+  for (let i = 0; i < TEAM_SIZE; i++) {
+    grid.appendChild(buildSlotScaffold(team, i));
   }
 }
 
-function deepCopy(value) {
-  return JSON.parse(JSON.stringify(value));
+/* ============================================================
+   EVENTOS
+   ============================================================ */
+function handleSlotActivation(team, index) {
+  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  if (slot.status === 'empty') {
+    slot.status = 'input';
+    slot.nameInput = '';
+    renderSlot(team, index);
+  }
 }
 
-function intersection(a, b) {
-  const setB = new Set(b);
-  return [...new Set(a)].filter((item) => setB.has(item));
+function handleRemove(team, index) {
+  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  slot.status = 'empty';
+  slot.pokemon = null;
+  slot.nameInput = '';
+  slot.error = null;
+  renderSlot(team, index);
 }
 
-function uniqueShort(items) {
-  return [...new Set(items)].filter(Boolean);
+function handleRetry(team, index) {
+  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  slot.status = 'input';
+  slot.error = null;
+  slot.nameInput = '';
+  renderSlot(team, index);
 }
 
-function round1(value) {
-  return Math.round(value * 10) / 10;
+function clearTeam(team) {
+  const arr = team === 'my' ? state.myTeam : state.rivalTeam;
+  arr.forEach((slot, i) => {
+    slot.status = 'empty';
+    slot.pokemon = null;
+    slot.nameInput = '';
+    slot.error = null;
+  });
+  renderAllSlots(team);
 }
 
-function countFilled(values) {
-  return values.filter((value) => value && value.trim()).length;
+function bindEvents() {
+  // Delegación de eventos en grids
+  ['myTeamGrid', 'rivalTeamGrid'].forEach(gridId => {
+    const grid = document.getElementById(gridId);
+    const team = gridId === 'myTeamGrid' ? 'my' : 'rival';
+
+    grid.addEventListener('click', (e) => {
+      // Activar slot vacío
+      const emptyEl = e.target.closest('[data-slot-index]');
+      if (!emptyEl) return;
+      const index = parseInt(emptyEl.dataset.slotIndex ?? emptyEl.closest('[data-slot-index]')?.dataset.slotIndex, 10);
+
+      // Botón eliminar
+      const removeBtn = e.target.closest('.slot__btn-remove');
+      if (removeBtn) {
+        const t = removeBtn.dataset.team;
+        const i = parseInt(removeBtn.dataset.index, 10);
+        handleRemove(t, i);
+        return;
+      }
+
+      // Retry
+      const retryBtn = e.target.closest('.slot__error-retry');
+      if (retryBtn) {
+        const t = retryBtn.dataset.team;
+        const i = parseInt(retryBtn.dataset.index, 10);
+        handleRetry(t, i);
+        return;
+      }
+
+      // Activar slot vacío
+      const emptyArea = e.target.closest('.slot__empty');
+      if (emptyArea) {
+        const t = emptyArea.dataset.team;
+        const i = parseInt(emptyArea.dataset.index, 10);
+        handleSlotActivation(t, i);
+        return;
+      }
+    });
+
+    // Teclado en slot vacío (accesibilidad)
+    grid.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const emptyArea = e.target.closest('.slot__empty');
+        if (emptyArea) {
+          e.preventDefault();
+          const t = emptyArea.dataset.team;
+          const i = parseInt(emptyArea.dataset.index, 10);
+          handleSlotActivation(t, i);
+        }
+      }
+    });
+  });
+
+  // Guardar
+  document.getElementById('saveTeamBtn')?.addEventListener('click', saveMyTeam);
+
+  // Limpiar equipos
+  document.getElementById('clearMyTeamBtn')?.addEventListener('click', () => {
+    if (confirm('¿Limpiar todo mi equipo?')) clearTeam('my');
+  });
+  document.getElementById('clearRivalTeamBtn')?.addEventListener('click', () => {
+    if (confirm('¿Limpiar el equipo rival?')) clearTeam('rival');
+  });
 }
 
-function samePair(a, b) {
-  if (!a || !b) return false;
-  const aIds = a.members.map((member) => member.slot.pokemon.id).sort((x, y) => x - y);
-  const bIds = b.members.map((member) => member.slot.pokemon.id).sort((x, y) => x - y);
-  return aIds[0] === bIds[0] && aIds[1] === bIds[1];
+function bindTheme() {
+  const btn = document.getElementById('themeToggle');
+  const icon = btn?.querySelector('.theme-toggle__icon');
+  const html = document.documentElement;
+
+  // Cargar tema guardado
+  const saved = localStorage.getItem('champions_meta_theme');
+  if (saved) {
+    html.setAttribute('data-theme', saved);
+    if (icon) icon.textContent = saved === 'light' ? '☀️' : '🌙';
+  }
+
+  btn?.addEventListener('click', () => {
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    if (icon) icon.textContent = next === 'light' ? '☀️' : '🌙';
+    localStorage.setItem('champions_meta_theme', next);
+  });
 }
 
-function countTypeOccurrences(types) {
-  return types.reduce((acc, type) => {
-    acc[type] = (acc[type] || 0) + 1;
-    return acc;
-  }, {});
+/* ============================================================
+   INIT
+   ============================================================ */
+async function init() {
+  bindTheme();
+
+  // Construir grids
+  initGrid('my');
+  initGrid('rival');
+
+  // Renderizar estado inicial
+  renderAllSlots('my');
+  renderAllSlots('rival');
+
+  // Eventos
+  bindEvents();
+
+  // Cargar lista de Pokémon en segundo plano (pre-warm del caché)
+  loadPokemonList().catch(() => {});
+
+  // Restaurar equipo guardado
+  await loadSavedTeam();
 }
 
-function isSpreadTarget(target) {
-  return [
-    "all-opponents",
-    "all-other-pokemon",
-    "all-pokemon",
-    "entire-field",
-    "user-and-allies"
-  ].includes(target);
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function escapeAttribute(value) {
-  return escapeHtml(value).replace(/'/g, "&#39;");
-}
+document.addEventListener('DOMContentLoaded', init);
