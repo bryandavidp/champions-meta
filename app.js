@@ -86,13 +86,32 @@ const storageFallback = {
   theme: null
 };
 
+const runtime = {
+  autocomplete: {
+    open: false,
+    kind: null,
+    teamKey: null,
+    slotIndex: null,
+    moveIndex: null,
+    inputEl: null,
+    items: [],
+    activeIndex: 0
+  },
+  debounceId: null,
+  latestInputToken: 0
+};
+
 document.addEventListener("DOMContentLoaded", init);
 
 function init() {
   try {
     applyInitialTheme();
+    ensureAutocompleteLayer();
     hydrateMyTeam();
     bindGlobalEvents();
+    setupAutocomplete();
+    bindKeyboardViewportMode();
+    scheduleWarmup();
     renderAll();
   } catch (error) {
     console.error("Init error:", error);
@@ -134,14 +153,24 @@ function bindGlobalEvents() {
 
   byId("myTeamGrid")?.addEventListener("focusin", onTeamGridFocusIn);
   byId("rivalTeamGrid")?.addEventListener("focusin", onTeamGridFocusIn);
+
+  byId("myTeamGrid")?.addEventListener("keydown", onTeamGridKeyDown);
+  byId("rivalTeamGrid")?.addEventListener("keydown", onTeamGridKeyDown);
+
+  window.addEventListener("orientationchange", () => {
+    setTimeout(repositionAutocomplete, 150);
+  });
 }
 
 function onTeamGridFocusIn(event) {
   if (event.target.matches(".pokemon-input")) {
     void ensurePokemonIndex();
+    prewarmFromIntent("pokemon");
   }
+
   if (event.target.matches(".move-input")) {
     void ensureMoveIndex();
+    prewarmFromIntent("move");
   }
 }
 
@@ -154,12 +183,17 @@ function onTeamGridInput(event) {
 
   if (el.matches(".pokemon-input")) {
     state[teamKey][index].nameInput = el.value;
+    scheduleAutocompleteSearch(el);
+    prewarmFromIntent("pokemon");
   }
 
   if (el.matches(".move-input")) {
     const moveIndex = Number(el.dataset.moveIndex);
     if (Number.isNaN(moveIndex)) return;
     state[teamKey][index].moves[moveIndex] = el.value;
+    scheduleAutocompleteSearch(el);
+    prewarmFromIntent("move");
+
     if (teamKey === "myTeam") {
       persistMyTeam();
       updateSaveIndicator("Equipo guardado");
@@ -178,7 +212,42 @@ function onTeamGridChange(event) {
   if (!teamKey || Number.isNaN(index) || !state[teamKey]) return;
   if (typed.length < 2) return;
 
+  const ac = runtime.autocomplete;
+  if (ac.open && ac.inputEl === el && ac.items.length) return;
+
   void loadPokemonIntoSlot(teamKey, index, typed);
+}
+
+function onTeamGridKeyDown(event) {
+  const ac = runtime.autocomplete;
+  if (!ac.open) return;
+
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    ac.activeIndex = Math.min(ac.activeIndex + 1, ac.items.length - 1);
+    renderAutocomplete();
+    return;
+  }
+
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    ac.activeIndex = Math.max(ac.activeIndex - 1, 0);
+    renderAutocomplete();
+    return;
+  }
+
+  if (event.key === "Enter") {
+    if (ac.items.length) {
+      event.preventDefault();
+      const item = ac.items[ac.activeIndex];
+      applyAutocompleteSelection(item.displayName, ac.kind);
+    }
+    return;
+  }
+
+  if (event.key === "Escape") {
+    closeAutocomplete();
+  }
 }
 
 function onTeamGridClick(event) {
@@ -213,7 +282,6 @@ function setDetailsTab(tab) {
 
   myTab?.classList.toggle("is-active", tab === "my");
   rivalTab?.classList.toggle("is-active", tab === "rival");
-
   myTab?.setAttribute("aria-selected", String(tab === "my"));
   rivalTab?.setAttribute("aria-selected", String(tab === "rival"));
 
@@ -232,6 +300,7 @@ function clearSlot(teamKey, index) {
 
   state[teamKey][index] = fresh;
   state.analysis = null;
+  closeAutocomplete();
 
   if (teamKey === "myTeam") {
     persistMyTeam();
@@ -244,6 +313,7 @@ function clearSlot(teamKey, index) {
 function clearMyTeam() {
   state.myTeam = Array.from({ length: 6 }, createEmptySlot);
   state.analysis = null;
+  closeAutocomplete();
   persistMyTeam();
   updateSaveIndicator("Equipo borrado");
   renderAll();
@@ -252,6 +322,7 @@ function clearMyTeam() {
 function clearRivalTeam() {
   state.rivalTeam = Array.from({ length: 6 }, createEmptySlot);
   state.analysis = null;
+  closeAutocomplete();
   renderAll();
 }
 
@@ -271,9 +342,12 @@ async function loadPokemonIntoSlot(teamKey, index, rawName) {
     state[teamKey][index].error = "";
     state[teamKey][index].nameInput = pokemon.displayName;
 
+    scheduleIdleTask(() => { void ensureTypeChart(); }, 500);
+
     if (teamKey === "myTeam") {
       persistMyTeam();
       updateSaveIndicator("Equipo guardado");
+      scheduleIdleTask(() => { void ensureMoveIndex(); }, 900);
     }
   } catch (error) {
     console.error("loadPokemonIntoSlot error:", error);
@@ -424,7 +498,6 @@ async function ensurePokemonIndex() {
         name: entry.name,
         displayName: formatDisplayName(entry.name)
       }));
-      populateDatalist("pokemonOptions", cache.pokemonIndex.map((item) => item.displayName));
       return cache.pokemonIndex;
     })
     .catch((error) => {
@@ -449,7 +522,6 @@ async function ensureMoveIndex() {
         name: entry.name,
         displayName: formatDisplayName(entry.name)
       }));
-      populateDatalist("moveOptions", cache.moveIndex.map((item) => item.displayName));
       return cache.moveIndex;
     })
     .catch((error) => {
@@ -462,20 +534,6 @@ async function ensureMoveIndex() {
     });
 
   return cache.moveIndexPromise;
-}
-
-function populateDatalist(id, values) {
-  const datalist = document.getElementById(id);
-  if (!datalist) return;
-  if (datalist.childElementCount > 0) return;
-
-  const fragment = document.createDocumentFragment();
-  values.forEach((value) => {
-    const option = document.createElement("option");
-    option.value = value;
-    fragment.appendChild(option);
-  });
-  datalist.appendChild(fragment);
 }
 
 async function analyzeMatchup() {
@@ -492,6 +550,7 @@ async function analyzeMatchup() {
   }
 
   state.loadingAnalysis = true;
+  closeAutocomplete();
   renderOverview();
   renderRecommendation();
 
@@ -913,7 +972,6 @@ function getBestAttackVsTarget(options, targetPokemon) {
     const spreadFactor = option.isSpread ? 1.1 : 1;
     const priorityFactor = option.priority > 0 ? 1.08 : 1;
     const accuracyFactor = (option.accuracy || 100) / 100;
-
     const value = multiplier * stabBonus * powerFactor * spreadFactor * priorityFactor * accuracyFactor * 4;
 
     if (value > best.value) {
@@ -1030,7 +1088,7 @@ function renderTeamSlot(slot, teamKey, index) {
         <div class="pokemon-row">
           <div class="sprite-frame">
             ${slot.pokemon.sprite
-              ? `<img src="${escapeHtml(slot.pokemon.sprite)}" alt="${escapeHtml(slot.pokemon.displayName)}" width="64" height="64" loading="lazy">`
+              ? `<img src="${escapeHtml(slot.pokemon.sprite)}" alt="${escapeHtml(slot.pokemon.displayName)}" width="64" height="64" loading="lazy" decoding="async">`
               : `<span>${escapeHtml(slot.pokemon.displayName.slice(0, 2).toUpperCase())}</span>`}
           </div>
 
@@ -1070,7 +1128,7 @@ function renderTeamSlot(slot, teamKey, index) {
 
   const movesPanel = isMyTeam
     ? `
-      <details class="moves-panel" ${slot.pokemon ? "" : ""}>
+      <details class="moves-panel">
         <summary>
           <span>Movimientos reales</span>
           <span>${countFilled(slot.moves)}/4</span>
@@ -1082,12 +1140,14 @@ function renderTeamSlot(slot, teamKey, index) {
               type="text"
               placeholder="Movimiento ${moveIndex + 1}"
               value="${escapeAttribute(move)}"
-              list="moveOptions"
               data-team="${teamKey}"
               data-index="${index}"
               data-move-index="${moveIndex}"
               autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
               spellcheck="false"
+              inputmode="text"
             />
           `).join("")}
         </div>
@@ -1119,11 +1179,13 @@ function renderTeamSlot(slot, teamKey, index) {
           type="text"
           placeholder="Ej: Incineroar"
           value="${escapeAttribute(slot.nameInput)}"
-          list="pokemonOptions"
           data-team="${teamKey}"
           data-index="${index}"
           autocomplete="off"
+          autocapitalize="off"
+          autocorrect="off"
           spellcheck="false"
+          inputmode="text"
         />
         <button
           class="icon-btn"
@@ -1315,7 +1377,7 @@ function renderRecommendation() {
           <div class="reason-list">
             ${threats.map((entry) => `
               <span class="reason-bullet">
-                ${escapeHtml(entry.slot.pokemon.displayName)} · ${entry.reasons[0] || "Alta presión general."}
+                ${escapeHtml(entry.slot.pokemon.displayName)} · ${escapeHtml(entry.reasons[0] || "Alta presión general.")}
               </span>
             `).join("")}
           </div>
@@ -1326,7 +1388,7 @@ function renderRecommendation() {
           <div class="reason-list">
             ${weakPicks.map((entry) => `
               <span class="reason-bullet">
-                ${escapeHtml(entry.slot.pokemon.displayName)} · ${(entry.cautions[0] || "Menor presión o peor encaje en este matchup.")}
+                ${escapeHtml(entry.slot.pokemon.displayName)} · ${escapeHtml(entry.cautions[0] || "Menor presión o peor encaje en este matchup.")}
               </span>
             `).join("")}
           </div>
@@ -1365,7 +1427,7 @@ function renderDetails() {
         <div class="detail-head">
           <div class="sprite-frame">
             ${pokemon.sprite
-              ? `<img src="${escapeHtml(pokemon.sprite)}" alt="${escapeHtml(pokemon.displayName)}" width="64" height="64" loading="lazy">`
+              ? `<img src="${escapeHtml(pokemon.sprite)}" alt="${escapeHtml(pokemon.displayName)}" width="64" height="64" loading="lazy" decoding="async">`
               : `<span>${escapeHtml(pokemon.displayName.slice(0, 2).toUpperCase())}</span>`}
           </div>
 
@@ -1568,8 +1630,6 @@ function normalizeApiName(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[.:]/g, " ")
     .replace(/['’]/g, "")
-    .replace(/♀/g, "♀")
-    .replace(/♂/g, "♂")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -1616,6 +1676,267 @@ function renderFatalError() {
     `;
   });
 }
+
+/* Autocomplete custom */
+
+function ensureAutocompleteLayer() {
+  if (document.getElementById("autocompleteLayer")) return;
+
+  const layer = document.createElement("div");
+  layer.id = "autocompleteLayer";
+  layer.className = "autocomplete-layer";
+  layer.hidden = true;
+  document.body.appendChild(layer);
+}
+
+function setupAutocomplete() {
+  const layer = document.getElementById("autocompleteLayer");
+  if (!layer) return;
+
+  layer.addEventListener("pointerdown", (event) => {
+    const option = event.target.closest("[data-autocomplete-value]");
+    if (!option) return;
+    event.preventDefault();
+    applyAutocompleteSelection(
+      option.dataset.autocompleteValue,
+      option.dataset.autocompleteKind
+    );
+  });
+
+  document.addEventListener("click", (event) => {
+    const insideInput = event.target.closest(".pokemon-input, .move-input");
+    const insideLayer = event.target.closest("#autocompleteLayer");
+    if (!insideInput && !insideLayer) {
+      closeAutocomplete();
+    }
+  });
+
+  window.addEventListener("resize", repositionAutocomplete);
+  window.visualViewport?.addEventListener("resize", repositionAutocomplete);
+  window.visualViewport?.addEventListener("scroll", repositionAutocomplete);
+}
+
+function bindKeyboardViewportMode() {
+  document.addEventListener("focusin", (event) => {
+    if (event.target.matches("input")) {
+      document.body.classList.add("keyboard-open");
+      repositionAutocomplete();
+    }
+  });
+
+  document.addEventListener("focusout", () => {
+    setTimeout(() => {
+      if (!document.querySelector("input:focus")) {
+        document.body.classList.remove("keyboard-open");
+      }
+    }, 60);
+  });
+}
+
+function openAutocomplete({ kind, teamKey, slotIndex, moveIndex = null, inputEl, items }) {
+  runtime.autocomplete = {
+    open: true,
+    kind,
+    teamKey,
+    slotIndex,
+    moveIndex,
+    inputEl,
+    items,
+    activeIndex: 0
+  };
+  renderAutocomplete();
+}
+
+function closeAutocomplete() {
+  runtime.autocomplete.open = false;
+  runtime.autocomplete.items = [];
+  runtime.autocomplete.inputEl = null;
+
+  const layer = document.getElementById("autocompleteLayer");
+  if (layer) {
+    layer.hidden = true;
+    layer.innerHTML = "";
+  }
+}
+
+function renderAutocomplete() {
+  const layer = document.getElementById("autocompleteLayer");
+  const ac = runtime.autocomplete;
+  if (!layer || !ac.open || !ac.inputEl) return;
+
+  if (!ac.items.length) {
+    closeAutocomplete();
+    return;
+  }
+
+  layer.hidden = false;
+  layer.innerHTML = `
+    <div class="autocomplete-list" role="listbox" aria-label="Sugerencias">
+      ${ac.items.map((item, index) => `
+        <button
+          type="button"
+          class="autocomplete-item ${index === ac.activeIndex ? "is-active" : ""}"
+          data-autocomplete-kind="${escapeAttribute(ac.kind)}"
+          data-autocomplete-value="${escapeAttribute(item.displayName)}"
+          role="option"
+          aria-selected="${index === ac.activeIndex ? "true" : "false"}"
+        >
+          <span>${escapeHtml(item.displayName)}</span>
+          <small>${ac.kind === "pokemon" ? "Pokémon" : "Movimiento"}</small>
+        </button>
+      `).join("")}
+    </div>
+  `;
+
+  repositionAutocomplete();
+}
+
+function repositionAutocomplete() {
+  const layer = document.getElementById("autocompleteLayer");
+  const ac = runtime.autocomplete;
+  if (!layer || !ac.open || !ac.inputEl) return;
+
+  const rect = ac.inputEl.getBoundingClientRect();
+  const vv = window.visualViewport;
+  const topOffset = vv ? vv.offsetTop : 0;
+  const leftOffset = vv ? vv.offsetLeft : 0;
+  const width = Math.min(Math.max(rect.width, 260), window.innerWidth - 16);
+
+  layer.style.left = `${Math.max(8, rect.left + leftOffset)}px`;
+  layer.style.top = `${rect.bottom + topOffset + 8}px`;
+  layer.style.width = `${width}px`;
+}
+
+function applyAutocompleteSelection(displayValue, kind) {
+  const ac = runtime.autocomplete;
+  if (!ac.inputEl) return;
+
+  ac.inputEl.value = displayValue;
+
+  if (kind === "pokemon") {
+    state[ac.teamKey][ac.slotIndex].nameInput = displayValue;
+    closeAutocomplete();
+    void loadPokemonIntoSlot(ac.teamKey, ac.slotIndex, displayValue);
+    return;
+  }
+
+  state[ac.teamKey][ac.slotIndex].moves[ac.moveIndex] = displayValue;
+  if (ac.teamKey === "myTeam") {
+    persistMyTeam();
+    updateSaveIndicator("Equipo guardado");
+  }
+
+  closeAutocomplete();
+}
+
+function scheduleAutocompleteSearch(inputEl) {
+  clearTimeout(runtime.debounceId);
+  const token = ++runtime.latestInputToken;
+
+  runtime.debounceId = setTimeout(async () => {
+    const teamKey = inputEl.dataset.team;
+    const slotIndex = Number(inputEl.dataset.index);
+
+    if (!document.body.contains(inputEl)) {
+      closeAutocomplete();
+      return;
+    }
+
+    if (inputEl.matches(".pokemon-input")) {
+      const query = inputEl.value.trim();
+      if (query.length < 2) {
+        closeAutocomplete();
+        return;
+      }
+
+      const index = await ensurePokemonIndex();
+      if (token !== runtime.latestInputToken) return;
+
+      const results = searchIndex(index, query).slice(0, 8);
+      openAutocomplete({
+        kind: "pokemon",
+        teamKey,
+        slotIndex,
+        inputEl,
+        items: results
+      });
+      return;
+    }
+
+    if (inputEl.matches(".move-input")) {
+      const moveIndex = Number(inputEl.dataset.moveIndex);
+      const query = inputEl.value.trim();
+      if (query.length < 2) {
+        closeAutocomplete();
+        return;
+      }
+
+      const index = await ensureMoveIndex();
+      if (token !== runtime.latestInputToken) return;
+
+      const results = searchIndex(index, query).slice(0, 8);
+      openAutocomplete({
+        kind: "move",
+        teamKey,
+        slotIndex,
+        moveIndex,
+        inputEl,
+        items: results
+      });
+    }
+  }, 90);
+}
+
+function searchIndex(index, query) {
+  const q = normalizeApiName(query);
+  const lowerQuery = query.trim().toLowerCase();
+  const starts = [];
+  const contains = [];
+
+  for (const item of index) {
+    const name = item.name;
+    const display = item.displayName.toLowerCase();
+
+    if (name.startsWith(q) || display.startsWith(lowerQuery)) {
+      starts.push(item);
+    } else if (name.includes(q) || display.includes(lowerQuery)) {
+      contains.push(item);
+    }
+
+    if (starts.length >= 8) break;
+  }
+
+  if (starts.length >= 8) return starts;
+  return [...starts, ...contains].slice(0, 8);
+}
+
+/* Warmup */
+
+function scheduleWarmup() {
+  scheduleIdleTask(() => { void ensurePokemonIndex(); }, 800);
+  scheduleIdleTask(() => { void ensureTypeChart(); }, 1400);
+}
+
+function prewarmFromIntent(kind) {
+  if (kind === "pokemon") {
+    scheduleIdleTask(() => { void ensurePokemonIndex(); }, 600);
+    scheduleIdleTask(() => { void ensureTypeChart(); }, 1200);
+  }
+
+  if (kind === "move") {
+    scheduleIdleTask(() => { void ensureMoveIndex(); }, 700);
+  }
+}
+
+function scheduleIdleTask(task, timeout = 1000) {
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(() => task(), { timeout });
+  } else {
+    setTimeout(task, 180);
+  }
+}
+
+/* Helpers */
 
 function deepCopy(value) {
   return JSON.parse(JSON.stringify(value));
