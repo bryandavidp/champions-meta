@@ -11,6 +11,7 @@
     name="description"
     content="Landing-app táctica mobile-first para team preview competitivo Pokémon dobles 4v4."
   />
+  <meta name="theme-color" content="#0b1017" />
 
   <link rel="preconnect" href="https://api.fontshare.com" />
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
@@ -24,11 +25,12 @@
     <div class="header-inner">
       <a href="#hero" class="brand" aria-label="PokéDoubles Preview">
         <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-          <rect x="7" y="7" width="50" height="50" rx="16" stroke="currentColor" stroke-width="4"></rect>
-          <path d="M17 38c7-12 14-17 24-18 4 0 8 1 12 3" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
-          <path d="M19 47c8-2 16-2 25 1 5 2 8 3 11 3" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+          <rect x="7" y="7" width="50" height="50" rx="16" stroke="currentColor" stroke-width="4" fill="none"></rect>
+          <path d="M17 38c7-12 14-17 24-18 4 0 8 1 12 3" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"></path>
+          <path d="M19 47c8-2 16-2 25 1 5 2 8 3 11 3" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"></path>
           <circle cx="31" cy="31" r="4" fill="currentColor"></circle>
         </svg>
+
         <div class="brand-copy">
           <span class="brand-title">PokéDoubles Preview</span>
           <span class="brand-subtitle">Team preview táctico 4v4</span>
@@ -36,19 +38,19 @@
       </a>
 
       <div class="header-actions">
-        <span class="save-indicator" id="saveIndicator">Equipo guardado</span>
+        <span class="save-indicator" id="saveIndicator" aria-live="polite">Equipo guardado</span>
         <button class="theme-toggle" type="button" id="themeToggle" aria-label="Cambiar tema">
-          <span class="theme-icon theme-icon-moon">◐</span>
+          <span class="theme-icon">◐</span>
         </button>
       </div>
     </div>
   </header>
 
   <main id="main">
-    <section class="hero section" id="hero">
+    <section class="hero section" id="hero" aria-labelledby="hero-title">
       <div class="hero-card">
         <p class="eyebrow">Lectura rápida de combate</p>
-        <h1>Decide tus 4 picks y el mejor lead antes de que se agote el tiempo.</h1>
+        <h1 id="hero-title">Decide tus 4 picks y el mejor lead antes de que se agote el tiempo.</h1>
         <p class="hero-text">
           Mete tu equipo real, añade tus movimientos y compara contra el rival para ver amenazas, cobertura y recomendaciones accionables en una sola vista.
         </p>
@@ -77,6 +79,7 @@
           <p class="eyebrow">Módulo principal</p>
           <h2 id="my-team-title">Mi equipo</h2>
         </div>
+
         <div class="section-actions">
           <button class="btn btn-ghost" type="button" id="clearMyTeamBtn">Limpiar</button>
         </div>
@@ -96,6 +99,7 @@
           <p class="eyebrow">Módulo principal</p>
           <h2 id="rival-team-title">Equipo rival</h2>
         </div>
+
         <div class="section-actions">
           <button class="btn btn-ghost" type="button" id="clearRivalTeamBtn">Limpiar</button>
         </div>
@@ -115,6 +119,7 @@
           <h2 id="overview-title">Visión general del matchup</h2>
         </div>
       </div>
+
       <div id="overviewContent" class="content-stack"></div>
     </section>
 
@@ -125,6 +130,7 @@
           <h2 id="recommendation-title">Recomendación táctica</h2>
         </div>
       </div>
+
       <div id="recommendationContent" class="content-stack"></div>
     </section>
 
@@ -153,7 +159,7 @@
     <p>PokéDoubles Preview · análisis previo de combate para dobles 4v4.</p>
   </footer>
 
-  <div class="sticky-cta">
+  <div class="sticky-cta" aria-hidden="false">
     <div class="sticky-cta-inner">
       <div class="sticky-copy">
         <span class="sticky-title">Listo para decidir</span>
@@ -165,8 +171,7 @@
     </div>
   </div>
 
-  <datalist id="pokemonOptions"></datalist>
-  <datalist id="moveOptions"></datalist>
+  <div id="autocompleteLayer" class="autocomplete-layer" hidden></div>
 
   <script src="./app.js" defer></script>
 </body>
