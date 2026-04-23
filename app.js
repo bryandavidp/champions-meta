@@ -141,6 +141,8 @@ function bindGlobalEvents() {
 
   byId("myTeamGrid")?.addEventListener("click", onTeamGridClick);
   byId("rivalTeamGrid")?.addEventListener("click", onTeamGridClick);
+  byId("myTeamGrid")?.addEventListener("pointerdown", onAutocompletePointerDown);
+  byId("rivalTeamGrid")?.addEventListener("pointerdown", onAutocompletePointerDown);
 
   byId("myTeamGrid")?.addEventListener("input", onTeamGridInput);
   byId("rivalTeamGrid")?.addEventListener("input", onTeamGridInput);
@@ -159,10 +161,14 @@ function bindGlobalEvents() {
     const insideInlineAutocomplete = event.target.closest(".inline-autocomplete");
     if (!insideInput && !insideInlineAutocomplete) {
       closeAutocomplete();
-      renderTeamGrid("myTeam");
-      renderTeamGrid("rivalTeam");
     }
   });
+}
+
+function onAutocompletePointerDown(event) {
+  const option = event.target.closest("[data-autocomplete-value]");
+  if (!option) return;
+  event.preventDefault();
 }
 
 function onTeamGridFocusIn(event) {
@@ -230,20 +236,19 @@ function onTeamGridKeyDown(event) {
   const eventTeam = event.target.dataset.team;
   const eventSlot = Number(event.target.dataset.index);
   const sameTarget = ac.teamKey === eventTeam && ac.slotIndex === eventSlot;
-
   if (!sameTarget) return;
 
   if (event.key === "ArrowDown") {
     event.preventDefault();
     ac.activeIndex = Math.min(ac.activeIndex + 1, ac.items.length - 1);
-    rerenderAutocompleteHost();
+    renderAutocompleteHost();
     return;
   }
 
   if (event.key === "ArrowUp") {
     event.preventDefault();
     ac.activeIndex = Math.max(ac.activeIndex - 1, 0);
-    rerenderAutocompleteHost();
+    renderAutocompleteHost();
     return;
   }
 
@@ -258,7 +263,6 @@ function onTeamGridKeyDown(event) {
 
   if (event.key === "Escape") {
     closeAutocomplete();
-    rerenderAutocompleteHost();
   }
 }
 
@@ -373,12 +377,16 @@ async function loadPokemonIntoSlot(teamKey, index, rawName) {
     state[teamKey][index].error = "";
     state[teamKey][index].nameInput = pokemon.displayName;
 
-    scheduleIdleTask(() => { void ensureTypeChart(); }, 500);
+    scheduleIdleTask(() => {
+      void ensureTypeChart();
+    }, 500);
 
     if (teamKey === "myTeam") {
       persistMyTeam();
       updateSaveIndicator("Equipo guardado");
-      scheduleIdleTask(() => { void ensureMoveIndex(); }, 900);
+      scheduleIdleTask(() => {
+        void ensureMoveIndex();
+      }, 900);
     }
   } catch (error) {
     console.error("loadPokemonIntoSlot error:", error);
@@ -1086,6 +1094,10 @@ function renderTeamGrid(teamKey) {
   container.innerHTML = state[teamKey]
     .map((slot, index) => renderTeamSlot(slot, teamKey, index))
     .join("");
+
+  if (runtime.autocomplete.open && runtime.autocomplete.teamKey === teamKey) {
+    renderAutocompleteHost();
+  }
 }
 
 function renderTeamSlot(slot, teamKey, index) {
@@ -1157,7 +1169,6 @@ function renderTeamSlot(slot, teamKey, index) {
     `;
   }
 
-  const pokemonAutocomplete = renderInlineAutocomplete(teamKey, index, "pokemon");
   const movesPanel = isMyTeam
     ? `
       <details class="moves-panel">
@@ -1182,7 +1193,14 @@ function renderTeamSlot(slot, teamKey, index) {
                 spellcheck="false"
                 inputmode="text"
               />
-              ${renderInlineAutocomplete(teamKey, index, "move", moveIndex)}
+              <div
+                class="inline-autocomplete"
+                data-ac-host="move"
+                data-team="${teamKey}"
+                data-index="${index}"
+                data-move-index="${moveIndex}"
+                hidden
+              ></div>
             </div>
           `).join("")}
         </div>
@@ -1223,7 +1241,13 @@ function renderTeamSlot(slot, teamKey, index) {
             spellcheck="false"
             inputmode="text"
           />
-          ${pokemonAutocomplete}
+          <div
+            class="inline-autocomplete"
+            data-ac-host="pokemon"
+            data-team="${teamKey}"
+            data-index="${index}"
+            hidden
+          ></div>
         </div>
 
         <button
@@ -1245,37 +1269,224 @@ function renderTeamSlot(slot, teamKey, index) {
   `;
 }
 
-function renderInlineAutocomplete(teamKey, slotIndex, kind, moveIndex = null) {
+function getAutocompleteHost(kind, teamKey, slotIndex, moveIndex = null) {
+  const selector =
+    kind === "pokemon"
+      ? `.inline-autocomplete[data-ac-host="pokemon"][data-team="${teamKey}"][data-index="${slotIndex}"]`
+      : `.inline-autocomplete[data-ac-host="move"][data-team="${teamKey}"][data-index="${slotIndex}"][data-move-index="${moveIndex}"]`;
+
+  return document.querySelector(selector);
+}
+
+function clearAutocompleteHost(ac = runtime.autocomplete) {
+  if (!ac || !ac.kind || !ac.teamKey || Number.isNaN(ac.slotIndex)) return;
+  const host = getAutocompleteHost(ac.kind, ac.teamKey, ac.slotIndex, ac.moveIndex);
+  if (!host) return;
+  host.hidden = true;
+  host.innerHTML = "";
+}
+
+function renderAutocompleteHost() {
   const ac = runtime.autocomplete;
-  const isMatch =
-    ac.open &&
-    ac.kind === kind &&
-    ac.teamKey === teamKey &&
-    ac.slotIndex === slotIndex &&
-    (kind === "pokemon" ? true : ac.moveIndex === moveIndex);
+  if (!ac.open || !ac.items.length) {
+    clearAutocompleteHost(ac);
+    return;
+  }
 
-  if (!isMatch || !ac.items.length) return "";
+  const host = getAutocompleteHost(ac.kind, ac.teamKey, ac.slotIndex, ac.moveIndex);
+  if (!host) return;
 
-  return `
-    <div class="inline-autocomplete" role="listbox" aria-label="Sugerencias">
-      ${ac.items.map((item, index) => `
-        <button
-          type="button"
-          class="inline-autocomplete-item ${index === ac.activeIndex ? "is-active" : ""}"
-          data-autocomplete-kind="${escapeAttribute(kind)}"
-          data-autocomplete-value="${escapeAttribute(item.displayName)}"
-          data-autocomplete-team="${escapeAttribute(teamKey)}"
-          data-autocomplete-slot="${slotIndex}"
-          ${kind === "move" ? `data-autocomplete-move-index="${moveIndex}"` : ""}
-          role="option"
-          aria-selected="${index === ac.activeIndex ? "true" : "false"}"
-        >
-          <span>${escapeHtml(item.displayName)}</span>
-          <small>${kind === "pokemon" ? "Pokémon" : "Movimiento"}</small>
-        </button>
-      `).join("")}
-    </div>
-  `;
+  host.innerHTML = ac.items
+    .map((item, index) => `
+      <button
+        type="button"
+        class="inline-autocomplete-item ${index === ac.activeIndex ? "is-active" : ""}"
+        data-autocomplete-kind="${escapeAttribute(ac.kind)}"
+        data-autocomplete-value="${escapeAttribute(item.displayName)}"
+        data-autocomplete-team="${escapeAttribute(ac.teamKey)}"
+        data-autocomplete-slot="${ac.slotIndex}"
+        ${ac.kind === "move" ? `data-autocomplete-move-index="${ac.moveIndex}"` : ""}
+        role="option"
+        aria-selected="${index === ac.activeIndex ? "true" : "false"}"
+      >
+        <span>${escapeHtml(item.displayName)}</span>
+        <small>${ac.kind === "pokemon" ? "Pokémon" : "Movimiento"}</small>
+      </button>
+    `)
+    .join("");
+
+  host.hidden = false;
+}
+
+function openAutocomplete({ kind, teamKey, slotIndex, moveIndex = null, items }) {
+  clearAutocompleteHost(runtime.autocomplete);
+
+  runtime.autocomplete = {
+    open: true,
+    kind,
+    teamKey,
+    slotIndex,
+    moveIndex,
+    items,
+    activeIndex: 0
+  };
+
+  renderAutocompleteHost();
+}
+
+function closeAutocomplete() {
+  clearAutocompleteHost(runtime.autocomplete);
+
+  runtime.autocomplete = {
+    open: false,
+    kind: null,
+    teamKey: null,
+    slotIndex: null,
+    moveIndex: null,
+    items: [],
+    activeIndex: 0
+  };
+}
+
+function applyAutocompleteSelection(displayValue, kind) {
+  const ac = runtime.autocomplete;
+  if (!ac.open) return;
+
+  if (kind === "pokemon") {
+    const selector = `.pokemon-input[data-team="${ac.teamKey}"][data-index="${ac.slotIndex}"]`;
+    const input = document.querySelector(selector);
+
+    if (input) {
+      input.value = displayValue;
+    }
+
+    state[ac.teamKey][ac.slotIndex].nameInput = displayValue;
+    closeAutocomplete();
+
+    setTimeout(() => {
+      void loadPokemonIntoSlot(ac.teamKey, ac.slotIndex, displayValue);
+    }, 0);
+
+    return;
+  }
+
+  const selector = `.move-input[data-team="${ac.teamKey}"][data-index="${ac.slotIndex}"][data-move-index="${ac.moveIndex}"]`;
+  const input = document.querySelector(selector);
+
+  if (input) {
+    input.value = displayValue;
+  }
+
+  state[ac.teamKey][ac.slotIndex].moves[ac.moveIndex] = displayValue;
+
+  if (ac.teamKey === "myTeam") {
+    persistMyTeam();
+    updateSaveIndicator("Equipo guardado");
+  }
+
+  closeAutocomplete();
+
+  requestAnimationFrame(() => {
+    const sameInput = document.querySelector(selector);
+    if (sameInput) {
+      sameInput.focus({ preventScroll: true });
+      const len = sameInput.value.length;
+      sameInput.setSelectionRange(len, len);
+    }
+  });
+}
+
+function scheduleAutocompleteSearch(inputEl) {
+  clearTimeout(runtime.debounceId);
+  const token = ++runtime.latestInputToken;
+
+  runtime.debounceId = setTimeout(async () => {
+    const teamKey = inputEl.dataset.team;
+    const slotIndex = Number(inputEl.dataset.index);
+
+    if (!document.body.contains(inputEl)) {
+      closeAutocomplete();
+      return;
+    }
+
+    if (inputEl.matches(".pokemon-input")) {
+      const query = inputEl.value.trim();
+
+      if (query.length < 2) {
+        closeAutocomplete();
+        return;
+      }
+
+      const index = await ensurePokemonIndex();
+      if (token !== runtime.latestInputToken) return;
+
+      const results = searchIndex(index, query).slice(0, 8);
+
+      if (!results.length) {
+        closeAutocomplete();
+        return;
+      }
+
+      openAutocomplete({
+        kind: "pokemon",
+        teamKey,
+        slotIndex,
+        items: results
+      });
+      return;
+    }
+
+    if (inputEl.matches(".move-input")) {
+      const moveIndex = Number(inputEl.dataset.moveIndex);
+      const query = inputEl.value.trim();
+
+      if (query.length < 2) {
+        closeAutocomplete();
+        return;
+      }
+
+      const index = await ensureMoveIndex();
+      if (token !== runtime.latestInputToken) return;
+
+      const results = searchIndex(index, query).slice(0, 8);
+
+      if (!results.length) {
+        closeAutocomplete();
+        return;
+      }
+
+      openAutocomplete({
+        kind: "move",
+        teamKey,
+        slotIndex,
+        moveIndex,
+        items: results
+      });
+    }
+  }, 90);
+}
+
+function searchIndex(index, query) {
+  const q = normalizeApiName(query);
+  const lowerQuery = query.trim().toLowerCase();
+  const starts = [];
+  const contains = [];
+
+  for (const item of index) {
+    const name = item.name;
+    const display = item.displayName.toLowerCase();
+
+    if (name.startsWith(q) || display.startsWith(lowerQuery)) {
+      starts.push(item);
+    } else if (name.includes(q) || display.includes(lowerQuery)) {
+      contains.push(item);
+    }
+
+    if (starts.length >= 8) break;
+  }
+
+  if (starts.length >= 8) return starts;
+  return [...starts, ...contains].slice(0, 8);
 }
 
 function renderOverview() {
@@ -1767,161 +1978,29 @@ function bindKeyboardViewportMode() {
   });
 }
 
-function openAutocomplete({ kind, teamKey, slotIndex, moveIndex = null, items }) {
-  runtime.autocomplete = {
-    open: true,
-    kind,
-    teamKey,
-    slotIndex,
-    moveIndex,
-    items,
-    activeIndex: 0
-  };
-}
-
-function closeAutocomplete() {
-  runtime.autocomplete.open = false;
-  runtime.autocomplete.kind = null;
-  runtime.autocomplete.teamKey = null;
-  runtime.autocomplete.slotIndex = null;
-  runtime.autocomplete.moveIndex = null;
-  runtime.autocomplete.items = [];
-  runtime.autocomplete.activeIndex = 0;
-}
-
-function applyAutocompleteSelection(displayValue, kind) {
-  const ac = runtime.autocomplete;
-  if (!ac.open) return;
-
-  if (kind === "pokemon") {
-    state[ac.teamKey][ac.slotIndex].nameInput = displayValue;
-    closeAutocomplete();
-    renderTeamGrid(ac.teamKey);
-    void loadPokemonIntoSlot(ac.teamKey, ac.slotIndex, displayValue);
-    return;
-  }
-
-  state[ac.teamKey][ac.slotIndex].moves[ac.moveIndex] = displayValue;
-  if (ac.teamKey === "myTeam") {
-    persistMyTeam();
-    updateSaveIndicator("Equipo guardado");
-  }
-
-  const selector = `.move-input[data-team="${ac.teamKey}"][data-index="${ac.slotIndex}"][data-move-index="${ac.moveIndex}"]`;
-  closeAutocomplete();
-  renderTeamGrid(ac.teamKey);
-
-  requestAnimationFrame(() => {
-    const input = document.querySelector(selector);
-    if (input) {
-      input.focus({ preventScroll: true });
-      const len = input.value.length;
-      input.setSelectionRange(len, len);
-    }
-  });
-}
-
-function rerenderAutocompleteHost() {
-  if (!runtime.autocomplete.open) return;
-  renderTeamGrid(runtime.autocomplete.teamKey);
-}
-
-function scheduleAutocompleteSearch(inputEl) {
-  clearTimeout(runtime.debounceId);
-  const token = ++runtime.latestInputToken;
-
-  runtime.debounceId = setTimeout(async () => {
-    const teamKey = inputEl.dataset.team;
-    const slotIndex = Number(inputEl.dataset.index);
-
-    if (!document.body.contains(inputEl)) {
-      closeAutocomplete();
-      return;
-    }
-
-    if (inputEl.matches(".pokemon-input")) {
-      const query = inputEl.value.trim();
-      if (query.length < 2) {
-        closeAutocomplete();
-        renderTeamGrid(teamKey);
-        return;
-      }
-
-      const index = await ensurePokemonIndex();
-      if (token !== runtime.latestInputToken) return;
-
-      const results = searchIndex(index, query).slice(0, 8);
-      openAutocomplete({
-        kind: "pokemon",
-        teamKey,
-        slotIndex,
-        items: results
-      });
-      renderTeamGrid(teamKey);
-      return;
-    }
-
-    if (inputEl.matches(".move-input")) {
-      const moveIndex = Number(inputEl.dataset.moveIndex);
-      const query = inputEl.value.trim();
-      if (query.length < 2) {
-        closeAutocomplete();
-        renderTeamGrid(teamKey);
-        return;
-      }
-
-      const index = await ensureMoveIndex();
-      if (token !== runtime.latestInputToken) return;
-
-      const results = searchIndex(index, query).slice(0, 8);
-      openAutocomplete({
-        kind: "move",
-        teamKey,
-        slotIndex,
-        moveIndex,
-        items: results
-      });
-      renderTeamGrid(teamKey);
-    }
-  }, 90);
-}
-
-function searchIndex(index, query) {
-  const q = normalizeApiName(query);
-  const lowerQuery = query.trim().toLowerCase();
-  const starts = [];
-  const contains = [];
-
-  for (const item of index) {
-    const name = item.name;
-    const display = item.displayName.toLowerCase();
-
-    if (name.startsWith(q) || display.startsWith(lowerQuery)) {
-      starts.push(item);
-    } else if (name.includes(q) || display.includes(lowerQuery)) {
-      contains.push(item);
-    }
-
-    if (starts.length >= 8) break;
-  }
-
-  if (starts.length >= 8) return starts;
-  return [...starts, ...contains].slice(0, 8);
-}
-
 function scheduleWarmup() {
-  scheduleIdleTask(() => { void ensurePokemonIndex(); }, 800);
-  scheduleIdleTask(() => { void ensureTypeChart(); }, 1400);
+  scheduleIdleTask(() => {
+    void ensurePokemonIndex();
+  }, 800);
+  scheduleIdleTask(() => {
+    void ensureTypeChart();
+  }, 1400);
 }
 
 function prewarmFromIntent(kind) {
   if (kind === "pokemon") {
-    scheduleIdleTask(() => { void ensurePokemonIndex(); }, 600);
-    scheduleIdleTask(() => { void ensureTypeChart(); }, 1200);
+    scheduleIdleTask(() => {
+      void ensurePokemonIndex();
+    }, 600);
+    scheduleIdleTask(() => {
+      void ensureTypeChart();
+    }, 1200);
   }
 
   if (kind === "move") {
-    scheduleIdleTask(() => { void ensureMoveIndex(); }, 700);
+    scheduleIdleTask(() => {
+      void ensureMoveIndex();
+    }, 700);
   }
 }
 
