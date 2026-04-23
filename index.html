@@ -1,88 +1,71 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>PokéTactics - VGC Builder</title>
-  <link rel="stylesheet" href="styles.css">
-  <meta name="description" content="Herramienta táctica para construir y analizar equipos Pokémon VGC.">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Herramienta táctica para VGC Dobles — preview de equipos Pokémon" />
+  <title>Champions Meta · Team Preview</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  
-  <header class="app-header">
-    <div class="logo-area">
-      <h1>PokéTactics</h1>
-      <span class="team-title">VGC Analyzer</span>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero__inner">
+      <h1 class="hero__title">Champions Meta</h1>
+      <p class="hero__sub">Team Preview · Dobles 4v4</p>
     </div>
-    <div class="header-actions">
-      <button class="btn btn-icon" id="theme-toggle" aria-label="Alternar tema oscuro o claro">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
-      </button>
-      <span class="save-indicator text-muted" id="save-status" aria-live="polite"></span>
-      <button class="btn btn-ghost text-danger" id="global-clear" aria-label="Vaciar ambos equipos">Limpiar</button>
-    </div>
+    <button class="btn-icon theme-toggle" id="themeToggle" aria-label="Cambiar tema">
+      <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+    </button>
   </header>
 
-  <main class="app-main">
-    <div class="builder-container">
-      <!-- Módulo Mi Equipo -->
-      <section class="module panel" style="z-index: 20;">
-        <header class="module-header">
-          <div class="header-title-group">
-            <h2>Mi Equipo</h2>
-            <span class="badge" id="my-team-count" aria-label="Pokémon en mi equipo">0/6</span>
-          </div>
-        </header>
-        <div class="team-grid" id="my-team-grid" role="list"></div>
-      </section>
+  <!-- MAIN -->
+  <main class="main">
 
-      <!-- Módulo Equipo Rival -->
-      <section class="module panel" style="z-index: 10;">
-        <header class="module-header">
-          <div class="header-title-group">
-            <h2>Equipo Rival</h2>
-            <span class="badge" id="rival-team-count" aria-label="Pokémon en equipo rival">0/6</span>
-          </div>
-        </header>
-        <div class="team-grid" id="rival-team-grid" role="list"></div>
-      </section>
-    </div>
-
-    <!-- Módulo Central de Decisión Táctica -->
-    <section class="module panel analytical-module" id="tactical-board" aria-live="polite" style="display: none;">
-      <header class="module-header">
-        <h2>Reporte Táctico <span>⚡</span></h2>
-      </header>
-      
-      <div class="threat-banner" id="main-threat-container"></div>
-
-      <div class="recommendation-layout">
-        <div class="leads-column">
-          <article class="rec-card optimal-lead" id="best-lead-container">
-            <h3>Lead Principal Recomendado</h3>
-            <div class="card-content" id="best-lead-content"></div>
-          </article>
-          
-          <article class="rec-card alt-lead" id="alt-lead-container">
-            <h3>Lead Alternativo</h3>
-            <div class="card-content" id="alt-lead-content"></div>
-          </article>
-        </div>
-
-        <div class="side-column">
-          <article class="rec-card top-four" id="top-four-container">
-            <h3>Core (Top 4)</h3>
-            <div class="card-content" id="top-four-content"></div>
-          </article>
-
-          <article class="rec-card warning-picks" id="weak-picks-container">
-            <h3>Precaución con</h3>
-            <div class="card-content" id="weak-picks-content"></div>
-          </article>
+    <!-- MI EQUIPO -->
+    <section class="team-section" id="myTeamSection" aria-label="Mi equipo">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-title__dot dot--my"></span>Mi equipo
+        </h2>
+        <div class="section-actions">
+          <button class="btn btn--ghost btn--sm" id="saveTeamBtn" title="Guardar equipo">
+            💾 Guardar
+          </button>
+          <button class="btn btn--ghost btn--sm btn--danger" id="clearMyTeamBtn" title="Limpiar equipo">
+            🗑️
+          </button>
         </div>
       </div>
+      <div class="team-grid" id="myTeamGrid" role="list">
+        <!-- slots se renderizan aquí -->
+      </div>
     </section>
+
+    <!-- EQUIPO RIVAL -->
+    <section class="team-section" id="rivalTeamSection" aria-label="Equipo rival">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-title__dot dot--rival"></span>Equipo rival
+        </h2>
+        <div class="section-actions">
+          <button class="btn btn--ghost btn--sm btn--danger" id="clearRivalTeamBtn" title="Limpiar rival">
+            🗑️
+          </button>
+        </div>
+      </div>
+      <div class="team-grid" id="rivalTeamGrid" role="list">
+        <!-- slots se renderizan aquí -->
+      </div>
+    </section>
+
   </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <p>Champions Meta · Fase 1 · Datos: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a></p>
+  </footer>
 
   <script src="app.js"></script>
 </body>
