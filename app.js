@@ -1,171 +1,824 @@
-/**
- * Phase 6 - Endurecimiento, Rendimiento y Accesibilidad.
- */
+/* ============================================================
+   CHAMPIONS META · app.js
+   Fase 1 — Team Preview Pokémon Dobles 4v4
+   ============================================================ */
 
-// 1. Utilidades y Diccionarios
-const debounce = (func, delay) => {
-  let timeoutId;
-  return (...args) => { clearTimeout(timeoutId); timeoutId = setTimeout(() => func(...args), delay); };
+'use strict';
+
+/* ============================================================
+   CONSTANTES
+   ============================================================ */
+const TEAM_SIZE = 6;
+const DEBOUNCE_MS = 280;
+const LS_KEY = 'champions_meta_myTeam_v1';
+const API = 'https://pokeapi.co/api/v2';
+
+/* ============================================================
+   CACHE
+   ============================================================ */
+const cache = {
+  pokemonList: null,       // [{name, url, id}] — lista completa en inglés
+  pokemon: new Map(),      // id → full pokemon object
+  species: new Map(),      // id → species (con nombres ES)
+  types: new Map(),        // slug → type data (con nombres ES y damage_relations)
+  abilities: new Map(),    // slug → ability (con nombres ES)
+  typeChart: new Map(),    // slug → {name_es, damage_relations}
 };
 
-const typeMapES = { normal: 'Normal', fire: 'Fuego', water: 'Agua', electric: 'Eléctrico', grass: 'Planta', ice: 'Hielo', fighting: 'Lucha', poison: 'Veneno', ground: 'Tierra', flying: 'Volador', psychic: 'Psiq', bug: 'Bicho', rock: 'Roca', ghost: 'Fantsm', dragon: 'Dragón', dark: 'Siniestro', steel: 'Acero', fairy: 'Hada' };
-const lightTypes = ['electric', 'ice', 'normal', 'flying', 'steel', 'fairy', 'bug', 'grass']; // Tipos que necesitan texto oscuro para accesibilidad
+/* ============================================================
+   ESTADO
+   ============================================================ */
+function makeSlot() {
+  return {
+    nameInput: '',
+    pokemon: null,    // objeto completo resuelto
+    status: 'empty',  // 'empty' | 'input' | 'loading' | 'error' | 'filled'
+    error: null,
+    moves: [null, null, null, null], // para Fase 2
+  };
+}
 
-const tM = { normal: {rock:0.5, ghost:0, steel:0.5}, fire: {fire:0.5, water:0.5, grass:2, ice:2, bug:2, rock:0.5, dragon:0.5, steel:2}, water: {water:0.5, grass:0.5, fire:2, ground:2, rock:2, dragon:0.5}, electric: {electric:0.5, grass:0.5, water:2, flying:2, dragon:0.5, ground:0}, grass: {fire:0.5, water:2, grass:0.5, poison:0.5, ground:2, flying:0.5, bug:0.5, rock:2, dragon:0.5, steel:0.5}, ice: {fire:0.5, water:0.5, grass:2, ice:0.5, ground:2, flying:2, dragon:2, steel:0.5}, fighting: {normal:2, ice:2, poison:0.5, flying:0.5, psychic:0.5, bug:0.5, rock:2, ghost:0, dark:2, steel:2, fairy:0.5}, poison: {grass:2, poison:0.5, ground:0.5, rock:0.5, ghost:0.5, steel:0, fairy:2}, ground: {fire:2, water:1, electric:2, grass:0.5, poison:2, flying:0, bug:0.5, rock:2, steel:2}, flying: {electric:0.5, grass:2, fighting:2, bug:2, rock:0.5, steel:0.5}, psychic: {fighting:2, poison:2, psychic:0.5, dark:0, steel:0.5}, bug: {fire:0.5, grass:2, fighting:0.5, poison:0.5, flying:0.5, psychic:2, ghost:0.5, dark:2, steel:0.5, fairy:0.5}, rock: {fire:2, ice:2, fighting:0.5, ground:0.5, flying:2, bug:2, steel:0.5}, ghost: {normal:0, psychic:2, ghost:2, dark:0.5}, dragon: {dragon:2, steel:0.5, fairy:0}, dark: {fighting:0.5, psychic:2, ghost:2, dark:0.5, fairy:0.5}, steel: {fire:0.5, water:0.5, electric:0.5, ice:2, rock:2, fairy:2, steel:0.5}, fairy: {fire:0.5, fighting:2, poison:0.5, dragon:2, dark:2, steel:0.5} };
-const getMult = (atk, def) => tM[atk] && tM[atk][def] !== undefined ? tM[atk][def] : 1;
-const getDualMult = (atk, typesArr) => typesArr.reduce((acc, t) => acc * getMult(atk, t.apiName), 1);
+const state = {
+  myTeam:    Array.from({ length: TEAM_SIZE }, makeSlot),
+  rivalTeam: Array.from({ length: TEAM_SIZE }, makeSlot),
+};
 
-// 2. Estado Global
-let pokemonMasterList = [];
-const state = { myTeam: Array(6).fill({ state: 'empty' }), rivalTeam: Array(6).fill({ state: 'empty' }) };
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
 
-document.addEventListener('DOMContentLoaded', async () => {
-  initEvents(); loadFromStorage(); updateUI();
-  try { pokemonMasterList = (await (await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000')).json()).results; } catch(e) {}
-});
+function capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
-// 3. API y Almacenamiento
-async function fetchPokemonDetails(name, teamType, index) {
-  state[teamType][index] = { state: 'loading' }; updateUI();
+function extractId(url) {
+  const m = url.match(/\/(\d+)\/?$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function getSpanishName(namesArray, fallback = '') {
+  if (!Array.isArray(namesArray)) return fallback;
+  const entry = namesArray.find(n => n.language?.name === 'es');
+  return entry ? entry.name : fallback;
+}
+
+function showToast(msg, duration = 2200) {
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.className = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('is-visible');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('is-visible'), duration);
+}
+
+/* ============================================================
+   TABLA DE TIPOS (cálculo de debilidades/resistencias)
+   ============================================================ */
+
+// Tabla de efectividad estática (evita múltiples fetches encadenados)
+const TYPE_EFFECTIVENESS = {
+  normal:   { weakTo: ['fighting'], immuneTo: ['ghost'], resistantTo: [] },
+  fire:     { weakTo: ['water','ground','rock'], immuneTo: [], resistantTo: ['fire','grass','ice','bug','steel','fairy'] },
+  water:    { weakTo: ['electric','grass'], immuneTo: [], resistantTo: ['fire','water','ice','steel'] },
+  electric: { weakTo: ['ground'], immuneTo: [], resistantTo: ['electric','flying','steel'] },
+  grass:    { weakTo: ['fire','ice','poison','flying','bug'], immuneTo: [], resistantTo: ['water','electric','grass','ground'] },
+  ice:      { weakTo: ['fire','fighting','rock','steel'], immuneTo: [], resistantTo: ['ice'] },
+  fighting: { weakTo: ['flying','psychic','fairy'], immuneTo: [], resistantTo: ['bug','rock','dark'] },
+  poison:   { weakTo: ['ground','psychic'], immuneTo: [], resistantTo: ['grass','fighting','poison','bug','fairy'] },
+  ground:   { weakTo: ['water','grass','ice'], immuneTo: ['electric'], resistantTo: ['poison','rock'] },
+  flying:   { weakTo: ['electric','ice','rock'], immuneTo: ['ground'], resistantTo: ['grass','fighting','bug'] },
+  psychic:  { weakTo: ['bug','ghost','dark'], immuneTo: [], resistantTo: ['fighting','psychic'] },
+  bug:      { weakTo: ['fire','flying','rock'], immuneTo: [], resistantTo: ['grass','fighting','ground'] },
+  rock:     { weakTo: ['water','grass','fighting','ground','steel'], immuneTo: [], resistantTo: ['normal','fire','poison','flying'] },
+  ghost:    { weakTo: ['ghost','dark'], immuneTo: ['normal','fighting'], resistantTo: ['poison','bug'] },
+  dragon:   { weakTo: ['ice','dragon','fairy'], immuneTo: [], resistantTo: ['fire','water','electric','grass'] },
+  dark:     { weakTo: ['fighting','bug','fairy'], immuneTo: ['psychic'], resistantTo: ['ghost','dark'] },
+  steel:    { weakTo: ['fire','fighting','ground'], immuneTo: ['poison'], resistantTo: ['normal','grass','ice','flying','psychic','bug','rock','dragon','steel','fairy'] },
+  fairy:    { weakTo: ['poison','steel'], immuneTo: ['dragon'], resistantTo: ['fighting','bug','dark'] },
+};
+
+const TYPE_ES = {
+  normal:'Normal', fire:'Fuego', water:'Agua', electric:'Eléctrico', grass:'Planta',
+  ice:'Hielo', fighting:'Lucha', poison:'Veneno', ground:'Tierra', flying:'Volador',
+  psychic:'Psíquico', bug:'Bicho', rock:'Roca', ghost:'Fantasma', dragon:'Dragón',
+  dark:'Siniestro', steel:'Acero', fairy:'Hada', stellar:'Estelar',
+};
+
+function computeWeaknesses(types) {
+  // types: array de strings en inglés (slugs)
+  const mult = {};
+
+  // inicializar todos en 1
+  Object.keys(TYPE_EFFECTIVENESS).forEach(t => { mult[t] = 1; });
+
+  types.forEach(atkType => {
+    const entry = TYPE_EFFECTIVENESS[atkType];
+    if (!entry) return;
+
+    // Para cada tipo del Pokémon defensor recibimos daño de atkType según las reglas inversas
+    // Reinterpretamos: iteramos tipos atacantes y revisamos qué tipos defensores son weak/resist/immune
+  });
+
+  // Enfoque correcto: por cada tipo atacante (atkType), miramos el Pokémon defensor
+  // Resetear
+  const allTypes = Object.keys(TYPE_EFFECTIVENESS);
+  const result = {};
+  allTypes.forEach(atk => { result[atk] = 1; });
+
+  allTypes.forEach(atk => {
+    const entry = TYPE_EFFECTIVENESS[atk];
+    if (!entry) return;
+    // ¿Los tipos del Pokémon están en weakTo del atacante?
+    types.forEach(defType => {
+      if (entry.weakTo.includes(defType)) result[atk] *= 2;
+      if (entry.resistantTo.includes(defType)) result[atk] *= 0.5;
+      if (entry.immuneTo.includes(defType)) result[atk] = 0;
+    });
+  });
+
+  return result;
+}
+
+function getWeaknessGroups(types) {
+  const mult = computeWeaknesses(types);
+  const weak4x = [], weak2x = [], resist4x = [], resist2x = [], immune = [];
+  Object.entries(mult).forEach(([t, m]) => {
+    if (m === 0) immune.push(t);
+    else if (m >= 4) weak4x.push(t);
+    else if (m >= 2) weak2x.push(t);
+    else if (m <= 0.25) resist4x.push(t);
+    else if (m <= 0.5) resist2x.push(t);
+  });
+  return { weak4x, weak2x, resist4x, resist2x, immune };
+}
+
+/* ============================================================
+   API FETCH
+   ============================================================ */
+async function loadPokemonList() {
+  if (cache.pokemonList) return cache.pokemonList;
+  const res = await fetch(`${API}/pokemon?limit=10000`);
+  if (!res.ok) throw new Error('No se pudo cargar la lista de Pokémon');
+  const data = await res.json();
+  cache.pokemonList = data.results.map(p => ({
+    name: p.name,
+    id: extractId(p.url),
+    url: p.url,
+  }));
+  return cache.pokemonList;
+}
+
+async function fetchPokemon(id) {
+  if (cache.pokemon.has(id)) return cache.pokemon.get(id);
+  const res = await fetch(`${API}/pokemon/${id}`);
+  if (!res.ok) throw new Error(`Pokémon #${id} no encontrado`);
+  const data = await res.json();
+  cache.pokemon.set(id, data);
+  return data;
+}
+
+async function fetchSpecies(id) {
+  if (cache.species.has(id)) return cache.species.get(id);
+  const res = await fetch(`${API}/pokemon-species/${id}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  cache.species.set(id, data);
+  return data;
+}
+
+async function fetchAbility(slug) {
+  if (cache.abilities.has(slug)) return cache.abilities.get(slug);
+  const res = await fetch(`${API}/ability/${slug}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  cache.abilities.set(slug, data);
+  return data;
+}
+
+async function resolvePokemon(nameOrId) {
+  // 1. Buscar en la lista cargada
+  const list = await loadPokemonList();
+  const query = String(nameOrId).toLowerCase().trim();
+  let entry = list.find(p => p.name === query || String(p.id) === query);
+  if (!entry) {
+    // intento directo por si acaso el nombre es un id numérico
+    const byId = parseInt(query, 10);
+    if (!isNaN(byId)) entry = list.find(p => p.id === byId);
+  }
+  if (!entry) throw new Error(`"${nameOrId}" no encontrado`);
+
+  const id = entry.id;
+
+  // 2. Pokémon base
+  const pokemon = await fetchPokemon(id);
+
+  // 3. Species → nombre ES
+  const species = await fetchSpecies(id);
+  const nameEs = species ? getSpanishName(species.names, capitalize(entry.name)) : capitalize(entry.name);
+
+  // 4. Tipos en ES (usamos tabla estática para no disparar fetches adicionales)
+  const types = pokemon.types.map(t => t.type.name);
+  const typesEs = types.map(t => TYPE_ES[t] || capitalize(t));
+
+  // 5. Habilidades en ES
+  const abilitySlugs = pokemon.abilities.map(a => a.ability.name);
+  const abilityDataArr = await Promise.all(abilitySlugs.map(s => fetchAbility(s)));
+  const abilitiesEs = abilityDataArr.map((data, i) => {
+    if (!data) return capitalize(abilitySlugs[i]);
+    return getSpanishName(data.names, capitalize(abilitySlugs[i]));
+  });
+
+  // 6. Stats
+  const statsMap = {};
+  pokemon.stats.forEach(s => { statsMap[s.stat.name] = s.base_stat; });
+
+  // 7. Debilidades/Resistencias
+  const weaknessGroups = getWeaknessGroups(types);
+
+  // 8. Sprite
+  const sprite =
+    pokemon.sprites?.front_default ||
+    `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+
+  return {
+    id,
+    nameEn: entry.name,
+    nameEs,
+    sprite,
+    types,       // ['fire', 'flying']
+    typesEs,     // ['Fuego', 'Volador']
+    stats: {
+      hp:   statsMap['hp'],
+      atk:  statsMap['attack'],
+      def:  statsMap['defense'],
+      spa:  statsMap['special-attack'],
+      spd:  statsMap['special-defense'],
+      spe:  statsMap['speed'],
+    },
+    abilitiesEs,
+    weaknessGroups,
+  };
+}
+
+/* ============================================================
+   PERSISTENCIA
+   ============================================================ */
+function serializeTeam(team) {
+  return team.map(slot => ({
+    nameEn: slot.pokemon?.nameEn || null,
+    status: slot.status === 'filled' ? 'filled' : 'empty',
+  }));
+}
+
+function saveMyTeam() {
   try {
-    const data = await (await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`)).json();
-    const types = data.types.map(t => ({ apiName: t.type.name, name: typeMapES[t.type.name] || t.type.name, cssClass: `type-${t.type.name} ${lightTypes.includes(t.type.name) ? 'text-dark-mode' : ''}` }));
-    state[teamType][index] = { state: 'filled', name: data.name.charAt(0).toUpperCase() + data.name.slice(1), types, availableMoves: data.moves.map(m=>m.move.name), sprite: data.sprites.front_default || data.sprites.other['official-artwork'].front_default, moves: [] };
-    saveToStorage(); updateUI();
-  } catch(e) { state[teamType][index] = { state: 'empty' }; updateUI(); }
+    localStorage.setItem(LS_KEY, JSON.stringify(serializeTeam(state.myTeam)));
+    showToast('✅ Equipo guardado');
+  } catch (e) {
+    showToast('❌ Error al guardar');
+  }
 }
 
-async function fetchMoveDetails(moveApiName, index) {
-  state.myTeam[index].moveSearchState = false; updateUI();
+async function loadSavedTeam() {
   try {
-    const data = await (await fetch(`https://pokeapi.co/api/v2/move/${moveApiName}`)).json();
-    const esName = data.names.find(n => n.language.name === 'es')?.name || data.name;
-    const isDamage = data.damage_class.name === 'physical' || data.damage_class.name === 'special';
-    state.myTeam[index].moves.push({ name: esName, type: data.type.name, cssClass: `type-${data.type.name} ${lightTypes.includes(data.type.name) ? 'text-dark-mode' : ''}`, isDamage });
-    saveToStorage(); updateUI();
-  } catch(e) {}
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (!Array.isArray(saved)) return;
+    const promises = saved.map(async (entry, i) => {
+      if (entry.status === 'filled' && entry.nameEn) {
+        state.myTeam[i].status = 'loading';
+        renderSlot('my', i);
+        try {
+          const resolved = await resolvePokemon(entry.nameEn);
+          state.myTeam[i].pokemon = resolved;
+          state.myTeam[i].status = 'filled';
+        } catch {
+          state.myTeam[i].status = 'empty';
+        }
+        renderSlot('my', i);
+      }
+    });
+    await Promise.all(promises);
+  } catch (e) {
+    // fail silently
+  }
 }
 
-function saveToStorage() {
-  localStorage.setItem('pokeTactics_v6', JSON.stringify(state));
-  const el = document.getElementById('save-status');
-  el.textContent = "Guardado ✔";
-  setTimeout(() => el.textContent = "", 2000);
+/* ============================================================
+   RENDER — quirúrgico por slot
+   ============================================================ */
+function getSlotEl(team, index) {
+  const gridId = team === 'my' ? 'myTeamGrid' : 'rivalTeamGrid';
+  const grid = document.getElementById(gridId);
+  return grid?.querySelector(`[data-slot-index="${index}"]`);
 }
-function loadFromStorage() { const saved = localStorage.getItem('pokeTactics_v6'); if (saved) try { const p = JSON.parse(saved); state.myTeam = p.myTeam; state.rivalTeam = p.rivalTeam; } catch(e) {} }
 
-// 4. Renderizado Modular
-function renderSlot(slot, index, team) {
-  if (slot.state === 'empty') return `<div class="pkmn-card empty" role="button" tabindex="0" onclick="openSearch('${team}', ${index})"><span class="text-muted">+ Añadir Slot ${index+1}</span></div>`;
-  if (slot.state === 'loading') return `<div class="pkmn-card loading"><div class="spinner"></div></div>`;
-  
-  if (slot.state === 'search') return `<div class="pkmn-card search-state">
-    <div class="card-header"><span class="slot-num">Slot ${index+1}</span><button class="btn-remove" aria-label="Cancelar" onclick="cancelSearch('${team}', ${index})">✕</button></div>
-    <input type="text" class="search-input" id="inp-${team}-${index}" placeholder="Buscar Pokémon..." autocomplete="off">
-    <div class="search-dropdown" id="dd-${team}-${index}"></div></div>`;
+function renderTypeBadges(typesEs, typesEn) {
+  return typesEs.map((tEs, i) => {
+    const tEn = typesEn[i] || '';
+    return `<span class="type-badge type--${tEn}" title="${tEs}">${tEs}</span>`;
+  }).join('');
+}
 
-  const typesHtml = slot.types.map(t => `<span class="type-badge ${t.cssClass}">${t.name}</span>`).join('');
-  let movesHtml = '';
-  
-  if (team === 'myTeam') {
-    const moveList = slot.moves.map((m, mIdx) => `<div class="chip-move"><span class="type-badge ${m.cssClass}" style="font-size:0.5rem; padding:0.1rem 0.2rem;">${typeMapES[m.type].substring(0,3)}</span> ${m.name} <button class="btn-remove-move" onclick="removeMove(${index}, ${mIdx})">✕</button></div>`).join('');
-    let moveInput = slot.moves.length < 4 ? (slot.moveSearchState ? `<div style="position:relative; width:100%; margin-top:0.25rem;"><input type="text" class="search-input" id="inp-mov-${index}" placeholder="Ej: protect..." autocomplete="off"><div class="search-dropdown" id="dd-mov-${index}"></div></div>` : `<button class="add-move-btn" onclick="openMoveSearch(${index})">+ Añadir Mov.</button>`) : '';
-    movesHtml = `<div class="moves-chips">${moveList} ${moveInput}</div>`;
+function renderStats(stats) {
+  const labels = { hp:'HP', atk:'Atk', def:'Def', spa:'SpA', spd:'SpD', spe:'Vel' };
+  return Object.entries(labels).map(([key, label]) =>
+    `<div class="stat-item">
+      <span class="stat-label">${label}</span>
+      <span class="stat-value">${stats[key] ?? '–'}</span>
+    </div>`
+  ).join('');
+}
+
+function renderWeaknesses(groups) {
+  const rows = [];
+
+  const renderBadges = (arr, cls, title) => {
+    if (!arr.length) return '';
+    const badges = arr.map(t => {
+      const tEs = TYPE_ES[t] || capitalize(t);
+      return `<span class="matchup-badge type--${t} ${cls}" title="${tEs}">${tEs}</span>`;
+    }).join('');
+    return `<div class="matchup-row">
+      <span class="matchup-label" title="${title}">${title}</span>
+      ${badges}
+    </div>`;
+  };
+
+  rows.push(renderBadges(groups.weak4x, 'matchup-badge--4x', '4×'));
+  rows.push(renderBadges(groups.weak2x, 'matchup-badge--2x', '2×'));
+  rows.push(renderBadges(groups.immune, 'matchup-badge--immune', '0×'));
+  rows.push(renderBadges(groups.resist2x, 'matchup-badge--half', '½'));
+  rows.push(renderBadges(groups.resist4x, 'matchup-badge--quarter', '¼'));
+
+  const content = rows.filter(Boolean).join('');
+  if (!content) return '';
+  return `<div class="slot__matchup">${content}</div>`;
+}
+
+function renderFilledCard(pokemon, team, index) {
+  return `
+    <div class="slot__card">
+      <div class="slot__card-header">
+        <div class="slot__sprite-wrap">
+          <img class="slot__sprite" src="${pokemon.sprite}" alt="${pokemon.nameEs}" loading="lazy" decoding="async" />
+        </div>
+        <div class="slot__meta">
+          <span class="slot__name">${pokemon.nameEs}</span>
+          <div class="slot__types">${renderTypeBadges(pokemon.typesEs, pokemon.types)}</div>
+        </div>
+        <button class="slot__btn-remove" data-team="${team}" data-index="${index}" aria-label="Eliminar ${pokemon.nameEs}">✕</button>
+      </div>
+      <div class="slot__stats">${renderStats(pokemon.stats)}</div>
+      <div class="slot__abilities">${pokemon.abilitiesEs.map(a => `<span class="ability-badge">${a}</span>`).join('')}</div>
+      ${renderWeaknesses(pokemon.weaknessGroups)}
+    </div>`;
+}
+
+function renderSlot(team, index) {
+  const slotEl = getSlotEl(team, index);
+  if (!slotEl) return;
+
+  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  const colorClass = team === 'my' ? 'slot--my' : 'slot--rival';
+
+  // Limpiar clases de estado previas
+  slotEl.className = `slot ${colorClass}`;
+
+  switch (slot.status) {
+    case 'empty': {
+      slotEl.innerHTML = `
+        <div class="slot__empty" data-team="${team}" data-index="${index}" role="button" tabindex="0" aria-label="Añadir Pokémon al slot ${index + 1}">
+          <span class="slot__empty-icon">＋</span>
+          <span class="slot__empty-label">Añadir</span>
+        </div>`;
+      break;
+    }
+
+    case 'input': {
+      slotEl.classList.add('slot--active');
+      slotEl.innerHTML = `
+        <div class="slot__input-wrap">
+          <input
+            class="slot__input"
+            type="search"
+            inputmode="search"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="Buscar Pokémon…"
+            data-team="${team}"
+            data-index="${index}"
+            value="${escapeHtml(slot.nameInput)}"
+            aria-label="Buscar Pokémon para slot ${index + 1}"
+            aria-autocomplete="list"
+          />
+          <ul class="autocomplete-list" id="ac-${team}-${index}" role="listbox" aria-label="Sugerencias"></ul>
+        </div>`;
+
+      // Montar autocomplete y enfocar SIN scroll
+      const input = slotEl.querySelector('.slot__input');
+      const list = slotEl.querySelector('.autocomplete-list');
+      initAutocomplete(input, list, team, index);
+      // Foco sin scroll
+      input.focus({ preventScroll: true });
+      break;
+    }
+
+    case 'loading': {
+      slotEl.innerHTML = `
+        <div class="slot__loading">
+          <div class="spinner"></div>
+          <span>Cargando…</span>
+        </div>`;
+      break;
+    }
+
+    case 'error': {
+      slotEl.innerHTML = `
+        <div class="slot__error">
+          <span class="slot__error-msg">⚠️ ${escapeHtml(slot.error || 'Error desconocido')}</span>
+          <button class="slot__error-retry" data-team="${team}" data-index="${index}">Reintentar</button>
+        </div>`;
+      break;
+    }
+
+    case 'filled': {
+      slotEl.classList.add('slot--filled');
+      slotEl.innerHTML = renderFilledCard(slot.pokemon, team, index);
+      break;
+    }
+  }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderAllSlots(team) {
+  const arr = team === 'my' ? state.myTeam : state.rivalTeam;
+  arr.forEach((_, i) => renderSlot(team, i));
+}
+
+/* ============================================================
+   AUTOCOMPLETE
+   ============================================================ */
+function initAutocomplete(input, listEl, team, index) {
+  let currentQuery = '';
+  let pokemonListLoaded = false;
+  let highlighted = -1;
+
+  function getSlotState() {
+    return team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
   }
 
-  return `<div class="pkmn-card filled">
-    <div class="card-header"><span class="slot-num">Slot ${index+1}</span><button class="btn-remove" aria-label="Eliminar" onclick="clearSlot('${team}', ${index})">✕</button></div>
-    <div class="card-body"><div class="sprite-area"><img src="${slot.sprite}" alt="${slot.name}" loading="lazy"></div>
-    <div class="info-area"><div class="pkmn-name">${slot.name}</div><div class="types-row">${typesHtml}</div></div></div>${movesHtml}
-  </div>`;
-}
+  function updateHighlight(items, newIdx) {
+    if (highlighted >= 0 && items[highlighted]) {
+      items[highlighted].classList.remove('is-highlighted');
+    }
+    highlighted = newIdx;
+    if (highlighted >= 0 && items[highlighted]) {
+      items[highlighted].classList.add('is-highlighted');
+    }
+  }
 
-function updateUI() {
-  document.getElementById('my-team-grid').innerHTML = state.myTeam.map((s, i) => renderSlot(s, i, 'myTeam')).join('');
-  document.getElementById('rival-team-grid').innerHTML = state.rivalTeam.map((s, i) => renderSlot(s, i, 'rivalTeam')).join('');
-  
-  const myCount = state.myTeam.filter(s => s.state === 'filled').length;
-  const rivCount = state.rivalTeam.filter(s => s.state === 'filled').length;
-  document.getElementById('my-team-count').textContent = `${myCount}/6`;
-  document.getElementById('rival-team-count').textContent = `${rivCount}/6`;
-  
-  if (myCount >= 2 && rivCount >= 2) { document.getElementById('tactical-board').style.display = 'block'; calculateTactics(); } 
-  else { document.getElementById('tactical-board').style.display = 'none'; }
-  
-  attachSearchEvents(); // Re-bind dynamic input events
-}
+  const doSearch = debounce(async (query) => {
+    // Re-verificar que el slot sigue en modo input
+    if (getSlotState().status !== 'input') return;
+    if (!query || query.length < 2) {
+      listEl.innerHTML = '';
+      listEl.classList.remove('is-open');
+      return;
+    }
 
-// 5. Lógica de Interfaz y Eventos Dinámicos
-window.openSearch = (t, i) => { state[t][i] = { state: 'search' }; updateUI(); setTimeout(() => document.getElementById(`inp-${t}-${i}`).focus(), 10); };
-window.cancelSearch = (t, i) => { state[t][i] = { state: 'empty' }; updateUI(); };
-window.openMoveSearch = (i) => { state.myTeam[i].moveSearchState = true; updateUI(); setTimeout(() => document.getElementById(`inp-mov-${i}`).focus(), 10); };
-window.removeMove = (p, m) => { state.myTeam[p].moves.splice(m, 1); saveToStorage(); updateUI(); };
-window.clearSlot = (t, i) => { state[t][i] = { state: 'empty' }; saveToStorage(); updateUI(); };
+    let list;
+    try {
+      list = await loadPokemonList();
+      pokemonListLoaded = true;
+    } catch {
+      return;
+    }
 
-// Debounced Handlers
-const handlePkmnSearch = debounce((query, t, i) => {
-  const dd = document.getElementById(`dd-${t}-${i}`);
-  if (query.length < 2) { dd.innerHTML = ''; return; }
-  dd.innerHTML = pokemonMasterList.filter(p => p.name.includes(query)).slice(0, 5).map(p => `<div class="search-item" onclick="fetchPokemonDetails('${p.name}', '${t}', ${i})">${p.name}</div>`).join('');
-}, 200);
+    // Si el input ha cambiado mientras cargaba, no actualizar
+    if (input.value.trim().toLowerCase() !== query) return;
 
-const handleMoveSearch = debounce((query, i) => {
-  const dd = document.getElementById(`dd-mov-${i}`);
-  if (query.length < 2) { dd.innerHTML = ''; return; }
-  dd.innerHTML = state.myTeam[i].availableMoves.filter(m => m.includes(query)).slice(0, 5).map(m => `<div class="search-item" onclick="fetchMoveDetails('${m}', ${i})">${m}</div>`).join('');
-}, 200);
+    const q = query.toLowerCase();
+    const results = list
+      .filter(p => p.name.includes(q) || String(p.id) === q)
+      .slice(0, 8);
 
-function attachSearchEvents() {
-  state.myTeam.forEach((s, i) => {
-    if (s.state === 'search') document.getElementById(`inp-myTeam-${i}`).addEventListener('input', e => handlePkmnSearch(e.target.value.toLowerCase().trim(), 'myTeam', i));
-    if (s.moveSearchState) document.getElementById(`inp-mov-${i}`).addEventListener('input', e => handleMoveSearch(e.target.value.toLowerCase().trim(), i));
+    if (!results.length) {
+      listEl.innerHTML = '<li style="padding:12px;font-size:.8rem;color:var(--clr-text-muted);">Sin resultados</li>';
+      listEl.classList.add('is-open');
+      return;
+    }
+
+    highlighted = -1;
+    listEl.innerHTML = results.map((p, i) =>
+      `<li class="autocomplete-list__item"
+          role="option"
+          data-name="${p.name}"
+          data-id="${p.id}"
+          tabindex="-1">
+        <img class="autocomplete-list__img"
+             src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png"
+             alt=""
+             loading="lazy"
+             decoding="async" />
+        <span class="autocomplete-list__name">${capitalize(p.name)}</span>
+        <span class="autocomplete-list__id">#${String(p.id).padStart(4,'0')}</span>
+      </li>`
+    ).join('');
+
+    listEl.classList.add('is-open');
+  }, DEBOUNCE_MS);
+
+  async function selectPokemon(nameEn) {
+    const slotState = getSlotState();
+    slotState.status = 'loading';
+    // NO re-renderizar el slot completo para no perder foco — solo cerrar el dropdown
+    listEl.innerHTML = '';
+    listEl.classList.remove('is-open');
+
+    // Renderizar solo el loading
+    renderSlot(team, index);
+
+    try {
+      const resolved = await resolvePokemon(nameEn);
+      slotState.pokemon = resolved;
+      slotState.status = 'filled';
+    } catch (e) {
+      slotState.status = 'error';
+      slotState.error = e.message || 'Error al cargar el Pokémon';
+    }
+
+    renderSlot(team, index);
+  }
+
+  // ---- EVENTOS ----
+
+  input.addEventListener('input', () => {
+    const slotState = getSlotState();
+    if (slotState.status !== 'input') return;
+    slotState.nameInput = input.value;
+    const query = input.value.trim().toLowerCase();
+    currentQuery = query;
+    doSearch(query);
   });
-  state.rivalTeam.forEach((s, i) => {
-    if (s.state === 'search') document.getElementById(`inp-rivalTeam-${i}`).addEventListener('input', e => handlePkmnSearch(e.target.value.toLowerCase().trim(), 'rivalTeam', i));
+
+  input.addEventListener('keydown', (e) => {
+    const items = Array.from(listEl.querySelectorAll('.autocomplete-list__item'));
+    if (!items.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      updateHighlight(items, Math.min(highlighted + 1, items.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      updateHighlight(items, Math.max(highlighted - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlighted >= 0 && items[highlighted]) {
+        const name = items[highlighted].dataset.name;
+        if (name) selectPokemon(name);
+      }
+    } else if (e.key === 'Escape') {
+      listEl.innerHTML = '';
+      listEl.classList.remove('is-open');
+      cancelInput(team, index);
+    }
+  });
+
+  // mousedown en vez de click para que se ejecute ANTES del blur del input
+  listEl.addEventListener('mousedown', (e) => {
+    e.preventDefault(); // evita que el input pierda el foco
+    const item = e.target.closest('.autocomplete-list__item');
+    if (item && item.dataset.name) {
+      selectPokemon(item.dataset.name);
+    }
+  });
+
+  // Touch: igual que mousedown
+  listEl.addEventListener('touchstart', (e) => {
+    const item = e.target.closest('.autocomplete-list__item');
+    if (item && item.dataset.name) {
+      e.preventDefault();
+      selectPokemon(item.dataset.name);
+    }
+  }, { passive: false });
+
+  input.addEventListener('blur', () => {
+    // Pequeño delay para que mousedown/touchstart se ejecuten primero
+    setTimeout(() => {
+      const slotState = getSlotState();
+      if (slotState.status === 'input') {
+        listEl.innerHTML = '';
+        listEl.classList.remove('is-open');
+        // Si no hay nada escrito, volver a empty
+        if (!slotState.nameInput.trim()) {
+          cancelInput(team, index);
+        }
+      }
+    }, 200);
   });
 }
 
-// 6. Lógica Táctica
-function calculateTactics() {
-  const allies = state.myTeam.filter(s => s.state === 'filled');
-  const rivals = state.rivalTeam.filter(s => s.state === 'filled');
-  
-  allies.forEach(ally => {
-    let tHit = 0, wA = 0, imm = 0;
-    rivals.forEach(riv => {
-      let mOff = 0; ally.moves.filter(m => m.isDamage).forEach(m => mOff = Math.max(mOff, getDualMult(m.type, riv.types)));
-      if (mOff >= 2) tHit++;
-      let mThr = 0; riv.types.forEach(rt => { let dm = getDualMult(rt.apiName, ally.types); mThr = Math.max(mThr, dm); if (dm === 0) imm++; });
-      if (mThr >= 2) wA++;
+function cancelInput(team, index) {
+  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  slot.status = 'empty';
+  slot.nameInput = '';
+  renderSlot(team, index);
+}
+
+/* ============================================================
+   SCAFFOLD DE SLOTS — crear elementos DOM base sin innerHTML
+   ============================================================ */
+function buildSlotScaffold(team, index) {
+  const el = document.createElement('div');
+  el.className = `slot slot--${team === 'my' ? 'my' : 'rival'}`;
+  el.setAttribute('data-slot-index', index);
+  el.setAttribute('role', 'listitem');
+  return el;
+}
+
+function initGrid(team) {
+  const gridId = team === 'my' ? 'myTeamGrid' : 'rivalTeamGrid';
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = '';
+  for (let i = 0; i < TEAM_SIZE; i++) {
+    grid.appendChild(buildSlotScaffold(team, i));
+  }
+}
+
+/* ============================================================
+   EVENTOS
+   ============================================================ */
+function handleSlotActivation(team, index) {
+  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  if (slot.status === 'empty') {
+    slot.status = 'input';
+    slot.nameInput = '';
+    renderSlot(team, index);
+  }
+}
+
+function handleRemove(team, index) {
+  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  slot.status = 'empty';
+  slot.pokemon = null;
+  slot.nameInput = '';
+  slot.error = null;
+  renderSlot(team, index);
+}
+
+function handleRetry(team, index) {
+  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
+  slot.status = 'input';
+  slot.error = null;
+  slot.nameInput = '';
+  renderSlot(team, index);
+}
+
+function clearTeam(team) {
+  const arr = team === 'my' ? state.myTeam : state.rivalTeam;
+  arr.forEach((slot, i) => {
+    slot.status = 'empty';
+    slot.pokemon = null;
+    slot.nameInput = '';
+    slot.error = null;
+  });
+  renderAllSlots(team);
+}
+
+function bindEvents() {
+  // Delegación de eventos en grids
+  ['myTeamGrid', 'rivalTeamGrid'].forEach(gridId => {
+    const grid = document.getElementById(gridId);
+    const team = gridId === 'myTeamGrid' ? 'my' : 'rival';
+
+    grid.addEventListener('click', (e) => {
+      // Activar slot vacío
+      const emptyEl = e.target.closest('[data-slot-index]');
+      if (!emptyEl) return;
+      const index = parseInt(emptyEl.dataset.slotIndex ?? emptyEl.closest('[data-slot-index]')?.dataset.slotIndex, 10);
+
+      // Botón eliminar
+      const removeBtn = e.target.closest('.slot__btn-remove');
+      if (removeBtn) {
+        const t = removeBtn.dataset.team;
+        const i = parseInt(removeBtn.dataset.index, 10);
+        handleRemove(t, i);
+        return;
+      }
+
+      // Retry
+      const retryBtn = e.target.closest('.slot__error-retry');
+      if (retryBtn) {
+        const t = retryBtn.dataset.team;
+        const i = parseInt(retryBtn.dataset.index, 10);
+        handleRetry(t, i);
+        return;
+      }
+
+      // Activar slot vacío
+      const emptyArea = e.target.closest('.slot__empty');
+      if (emptyArea) {
+        const t = emptyArea.dataset.team;
+        const i = parseInt(emptyArea.dataset.index, 10);
+        handleSlotActivation(t, i);
+        return;
+      }
     });
-    ally.ts = tHit - wA + (imm * 0.5); ally.tr = { tHit, wA };
+
+    // Teclado en slot vacío (accesibilidad)
+    grid.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const emptyArea = e.target.closest('.slot__empty');
+        if (emptyArea) {
+          e.preventDefault();
+          const t = emptyArea.dataset.team;
+          const i = parseInt(emptyArea.dataset.index, 10);
+          handleSlotActivation(t, i);
+        }
+      }
+    });
   });
 
-  const sorted = [...allies].sort((a, b) => b.ts - a.ts);
-  const top4 = sorted.slice(0, 4);
-  const weakPicks = sorted.filter(a => a.ts < 0);
-  
-  const tScores = rivals.map(riv => {
-    let hits = 0; allies.forEach(ally => { if (riv.types.some(rt => getDualMult(rt.apiName, ally.types) >= 2)) hits++; });
-    return { ...riv, hits };
-  }).sort((a, b) => b.hits - a.hits);
-  const mainThr = tScores[0];
+  // Guardar
+  document.getElementById('saveTeamBtn')?.addEventListener('click', saveMyTeam);
 
-  // Inyección Segura (Previniendo full render reset para UX)
-  document.getElementById('main-threat-container').innerHTML = mainThr && mainThr.hits >= 2 
-    ? `<span style="font-weight:600; color:var(--text-red)">⚠ Amenaza Principal: ${mainThr.name}</span><span style="font-size:0.8rem">Gana STAB Súper Eficaz contra ${mainThr.hits} aliados.</span>` 
-    : `<span style="font-weight:600; color:var(--text-green)">✓ Emparejamiento Defensivo Estable</span><span style="font-size:0.8rem">El rival no tiene barridos claros.</span>`;
-
-  if (top4.length >= 2) document.getElementById('best-lead-content').innerHTML = `<div class="lead-pair"><div class="lead-sprite"><img src="${top4[0].sprite}"></div><span style="font-weight:bold">+</span><div class="lead-sprite"><img src="${top4[1].sprite}"></div></div><div class="reason-text">Ventaja neta matemática de +${top4[0].ts + top4[1].ts}.</div><div class="reason-text">Presión eficaz sobre ${top4[0].tr.tHit + top4[1].tr.tHit} rivales.</div>`;
-  
-  if (top4.length >= 3) document.getElementById('alt-lead-content').innerHTML = `<div class="lead-pair"><div class="lead-sprite"><img src="${top4[2].sprite}"></div><span style="font-weight:bold">+</span><div class="lead-sprite"><img src="${top4[top4.length===4?3:0].sprite}"></div></div><div class="reason-text">Excelente rotación secundaria por cobertura.</div>`;
-
-  document.getElementById('top-four-content').innerHTML = `<div class="mini-sprite-list">${top4.map(p => `<div class="mini-sprite-item"><img src="${p.sprite}"><span class="score-badge score-pos">+${p.ts}</span></div>`).join('')}</div>`;
-  
-  document.getElementById('weak-picks-content').innerHTML = weakPicks.length > 0 ? `<div class="mini-sprite-list">${weakPicks.map(p => `<div class="mini-sprite-item"><img src="${p.sprite}"><span class="score-badge score-neg">${p.ts}</span></div>`).join('')}</div><div class="reason-text negative" style="margin-top:0.5rem">Pasivos defensivos en este combate.</div>` : `<div class="reason-text">Todos tus picks tienen ventaja o son neutros.</div>`;
+  // Limpiar equipos
+  document.getElementById('clearMyTeamBtn')?.addEventListener('click', () => {
+    if (confirm('¿Limpiar todo mi equipo?')) clearTeam('my');
+  });
+  document.getElementById('clearRivalTeamBtn')?.addEventListener('click', () => {
+    if (confirm('¿Limpiar el equipo rival?')) clearTeam('rival');
+  });
 }
 
-function initEvents() {
-  document.getElementById('theme-toggle').addEventListener('click', () => document.body.classList.toggle('light-theme'));
-  document.getElementById('global-clear').addEventListener('click', () => { if(confirm('¿Limpiar mesa?')) { state.myTeam = Array(6).fill({ state: 'empty' }); state.rivalTeam = Array(6).fill({ state: 'empty' }); saveToStorage(); updateUI(); }});
+function bindTheme() {
+  const btn = document.getElementById('themeToggle');
+  const icon = btn?.querySelector('.theme-toggle__icon');
+  const html = document.documentElement;
+
+  // Cargar tema guardado
+  const saved = localStorage.getItem('champions_meta_theme');
+  if (saved) {
+    html.setAttribute('data-theme', saved);
+    if (icon) icon.textContent = saved === 'light' ? '☀️' : '🌙';
+  }
+
+  btn?.addEventListener('click', () => {
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    if (icon) icon.textContent = next === 'light' ? '☀️' : '🌙';
+    localStorage.setItem('champions_meta_theme', next);
+  });
 }
+
+/* ============================================================
+   INIT
+   ============================================================ */
+async function init() {
+  bindTheme();
+
+  // Construir grids
+  initGrid('my');
+  initGrid('rival');
+
+  // Renderizar estado inicial
+  renderAllSlots('my');
+  renderAllSlots('rival');
+
+  // Eventos
+  bindEvents();
+
+  // Cargar lista de Pokémon en segundo plano (pre-warm del caché)
+  loadPokemonList().catch(() => {});
+
+  // Restaurar equipo guardado
+  await loadSavedTeam();
+}
+
+document.addEventListener('DOMContentLoaded', init);
