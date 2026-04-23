@@ -43,6 +43,7 @@ const state = {
   rivalTeam: Array.from({ length: TEAM_SIZE }, makeSlot),
 };
 
+
 /* ============================================================
    UTILIDADES
    ============================================================ */
@@ -116,6 +117,70 @@ const TYPE_ES = {
   psychic:'Psíquico', bug:'Bicho', rock:'Roca', ghost:'Fantasma', dragon:'Dragón',
   dark:'Siniestro', steel:'Acero', fairy:'Hada', stellar:'Estelar',
 };
+
+const TYPE_ES = {
+  normal: 'Normal',
+  fire: 'Fuego',
+  water: 'Agua',
+  electric: 'Eléctrico',
+  grass: 'Planta',
+  ice: 'Hielo',
+  fighting: 'Lucha',
+  poison: 'Veneno',
+  ground: 'Tierra',
+  flying: 'Volador',
+  psychic: 'Psíquico',
+  bug: 'Bicho',
+  rock: 'Roca',
+  ghost: 'Fantasma',
+  dragon: 'Dragón',
+  dark: 'Siniestro',
+  steel: 'Acero',
+  fairy: 'Hada',
+  stellar: 'Estelar',
+};
+
+const TYPE_CLASS = {
+  normal: 'type-chip--normal',
+  fire: 'type-chip--fire',
+  water: 'type-chip--water',
+  electric: 'type-chip--electric',
+  grass: 'type-chip--grass',
+  ice: 'type-chip--ice',
+  fighting: 'type-chip--fighting',
+  poison: 'type-chip--poison',
+  ground: 'type-chip--ground',
+  flying: 'type-chip--flying',
+  psychic: 'type-chip--psychic',
+  bug: 'type-chip--bug',
+  rock: 'type-chip--rock',
+  ghost: 'type-chip--ghost',
+  dragon: 'type-chip--dragon',
+  dark: 'type-chip--dark',
+  steel: 'type-chip--steel',
+  fairy: 'type-chip--fairy',
+  stellar: 'type-chip--stellar',
+};
+
+function safeTitle(str = '') {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function getTypeLabel(type) {
+  return TYPE_ES[type] || safeTitle(type);
+}
+
+function getTypeClass(type) {
+  return TYPE_CLASS[type] || 'type-chip--normal';
+}
 
 function computeWeaknesses(types) {
   // types: array de strings en inglés (slugs)
@@ -209,47 +274,46 @@ async function fetchAbility(slug) {
 }
 
 async function resolvePokemon(nameOrId) {
-  // 1. Buscar en la lista cargada
   const list = await loadPokemonList();
   const query = String(nameOrId).toLowerCase().trim();
   let entry = list.find(p => p.name === query || String(p.id) === query);
+
   if (!entry) {
-    // intento directo por si acaso el nombre es un id numérico
     const byId = parseInt(query, 10);
     if (!isNaN(byId)) entry = list.find(p => p.id === byId);
   }
+
   if (!entry) throw new Error(`"${nameOrId}" no encontrado`);
 
   const id = entry.id;
-
-  // 2. Pokémon base
   const pokemon = await fetchPokemon(id);
-
-  // 3. Species → nombre ES
   const species = await fetchSpecies(id);
-  const nameEs = species ? getSpanishName(species.names, capitalize(entry.name)) : capitalize(entry.name);
 
-  // 4. Tipos en ES (usamos tabla estática para no disparar fetches adicionales)
+  const nameEs = species
+    ? getSpanishName(species.names, safeTitle(entry.name))
+    : safeTitle(entry.name);
+
   const types = pokemon.types.map(t => t.type.name);
-  const typesEs = types.map(t => TYPE_ES[t] || capitalize(t));
+  const typesEs = types.map(getTypeLabel);
 
-  // 5. Habilidades en ES
   const abilitySlugs = pokemon.abilities.map(a => a.ability.name);
   const abilityDataArr = await Promise.all(abilitySlugs.map(s => fetchAbility(s)));
   const abilitiesEs = abilityDataArr.map((data, i) => {
-    if (!data) return capitalize(abilitySlugs[i]);
-    return getSpanishName(data.names, capitalize(abilitySlugs[i]));
+    if (!data) return safeTitle(abilitySlugs[i].replace(/-/g, ' '));
+    return getSpanishName(data.names, safeTitle(abilitySlugs[i].replace(/-/g, ' ')));
   });
 
-  // 6. Stats
   const statsMap = {};
   pokemon.stats.forEach(s => { statsMap[s.stat.name] = s.base_stat; });
 
-  // 7. Debilidades/Resistencias
   const weaknessGroups = getWeaknessGroups(types);
 
-  // 8. Sprite
-  const sprite =
+  const animated =
+    pokemon.sprites?.versions?.['generation-v']?.['black-white']?.animated?.front_default ||
+    null;
+
+  const staticSprite =
+    pokemon.sprites?.other?.['official-artwork']?.front_default ||
     pokemon.sprites?.front_default ||
     `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 
@@ -257,16 +321,18 @@ async function resolvePokemon(nameOrId) {
     id,
     nameEn: entry.name,
     nameEs,
-    sprite,
-    types,       // ['fire', 'flying']
-    typesEs,     // ['Fuego', 'Volador']
+    sprite: animated || staticSprite,
+    spriteStatic: staticSprite,
+    isAnimated: Boolean(animated),
+    types,
+    typesEs,
     stats: {
-      hp:   statsMap['hp'],
-      atk:  statsMap['attack'],
-      def:  statsMap['defense'],
-      spa:  statsMap['special-attack'],
-      spd:  statsMap['special-defense'],
-      spe:  statsMap['speed'],
+      hp: statsMap.hp,
+      atk: statsMap.attack,
+      def: statsMap.defense,
+      spa: statsMap['special-attack'],
+      spd: statsMap['special-defense'],
+      spe: statsMap.speed,
     },
     abilitiesEs,
     weaknessGroups,
@@ -371,22 +437,55 @@ function renderWeaknesses(groups) {
 }
 
 function renderFilledCard(pokemon, team, index) {
+  const weakBlocks = renderMatchupBlocks(pokemon.weaknessGroups);
+
   return `
     <div class="slot__card">
-      <div class="slot__card-header">
+      <div class="slot__card-top">
         <div class="slot__sprite-wrap">
-          <img class="slot__sprite" src="${pokemon.sprite}" alt="${pokemon.nameEs}" loading="lazy" decoding="async" />
+          <img
+            class="slot__sprite"
+            src="${pokemon.sprite}"
+            alt="${escapeHtml(pokemon.nameEs)}"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
+
         <div class="slot__meta">
-          <span class="slot__name">${pokemon.nameEs}</span>
-          <div class="slot__types">${renderTypeBadges(pokemon.typesEs, pokemon.types)}</div>
+          <div class="slot__name-row">
+            <div class="slot__name">${escapeHtml(pokemon.nameEs)}</div>
+          </div>
+
+          <div class="slot__type-row">
+            ${pokemon.types.map((t, i) => `
+              <span class="type-chip ${getTypeClass(t)}" title="${escapeHtml(pokemon.typesEs[i])}">
+                ${escapeHtml(pokemon.typesEs[i])}
+              </span>
+            `).join('')}
+          </div>
         </div>
-        <button class="slot__btn-remove" data-team="${team}" data-index="${index}" aria-label="Eliminar ${pokemon.nameEs}">✕</button>
+
+        <button class="slot__btn-remove" data-team="${team}" data-index="${index}" aria-label="Eliminar ${escapeHtml(pokemon.nameEs)}">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path fill="currentColor" d="M18.3 5.71 12 12.01l-6.29-6.3-1.42 1.42 6.3 6.29-6.3 6.29 1.42 1.42 6.29-6.3 6.29 6.3 1.42-1.42-6.3-6.29 6.3-6.29z"/>
+          </svg>
+        </button>
       </div>
-      <div class="slot__stats">${renderStats(pokemon.stats)}</div>
-      <div class="slot__abilities">${pokemon.abilitiesEs.map(a => `<span class="ability-badge">${a}</span>`).join('')}</div>
-      ${renderWeaknesses(pokemon.weaknessGroups)}
-    </div>`;
+
+      <div class="slot__body">
+        <div class="slot__stats">
+          ${renderStatPills(pokemon.stats)}
+        </div>
+
+        <div class="slot__abilities">
+          ${pokemon.abilitiesEs.map(a => `<span class="ability-chip">${escapeHtml(a)}</span>`).join('')}
+        </div>
+
+        ${weakBlocks}
+      </div>
+    </div>
+  `;
 }
 
 function renderSlot(team, index) {
@@ -795,6 +894,95 @@ function bindTheme() {
     if (icon) icon.textContent = next === 'light' ? '☀️' : '🌙';
     localStorage.setItem('champions_meta_theme', next);
   });
+}
+
+function renderStatPills(stats) {
+  const map = [
+    ['hp', 'HP'],
+    ['atk', 'ATQ'],
+    ['def', 'DEF'],
+    ['spa', 'SATQ'],
+    ['spd', 'SDEF'],
+    ['spe', 'VEL'],
+  ];
+
+  return map.map(([key, label]) => `
+    <div class="stat-pill">
+      <span class="stat-pill__label">${label}</span>
+      <span class="stat-pill__value">${stats[key] ?? '–'}</span>
+    </div>
+  `).join('');
+}
+
+function renderMatchupBlocks(groups) {
+  const blocks = [];
+
+  const makeChip = (type, mult, suffixClass = '') => `
+    <span class="matchup-chip ${suffixClass} ${getMatchupMultiplierClass(mult)}">
+      <span class="matchup-chip__mult">${mult}</span>
+      ${escapeHtml(getTypeLabel(type))}
+    </span>
+  `;
+
+  if (groups.weak4x.length || groups.weak2x.length) {
+    blocks.push(`
+      <div class="matchup-block matchup-block--weak">
+        <div class="matchup-block__head">
+          <div class="matchup-block__title">
+            <span class="matchup-block__badge">▲</span>
+            Debilidades
+          </div>
+        </div>
+        <div class="matchup-grid">
+          ${groups.weak4x.map(t => makeChip(t, '4×', 'matchup-chip--4x')).join('')}
+          ${groups.weak2x.map(t => makeChip(t, '2×', 'matchup-chip--2x')).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  if (groups.resist4x.length || groups.resist2x.length) {
+    blocks.push(`
+      <div class="matchup-block matchup-block--resist">
+        <div class="matchup-block__head">
+          <div class="matchup-block__title">
+            <span class="matchup-block__badge">▼</span>
+            Resistencias
+          </div>
+        </div>
+        <div class="matchup-grid">
+          ${groups.resist4x.map(t => makeChip(t, '¼', 'matchup-chip--quarter')).join('')}
+          ${groups.resist2x.map(t => makeChip(t, '½', 'matchup-chip--half')).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  if (groups.immune.length) {
+    blocks.push(`
+      <div class="matchup-block matchup-block--immune">
+        <div class="matchup-block__head">
+          <div class="matchup-block__title">
+            <span class="matchup-block__badge">⊘</span>
+            Inmunidades
+          </div>
+        </div>
+        <div class="matchup-grid">
+          ${groups.immune.map(t => makeChip(t, '0×', 'matchup-chip--immune')).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  return blocks.length ? `<div class="slot__matchup">${blocks.join('')}</div>` : '';
+}
+
+function getMatchupMultiplierClass(mult) {
+  if (mult === '4×') return 'matchup-chip--4x';
+  if (mult === '2×') return 'matchup-chip--2x';
+  if (mult === '½') return 'matchup-chip--half';
+  if (mult === '¼') return 'matchup-chip--quarter';
+  return 'matchup-chip--immune';
 }
 
 /* ============================================================
