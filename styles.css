@@ -971,3 +971,52 @@ h2 {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+.inline-input-stack {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.inline-autocomplete {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border-radius: 1rem;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+.inline-autocomplete-item {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.inline-autocomplete-item.is-active {
+  background: var(--color-primary-soft);
+  border-color: color-mix(in srgb, var(--color-primary) 28%, transparent);
+}
+
+.inline-autocomplete-item small {
+  color: var(--color-text-faint);
+  font-size: var(--text-xs);
+}
+
+body.input-active .sticky-cta {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(1rem);
+}
+
