@@ -93,7 +93,6 @@ const runtime = {
     teamKey: null,
     slotIndex: null,
     moveIndex: null,
-    inputEl: null,
     items: [],
     activeIndex: 0
   },
@@ -106,10 +105,8 @@ document.addEventListener("DOMContentLoaded", init);
 function init() {
   try {
     applyInitialTheme();
-    ensureAutocompleteLayer();
     hydrateMyTeam();
     bindGlobalEvents();
-    setupAutocomplete();
     bindKeyboardViewportMode();
     scheduleWarmup();
     renderAll();
@@ -157,8 +154,14 @@ function bindGlobalEvents() {
   byId("myTeamGrid")?.addEventListener("keydown", onTeamGridKeyDown);
   byId("rivalTeamGrid")?.addEventListener("keydown", onTeamGridKeyDown);
 
-  window.addEventListener("orientationchange", () => {
-    setTimeout(repositionAutocomplete, 150);
+  document.addEventListener("click", (event) => {
+    const insideInput = event.target.closest(".pokemon-input, .move-input");
+    const insideInlineAutocomplete = event.target.closest(".inline-autocomplete");
+    if (!insideInput && !insideInlineAutocomplete) {
+      closeAutocomplete();
+      renderTeamGrid("myTeam");
+      renderTeamGrid("rivalTeam");
+    }
   });
 }
 
@@ -213,7 +216,9 @@ function onTeamGridChange(event) {
   if (typed.length < 2) return;
 
   const ac = runtime.autocomplete;
-  if (ac.open && ac.inputEl === el && ac.items.length) return;
+  if (ac.open && ac.kind === "pokemon" && ac.teamKey === teamKey && ac.slotIndex === index && ac.items.length) {
+    return;
+  }
 
   void loadPokemonIntoSlot(teamKey, index, typed);
 }
@@ -222,17 +227,23 @@ function onTeamGridKeyDown(event) {
   const ac = runtime.autocomplete;
   if (!ac.open) return;
 
+  const eventTeam = event.target.dataset.team;
+  const eventSlot = Number(event.target.dataset.index);
+  const sameTarget = ac.teamKey === eventTeam && ac.slotIndex === eventSlot;
+
+  if (!sameTarget) return;
+
   if (event.key === "ArrowDown") {
     event.preventDefault();
     ac.activeIndex = Math.min(ac.activeIndex + 1, ac.items.length - 1);
-    renderAutocomplete();
+    rerenderAutocompleteHost();
     return;
   }
 
   if (event.key === "ArrowUp") {
     event.preventDefault();
     ac.activeIndex = Math.max(ac.activeIndex - 1, 0);
-    renderAutocomplete();
+    rerenderAutocompleteHost();
     return;
   }
 
@@ -247,12 +258,24 @@ function onTeamGridKeyDown(event) {
 
   if (event.key === "Escape") {
     closeAutocomplete();
+    rerenderAutocompleteHost();
   }
 }
 
 function onTeamGridClick(event) {
   const loadBtn = event.target.closest("[data-action='load-slot']");
   const clearBtn = event.target.closest("[data-action='clear-slot']");
+  const autoBtn = event.target.closest("[data-autocomplete-value]");
+
+  if (autoBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+    applyAutocompleteSelection(
+      autoBtn.dataset.autocompleteValue,
+      autoBtn.dataset.autocompleteKind
+    );
+    return;
+  }
 
   if (loadBtn) {
     const teamKey = loadBtn.dataset.team;
@@ -300,7 +323,10 @@ function clearSlot(teamKey, index) {
 
   state[teamKey][index] = fresh;
   state.analysis = null;
-  closeAutocomplete();
+
+  if (runtime.autocomplete.teamKey === teamKey && runtime.autocomplete.slotIndex === index) {
+    closeAutocomplete();
+  }
 
   if (teamKey === "myTeam") {
     persistMyTeam();
@@ -333,6 +359,11 @@ async function loadPokemonIntoSlot(teamKey, index, rawName) {
   state[teamKey][index].status = "loading";
   state[teamKey][index].error = "";
   state[teamKey][index].nameInput = nameInput;
+
+  if (runtime.autocomplete.teamKey === teamKey && runtime.autocomplete.slotIndex === index) {
+    closeAutocomplete();
+  }
+
   renderTeamGrid(teamKey);
 
   try {
@@ -1126,6 +1157,7 @@ function renderTeamSlot(slot, teamKey, index) {
     `;
   }
 
+  const pokemonAutocomplete = renderInlineAutocomplete(teamKey, index, "pokemon");
   const movesPanel = isMyTeam
     ? `
       <details class="moves-panel">
@@ -1135,20 +1167,23 @@ function renderTeamSlot(slot, teamKey, index) {
         </summary>
         <div class="moves-grid">
           ${slot.moves.map((move, moveIndex) => `
-            <input
-              class="text-input move-input"
-              type="text"
-              placeholder="Movimiento ${moveIndex + 1}"
-              value="${escapeAttribute(move)}"
-              data-team="${teamKey}"
-              data-index="${index}"
-              data-move-index="${moveIndex}"
-              autocomplete="off"
-              autocapitalize="off"
-              autocorrect="off"
-              spellcheck="false"
-              inputmode="text"
-            />
+            <div class="inline-input-stack">
+              <input
+                class="text-input move-input"
+                type="text"
+                placeholder="Movimiento ${moveIndex + 1}"
+                value="${escapeAttribute(move)}"
+                data-team="${teamKey}"
+                data-index="${index}"
+                data-move-index="${moveIndex}"
+                autocomplete="off"
+                autocapitalize="off"
+                autocorrect="off"
+                spellcheck="false"
+                inputmode="text"
+              />
+              ${renderInlineAutocomplete(teamKey, index, "move", moveIndex)}
+            </div>
           `).join("")}
         </div>
       </details>
@@ -1174,19 +1209,23 @@ function renderTeamSlot(slot, teamKey, index) {
       </div>
 
       <div class="search-row">
-        <input
-          class="text-input pokemon-input"
-          type="text"
-          placeholder="Ej: Incineroar"
-          value="${escapeAttribute(slot.nameInput)}"
-          data-team="${teamKey}"
-          data-index="${index}"
-          autocomplete="off"
-          autocapitalize="off"
-          autocorrect="off"
-          spellcheck="false"
-          inputmode="text"
-        />
+        <div class="inline-input-stack">
+          <input
+            class="text-input pokemon-input"
+            type="text"
+            placeholder="Ej: Incineroar"
+            value="${escapeAttribute(slot.nameInput)}"
+            data-team="${teamKey}"
+            data-index="${index}"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            inputmode="text"
+          />
+          ${pokemonAutocomplete}
+        </div>
+
         <button
           class="icon-btn"
           type="button"
@@ -1203,6 +1242,39 @@ function renderTeamSlot(slot, teamKey, index) {
       ${content}
       ${movesPanel}
     </article>
+  `;
+}
+
+function renderInlineAutocomplete(teamKey, slotIndex, kind, moveIndex = null) {
+  const ac = runtime.autocomplete;
+  const isMatch =
+    ac.open &&
+    ac.kind === kind &&
+    ac.teamKey === teamKey &&
+    ac.slotIndex === slotIndex &&
+    (kind === "pokemon" ? true : ac.moveIndex === moveIndex);
+
+  if (!isMatch || !ac.items.length) return "";
+
+  return `
+    <div class="inline-autocomplete" role="listbox" aria-label="Sugerencias">
+      ${ac.items.map((item, index) => `
+        <button
+          type="button"
+          class="inline-autocomplete-item ${index === ac.activeIndex ? "is-active" : ""}"
+          data-autocomplete-kind="${escapeAttribute(kind)}"
+          data-autocomplete-value="${escapeAttribute(item.displayName)}"
+          data-autocomplete-team="${escapeAttribute(teamKey)}"
+          data-autocomplete-slot="${slotIndex}"
+          ${kind === "move" ? `data-autocomplete-move-index="${moveIndex}"` : ""}
+          role="option"
+          aria-selected="${index === ac.activeIndex ? "true" : "false"}"
+        >
+          <span>${escapeHtml(item.displayName)}</span>
+          <small>${kind === "pokemon" ? "Pokémon" : "Movimiento"}</small>
+        </button>
+      `).join("")}
+    </div>
   `;
 }
 
@@ -1677,50 +1749,11 @@ function renderFatalError() {
   });
 }
 
-/* Autocomplete custom */
-
-function ensureAutocompleteLayer() {
-  if (document.getElementById("autocompleteLayer")) return;
-
-  const layer = document.createElement("div");
-  layer.id = "autocompleteLayer";
-  layer.className = "autocomplete-layer";
-  layer.hidden = true;
-  document.body.appendChild(layer);
-}
-
-function setupAutocomplete() {
-  const layer = document.getElementById("autocompleteLayer");
-  if (!layer) return;
-
-  layer.addEventListener("pointerdown", (event) => {
-    const option = event.target.closest("[data-autocomplete-value]");
-    if (!option) return;
-    event.preventDefault();
-    applyAutocompleteSelection(
-      option.dataset.autocompleteValue,
-      option.dataset.autocompleteKind
-    );
-  });
-
-  document.addEventListener("click", (event) => {
-    const insideInput = event.target.closest(".pokemon-input, .move-input");
-    const insideLayer = event.target.closest("#autocompleteLayer");
-    if (!insideInput && !insideLayer) {
-      closeAutocomplete();
-    }
-  });
-
-  window.addEventListener("resize", repositionAutocomplete);
-  window.visualViewport?.addEventListener("resize", repositionAutocomplete);
-  window.visualViewport?.addEventListener("scroll", repositionAutocomplete);
-}
-
 function bindKeyboardViewportMode() {
   document.addEventListener("focusin", (event) => {
     if (event.target.matches("input")) {
       document.body.classList.add("keyboard-open");
-      repositionAutocomplete();
+      document.body.classList.add("input-active");
     }
   });
 
@@ -1728,94 +1761,42 @@ function bindKeyboardViewportMode() {
     setTimeout(() => {
       if (!document.querySelector("input:focus")) {
         document.body.classList.remove("keyboard-open");
+        document.body.classList.remove("input-active");
       }
-    }, 60);
+    }, 120);
   });
 }
 
-function openAutocomplete({ kind, teamKey, slotIndex, moveIndex = null, inputEl, items }) {
+function openAutocomplete({ kind, teamKey, slotIndex, moveIndex = null, items }) {
   runtime.autocomplete = {
     open: true,
     kind,
     teamKey,
     slotIndex,
     moveIndex,
-    inputEl,
     items,
     activeIndex: 0
   };
-  renderAutocomplete();
 }
 
 function closeAutocomplete() {
   runtime.autocomplete.open = false;
+  runtime.autocomplete.kind = null;
+  runtime.autocomplete.teamKey = null;
+  runtime.autocomplete.slotIndex = null;
+  runtime.autocomplete.moveIndex = null;
   runtime.autocomplete.items = [];
-  runtime.autocomplete.inputEl = null;
-
-  const layer = document.getElementById("autocompleteLayer");
-  if (layer) {
-    layer.hidden = true;
-    layer.innerHTML = "";
-  }
-}
-
-function renderAutocomplete() {
-  const layer = document.getElementById("autocompleteLayer");
-  const ac = runtime.autocomplete;
-  if (!layer || !ac.open || !ac.inputEl) return;
-
-  if (!ac.items.length) {
-    closeAutocomplete();
-    return;
-  }
-
-  layer.hidden = false;
-  layer.innerHTML = `
-    <div class="autocomplete-list" role="listbox" aria-label="Sugerencias">
-      ${ac.items.map((item, index) => `
-        <button
-          type="button"
-          class="autocomplete-item ${index === ac.activeIndex ? "is-active" : ""}"
-          data-autocomplete-kind="${escapeAttribute(ac.kind)}"
-          data-autocomplete-value="${escapeAttribute(item.displayName)}"
-          role="option"
-          aria-selected="${index === ac.activeIndex ? "true" : "false"}"
-        >
-          <span>${escapeHtml(item.displayName)}</span>
-          <small>${ac.kind === "pokemon" ? "Pokémon" : "Movimiento"}</small>
-        </button>
-      `).join("")}
-    </div>
-  `;
-
-  repositionAutocomplete();
-}
-
-function repositionAutocomplete() {
-  const layer = document.getElementById("autocompleteLayer");
-  const ac = runtime.autocomplete;
-  if (!layer || !ac.open || !ac.inputEl) return;
-
-  const rect = ac.inputEl.getBoundingClientRect();
-  const vv = window.visualViewport;
-  const topOffset = vv ? vv.offsetTop : 0;
-  const leftOffset = vv ? vv.offsetLeft : 0;
-  const width = Math.min(Math.max(rect.width, 260), window.innerWidth - 16);
-
-  layer.style.left = `${Math.max(8, rect.left + leftOffset)}px`;
-  layer.style.top = `${rect.bottom + topOffset + 8}px`;
-  layer.style.width = `${width}px`;
+  runtime.autocomplete.activeIndex = 0;
 }
 
 function applyAutocompleteSelection(displayValue, kind) {
   const ac = runtime.autocomplete;
-  if (!ac.inputEl) return;
-
-  ac.inputEl.value = displayValue;
+  if (!ac.open) return;
 
   if (kind === "pokemon") {
     state[ac.teamKey][ac.slotIndex].nameInput = displayValue;
     closeAutocomplete();
+    renderTeamGrid(ac.teamKey);
     void loadPokemonIntoSlot(ac.teamKey, ac.slotIndex, displayValue);
     return;
   }
@@ -1826,7 +1807,23 @@ function applyAutocompleteSelection(displayValue, kind) {
     updateSaveIndicator("Equipo guardado");
   }
 
+  const selector = `.move-input[data-team="${ac.teamKey}"][data-index="${ac.slotIndex}"][data-move-index="${ac.moveIndex}"]`;
   closeAutocomplete();
+  renderTeamGrid(ac.teamKey);
+
+  requestAnimationFrame(() => {
+    const input = document.querySelector(selector);
+    if (input) {
+      input.focus({ preventScroll: true });
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    }
+  });
+}
+
+function rerenderAutocompleteHost() {
+  if (!runtime.autocomplete.open) return;
+  renderTeamGrid(runtime.autocomplete.teamKey);
 }
 
 function scheduleAutocompleteSearch(inputEl) {
@@ -1846,6 +1843,7 @@ function scheduleAutocompleteSearch(inputEl) {
       const query = inputEl.value.trim();
       if (query.length < 2) {
         closeAutocomplete();
+        renderTeamGrid(teamKey);
         return;
       }
 
@@ -1857,9 +1855,9 @@ function scheduleAutocompleteSearch(inputEl) {
         kind: "pokemon",
         teamKey,
         slotIndex,
-        inputEl,
         items: results
       });
+      renderTeamGrid(teamKey);
       return;
     }
 
@@ -1868,6 +1866,7 @@ function scheduleAutocompleteSearch(inputEl) {
       const query = inputEl.value.trim();
       if (query.length < 2) {
         closeAutocomplete();
+        renderTeamGrid(teamKey);
         return;
       }
 
@@ -1880,9 +1879,9 @@ function scheduleAutocompleteSearch(inputEl) {
         teamKey,
         slotIndex,
         moveIndex,
-        inputEl,
         items: results
       });
+      renderTeamGrid(teamKey);
     }
   }, 90);
 }
@@ -1910,8 +1909,6 @@ function searchIndex(index, query) {
   return [...starts, ...contains].slice(0, 8);
 }
 
-/* Warmup */
-
 function scheduleWarmup() {
   scheduleIdleTask(() => { void ensurePokemonIndex(); }, 800);
   scheduleIdleTask(() => { void ensureTypeChart(); }, 1400);
@@ -1935,8 +1932,6 @@ function scheduleIdleTask(task, timeout = 1000) {
     setTimeout(task, 180);
   }
 }
-
-/* Helpers */
 
 function deepCopy(value) {
   return JSON.parse(JSON.stringify(value));
