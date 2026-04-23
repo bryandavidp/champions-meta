@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  />
+  <title>PokéDoubles Preview</title>
+  <meta
+    name="description"
+    content="Landing-app táctica mobile-first para team preview competitivo Pokémon dobles 4v4."
+  />
+
+  <link rel="preconnect" href="https://api.fontshare.com" />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#hero" class="brand" aria-label="PokéDoubles Preview">
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="7" y="7" width="50" height="50" rx="16" stroke="currentColor" stroke-width="4"></rect>
+          <path d="M17 38c7-12 14-17 24-18 4 0 8 1 12 3" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+          <path d="M19 47c8-2 16-2 25 1 5 2 8 3 11 3" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+          <circle cx="31" cy="31" r="4" fill="currentColor"></circle>
+        </svg>
+        <div class="brand-copy">
+          <span class="brand-title">PokéDoubles Preview</span>
+          <span class="brand-subtitle">Team preview táctico 4v4</span>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <span class="save-indicator" id="saveIndicator">Equipo guardado</span>
+        <button class="theme-toggle" type="button" id="themeToggle" aria-label="Cambiar tema">
+          <span class="theme-icon theme-icon-moon">◐</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero section" id="hero">
+      <div class="hero-card">
+        <p class="eyebrow">Lectura rápida de combate</p>
+        <h1>Decide tus 4 picks y el mejor lead antes de que se agote el tiempo.</h1>
+        <p class="hero-text">
+          Mete tu equipo real, añade tus movimientos y compara contra el rival para ver amenazas, cobertura y recomendaciones accionables en una sola vista.
+        </p>
+
+        <div class="hero-actions">
+          <button class="btn btn-primary" id="heroAnalyzeBtn" type="button">
+            Analizar matchup
+          </button>
+          <button class="btn btn-secondary" id="loadSavedTeamBtn" type="button">
+            Cargar mi equipo guardado
+          </button>
+        </div>
+
+        <div class="hero-pills" aria-label="Características">
+          <span class="pill">Mobile-first real</span>
+          <span class="pill">Cobertura por movimientos</span>
+          <span class="pill">Lead recomendado</span>
+          <span class="pill">Threat scan</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section panel-section" aria-labelledby="my-team-title">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Módulo principal</p>
+          <h2 id="my-team-title">Mi equipo</h2>
+        </div>
+        <div class="section-actions">
+          <button class="btn btn-ghost" type="button" id="clearMyTeamBtn">Limpiar</button>
+        </div>
+      </div>
+
+      <div class="section-note">
+        <span class="status-dot"></span>
+        Guardado automático del equipo principal y de tus movimientos.
+      </div>
+
+      <div class="team-grid" id="myTeamGrid" aria-live="polite"></div>
+    </section>
+
+    <section class="section panel-section" aria-labelledby="rival-team-title">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Módulo principal</p>
+          <h2 id="rival-team-title">Equipo rival</h2>
+        </div>
+        <div class="section-actions">
+          <button class="btn btn-ghost" type="button" id="clearRivalTeamBtn">Limpiar</button>
+        </div>
+      </div>
+
+      <div class="section-note neutral-note">
+        Rellena hasta 6 slots. No hace falta meter movimientos rivales para obtener una lectura útil.
+      </div>
+
+      <div class="team-grid" id="rivalTeamGrid" aria-live="polite"></div>
+    </section>
+
+    <section class="section panel-section" aria-labelledby="overview-title">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Lectura táctica</p>
+          <h2 id="overview-title">Visión general del matchup</h2>
+        </div>
+      </div>
+      <div id="overviewContent" class="content-stack"></div>
+    </section>
+
+    <section class="section panel-section" aria-labelledby="recommendation-title">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Decisión final</p>
+          <h2 id="recommendation-title">Recomendación táctica</h2>
+        </div>
+      </div>
+      <div id="recommendationContent" class="content-stack"></div>
+    </section>
+
+    <section class="section panel-section" aria-labelledby="details-title">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Profundidad</p>
+          <h2 id="details-title">Detalles por Pokémon</h2>
+        </div>
+      </div>
+
+      <div class="segmented-control" role="tablist" aria-label="Cambiar panel de detalles">
+        <button class="segment is-active" id="detailsMyTab" data-details-tab="my" role="tab" aria-selected="true" type="button">
+          Mi equipo
+        </button>
+        <button class="segment" id="detailsRivalTab" data-details-tab="rival" role="tab" aria-selected="false" type="button">
+          Rival
+        </button>
+      </div>
+
+      <div id="detailsContent" class="content-stack"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>PokéDoubles Preview · análisis previo de combate para dobles 4v4.</p>
+  </footer>
+
+  <div class="sticky-cta">
+    <div class="sticky-cta-inner">
+      <div class="sticky-copy">
+        <span class="sticky-title">Listo para decidir</span>
+        <span class="sticky-subtitle">Top 4 · Lead · Threats</span>
+      </div>
+      <button class="btn btn-primary btn-wide" id="stickyAnalyzeBtn" type="button">
+        Analizar matchup
+      </button>
+    </div>
+  </div>
+
+  <datalist id="pokemonOptions"></datalist>
+  <datalist id="moveOptions"></datalist>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>
