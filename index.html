@@ -3,85 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>PokéTactics Preview - UI Refinada</title>
+  <title>PokéTactics - VGC Builder</title>
   <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="Herramienta táctica para construir y analizar equipos Pokémon VGC.">
 </head>
 <body>
   
   <header class="app-header">
     <div class="logo-area">
       <h1>PokéTactics</h1>
-      <div class="team-title">Equipo VGC 4v4 Mock</div>
+      <span class="team-title">VGC Analyzer</span>
     </div>
     <div class="header-actions">
-      <button class="btn btn-primary"><span class="icon">🔗</span> Compartir</button>
-      <button class="btn btn-secondary">Guardar</button>
-      <button class="btn btn-danger">🗑 Limpiar</button>
+      <button class="btn btn-icon" id="theme-toggle" aria-label="Alternar tema oscuro o claro">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
+      </button>
+      <span class="save-indicator text-muted" id="save-status" aria-live="polite"></span>
+      <button class="btn btn-ghost text-danger" id="global-clear" aria-label="Vaciar ambos equipos">Limpiar</button>
     </div>
   </header>
 
-  <!-- Global Alerts -->
-  <div class="global-alerts">
-    <div class="alert-item">⚠️ Objeto duplicado: Banda Focus</div>
-  </div>
-
   <main class="app-main">
-    
-    <!-- Panel Izquierdo / Superior en móvil: Análisis del Equipo -->
-    <aside class="analysis-panel panel">
-      <div class="panel-header">
-        <span class="icon">🧠</span>
-        <h2>Análisis del Equipo</h2>
-      </div>
+    <div class="builder-container">
+      <!-- Módulo Mi Equipo -->
+      <section class="module panel" style="z-index: 20;">
+        <header class="module-header">
+          <div class="header-title-group">
+            <h2>Mi Equipo</h2>
+            <span class="badge" id="my-team-count" aria-label="Pokémon en mi equipo">0/6</span>
+          </div>
+        </header>
+        <div class="team-grid" id="my-team-grid" role="list"></div>
+      </section>
+
+      <!-- Módulo Equipo Rival -->
+      <section class="module panel" style="z-index: 10;">
+        <header class="module-header">
+          <div class="header-title-group">
+            <h2>Equipo Rival</h2>
+            <span class="badge" id="rival-team-count" aria-label="Pokémon en equipo rival">0/6</span>
+          </div>
+        </header>
+        <div class="team-grid" id="rival-team-grid" role="list"></div>
+      </section>
+    </div>
+
+    <!-- Módulo Central de Decisión Táctica -->
+    <section class="module panel analytical-module" id="tactical-board" aria-live="polite" style="display: none;">
+      <header class="module-header">
+        <h2>Reporte Táctico <span>⚡</span></h2>
+      </header>
       
-      <div class="score-section">
-        <div class="score-circle">
-          <span class="score-value">65</span>
+      <div class="threat-banner" id="main-threat-container"></div>
+
+      <div class="recommendation-layout">
+        <div class="leads-column">
+          <article class="rec-card optimal-lead" id="best-lead-container">
+            <h3>Lead Principal Recomendado</h3>
+            <div class="card-content" id="best-lead-content"></div>
+          </article>
+          
+          <article class="rec-card alt-lead" id="alt-lead-container">
+            <h3>Lead Alternativo</h3>
+            <div class="card-content" id="alt-lead-content"></div>
+          </article>
         </div>
-        <div class="score-text">
-          <h3>Fuerte</h3>
-          <p>4/6 Pokémon</p>
+
+        <div class="side-column">
+          <article class="rec-card top-four" id="top-four-container">
+            <h3>Core (Top 4)</h3>
+            <div class="card-content" id="top-four-content"></div>
+          </article>
+
+          <article class="rec-card warning-picks" id="weak-picks-container">
+            <h3>Precaución con</h3>
+            <div class="card-content" id="weak-picks-content"></div>
+          </article>
         </div>
       </div>
-
-      <div class="stats-grid">
-        <div class="stat-box">
-          <span class="stat-num">53</span>
-          <span class="stat-label">Tipos</span>
-        </div>
-        <div class="stat-box">
-          <span class="stat-num">75</span>
-          <span class="stat-label">Velocidad</span>
-        </div>
-      </div>
-
-      <div class="analysis-details">
-        <div class="detail-group">
-          <h4>Fortalezas</h4>
-          <ul class="check-list">
-            <li>✓ Excelente cobertura ofensiva</li>
-            <li>✓ Movimientos de prioridad</li>
-          </ul>
-        </div>
-        <div class="detail-group">
-          <h4>Problemas</h4>
-          <ul class="warning-list">
-            <li>⚠ Debilidad crítica a Planta</li>
-            <li>⚠ Sin Intimidación</li>
-          </ul>
-        </div>
-        <div class="critical-weakness">
-          <h4>Debilidades Críticas</h4>
-          <span class="type-badge type-grass">Planta</span>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Módulo Central: Grid del Equipo -->
-    <section class="team-builder panel" id="team-builder">
-      <!-- Generado vía JS -->
     </section>
-
   </main>
 
   <script src="app.js"></script>
