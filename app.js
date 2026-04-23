@@ -424,44 +424,41 @@ function renderStats(stats) {
 }
 
 function renderWeaknesses(groups) {
-  const rows = [];
-  const chips = (arr, cls) => arr.map(t => `<span class="matchup-chip ${cls}">${escapeHtml(typeLabel(t))}</span>`).join('');
-  if (groups.weak4x.length || groups.weak2x.length) {
-    rows.push(`
-      <div class="matchup-block matchup-block--weak">
-        <div class="matchup-block__head"><div class="matchup-block__title"><span class="matchup-block__badge">▲</span>Debilidades</div></div>
+  const blocks = [];
+
+  const block = (title, badge, className, items, multLabel) => {
+    if (!items.length) return '';
+    return `
+      <div class="matchup-block ${className}">
+        <div class="matchup-block__head">
+          <div class="matchup-block__title">
+            <span class="matchup-block__badge">${badge}</span>
+            ${title}
+          </div>
+        </div>
         <div class="matchup-grid">
-          ${groups.weak4x.map(t => `<span class="matchup-chip matchup-chip--4x"><span class="matchup-chip__mult">4×</span>${escapeHtml(typeLabel(t))}</span>`).join('')}
-          ${groups.weak2x.map(t => `<span class="matchup-chip matchup-chip--2x"><span class="matchup-chip__mult">2×</span>${escapeHtml(typeLabel(t))}</span>`).join('')}
+          ${items.map(t => `<span class="matchup-chip ${className === 'matchup-block--weak' ? (multLabel === '4×' ? 'matchup-chip--4x' : 'matchup-chip--2x') : className === 'matchup-block--resist' ? (multLabel === '¼' ? 'matchup-chip--quarter' : 'matchup-chip--half') : 'matchup-chip--immune'}"><span class="matchup-chip__mult">${multLabel}</span>${escapeHtml(typeLabel(t))}</span>`).join('')}
         </div>
       </div>
-    `);
+    `;
+  };
+
+  if (groups.weak4x.length || groups.weak2x.length) {
+    blocks.push(block('Debilidades', '▲', 'matchup-block--weak', groups.weak4x, '4×'));
+    blocks.push(block('', '', 'matchup-block--weak', groups.weak2x, '2×'));
   }
   if (groups.resist4x.length || groups.resist2x.length) {
-    rows.push(`
-      <div class="matchup-block matchup-block--resist">
-        <div class="matchup-block__head"><div class="matchup-block__title"><span class="matchup-block__badge">▼</span>Resistencias</div></div>
-        <div class="matchup-grid">
-          ${groups.resist4x.map(t => `<span class="matchup-chip matchup-chip--quarter"><span class="matchup-chip__mult">¼</span>${escapeHtml(typeLabel(t))}</span>`).join('')}
-          ${groups.resist2x.map(t => `<span class="matchup-chip matchup-chip--half"><span class="matchup-chip__mult">½</span>${escapeHtml(typeLabel(t))}</span>`).join('')}
-        </div>
-      </div>
-    `);
+    blocks.push(block('Resistencias', '▼', 'matchup-block--resist', groups.resist4x, '¼'));
+    blocks.push(block('', '', 'matchup-block--resist', groups.resist2x, '½'));
   }
   if (groups.immune.length) {
-    rows.push(`
-      <div class="matchup-block matchup-block--immune">
-        <div class="matchup-block__head"><div class="matchup-block__title"><span class="matchup-block__badge">⊘</span>Inmunidades</div></div>
-        <div class="matchup-grid">
-          ${groups.immune.map(t => `<span class="matchup-chip matchup-chip--immune"><span class="matchup-chip__mult">0×</span>${escapeHtml(typeLabel(t))}</span>`).join('')}
-        </div>
-      </div>
-    `);
+    blocks.push(block('Inmunidades', '⊘', 'matchup-block--immune', groups.immune, '0×'));
   }
-  return rows.length ? `<div class="slot__matchup">${rows.join('')}</div>` : '';
+
+  return blocks.length ? `<div class="slot__matchup">${blocks.join('')}</div>` : '';
 }
 
-function renderMoveInput(team, index, moveIndex, moveState) {
+function renderMoveRow(team, index, moveIndex, moveState) {
   const inputId = `move-${team}-${index}-${moveIndex}`;
   return `
     <div class="move-row" data-move-row="${moveIndex}">
@@ -475,18 +472,21 @@ function renderMoveInput(team, index, moveIndex, moveState) {
           autocorrect="off"
           autocapitalize="off"
           spellcheck="false"
-          placeholder="Movimiento ${moveIndex + 1}"
+          placeholder="Mov. ${moveIndex + 1}"
           data-team="${team}"
           data-index="${index}"
           data-move-index="${moveIndex}"
           value="${escapeHtml(moveState.input || '')}"
+          aria-label="Movimiento ${moveIndex + 1}"
         />
         <ul class="move-ac" id="move-ac-${team}-${index}-${moveIndex}" role="listbox"></ul>
       </div>
       <div class="move-meta">
         ${moveState.move ? `
           <span class="move-chip ${typeClass(moveState.move.type)}">${escapeHtml(moveState.move.typeEs)}</span>
-          <span class="move-chip ${moveState.move.damageClass === 'status' ? 'move-chip--statusmove' : 'move-chip--damage'}">${moveState.move.damageClass === 'status' ? 'Estado' : (moveState.move.power ? `${moveState.move.power} Pot.` : 'Ofensivo')}</span>
+          <span class="move-chip ${moveState.move.damageClass === 'status' ? 'move-chip--statusmove' : 'move-chip--damage'}">
+            ${moveState.move.damageClass === 'status' ? 'Estado' : (moveState.move.power ? `${moveState.move.power}` : 'Ofensivo')}
+          </span>
         ` : `
           <span class="move-chip move-chip--status">Vacío</span>
         `}
@@ -507,16 +507,27 @@ function renderFilledCard(pokemon, team, index) {
             <div class="slot__name">${escapeHtml(pokemon.nameEs)}</div>
           </div>
           <div class="slot__type-row">
-            ${pokemon.types.map((t, i) => `<span class="type-chip ${typeClass(t)}" title="${escapeHtml(pokemon.typesEs[i])}">${escapeHtml(pokemon.typesEs[i])}</span>`).join('')}
+            ${pokemon.types.map((t, i) => `
+              <span class="type-chip ${typeClass(t)}" title="${escapeHtml(pokemon.typesEs[i])}">
+                ${escapeHtml(pokemon.typesEs[i])}
+              </span>
+            `).join('')}
           </div>
         </div>
         <button class="slot__btn-remove" data-team="${team}" data-index="${index}" aria-label="Eliminar ${escapeHtml(pokemon.nameEs)}">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M18.3 5.71 12 12.01l-6.29-6.3-1.42 1.42 6.3 6.29-6.3 6.29 1.42 1.42 6.29-6.3 6.29 6.3 1.42-1.42-6.3-6.29 6.3-6.29z"/></svg>
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path fill="currentColor" d="M18.3 5.71 12 12.01l-6.29-6.3-1.42 1.42 6.3 6.29-6.3 6.29 1.42 1.42 6.29-6.3 6.29 6.3 1.42-1.42-6.3-6.29 6.3-6.29z"/>
+          </svg>
         </button>
       </div>
+
       <div class="slot__body">
-        <div class="slot__stats">${renderStats(pokemon.stats)}</div>
-        <div class="slot__abilities">${pokemon.abilitiesEs.map(a => `<span class="ability-chip">${escapeHtml(a)}</span>`).join('')}</div>
+        <div class="slot__stats">
+          ${renderStats(pokemon.stats)}
+        </div>
+        <div class="slot__abilities">
+          ${pokemon.abilitiesEs.map(a => `<span class="ability-chip">${escapeHtml(a)}</span>`).join('')}
+        </div>
         ${renderWeaknesses(pokemon.weaknessGroups)}
         ${team === 'my' ? renderMovesBlock(index, state.myTeam[index]) : ''}
       </div>
@@ -531,7 +542,7 @@ function renderMovesBlock(index, slot) {
         <span class="moves-head__title">Movimientos</span>
       </div>
       <div class="moves-grid">
-        ${slot.moves.map((m, i) => renderMoveInput('my', index, i, m)).join('')}
+        ${slot.moves.map((m, i) => renderMoveRow('my', index, i, m)).join('')}
       </div>
     </div>
   `;
