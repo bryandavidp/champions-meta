@@ -1,70 +1,111 @@
 :root {
-  --bg: #121212;
-  --surface: #1e1e1e;
-  --surface-light: #2c2c2c;
-  --primary: #bb86fc;
-  --primary-dark: #3700b3;
-  --success: #03dac6;
-  --danger: #cf6679;
-  --text: #ffffff;
-  --text-muted: #a0a0a0;
-  --radius: 12px;
+    --bg-dark: #0f172a;
+    --bg-panel: #1e293b;
+    --accent: #38bdf8;
+    --accent-hover: #0284c7;
+    --danger: #ef4444;
+    --success: #10b981;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --font: system-ui, -apple-system, sans-serif;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-body { background-color: var(--bg); color: var(--text); padding-bottom: 20px; }
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 80px;
+}
 
-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--surface); border-bottom: 1px solid #333; }
-header h1 { font-size: 1.2rem; color: var(--primary); }
+.hero { padding: 20px; text-align: center; border-bottom: 1px solid var(--border); }
+.hero h1 { font-size: 1.2rem; letter-spacing: 2px; color: var(--accent); }
+.hero p { font-size: 0.8rem; color: var(--text-muted); }
 
-button { background: none; border: none; color: inherit; font: inherit; cursor: pointer; }
-.btn-primary { width: 100%; padding: 15px; background: var(--primary); color: #000; font-weight: bold; border-radius: var(--radius); margin-top: 10px; font-size: 1.1rem; }
-.btn-primary:disabled { background: #555; color: #888; }
-#btn-reset { color: var(--danger); font-weight: bold; }
+.team-section { padding: 20px; }
+.team-section h2 { font-size: 1rem; margin-bottom: 15px; display: flex; justify-content: space-between;}
+.counter { color: var(--text-muted); font-size: 0.9rem; }
 
-.card { background: var(--surface); margin: 15px; padding: 15px; border-radius: var(--radius); }
-.card h2 { font-size: 1.1rem; margin-bottom: 10px; color: var(--text-muted); }
+.slots-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
 
-textarea { width: 100%; height: 120px; background: var(--surface-light); border: 1px solid #444; color: var(--text); padding: 10px; border-radius: 8px; resize: none; font-family: monospace; }
-.enemy-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.enemy-search { padding: 12px; background: var(--surface-light); border: 1px solid #444; color: var(--text); border-radius: 8px; width: 100%; font-size: 1rem; }
+.slot {
+    background: var(--bg-panel);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    height: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: 0.2s;
+}
+
+.slot.filled { border-style: solid; border-color: var(--accent); }
+.slot img { width: 60px; height: 60px; object-fit: contain; }
+.slot .remove {
+    position: absolute; top: -5px; right: -5px;
+    background: var(--danger); color: white; border: none;
+    border-radius: 50%; width: 20px; height: 20px; font-size: 10px;
+}
+
+.cta-btn {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    width: 90%; max-width: 400px; padding: 15px;
+    background: var(--accent); color: #fff; font-weight: bold; font-size: 1.1rem;
+    border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(56,189,248,0.4);
+}
+.cta-btn:disabled { background: var(--border); box-shadow: none; opacity: 0.5; }
 
 .hidden { display: none !important; }
 
-/* Dashboard & Tabs */
-.tabs { display: flex; background: var(--surface); border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 10; }
-.tab-btn { flex: 1; padding: 15px 0; text-align: center; color: var(--text-muted); font-weight: 600; border-bottom: 3px solid transparent; }
-.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+/* Modal BottomSheet */
+.modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); z-index: 100;
+    display: flex; flex-direction: column; justify-content: flex-end;
+}
+.modal-content {
+    background: var(--bg-dark); height: 70vh; border-radius: 20px 20px 0 0;
+    padding: 20px; display: flex; flex-direction: column;
+}
+.modal-header { display: flex; gap: 10px; margin-bottom: 15px; }
+.modal-header input {
+    flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg-panel); color: white; font-size: 1rem;
+}
+.modal-header button { padding: 0 15px; background: var(--border); border: none; color: white; border-radius: 8px;}
+.results-list { overflow-y: auto; list-style: none; }
+.results-list li {
+    padding: 15px; border-bottom: 1px solid var(--border);
+    text-transform: capitalize; font-size: 1.1rem;
+}
 
-.tab-content { display: none; padding: 15px; }
-.tab-content.active { display: block; }
+/* Results View */
+#results-view { padding: 20px; }
+.secondary-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+    padding: 8px 15px; border-radius: 8px; margin-bottom: 20px;
+}
+.tactical-card {
+    background: var(--bg-panel); border-radius: 12px; padding: 15px; margin-bottom: 15px;
+    border-left: 4px solid var(--accent);
+}
+.pokemon-row { display: flex; gap: 10px; margin: 10px 0; }
+.pokemon-row img { width: 50px; height: 50px; background: var(--bg-dark); border-radius: 50%; }
+.reasoning { font-size: 0.85rem; color: var(--text-muted); }
 
-/* Leads & Picks */
-.recommendation-card { padding: 15px; border-radius: var(--radius); margin-bottom: 15px; border-left: 5px solid; background: var(--surface-light); }
-.recommendation-card.success { border-color: var(--success); }
-.recommendation-card.danger { border-color: var(--danger); }
-.recommendation-card h3 { font-size: 0.9rem; text-transform: uppercase; margin-bottom: 5px; color: var(--text-muted); }
-
-/* Speed Tiers Timeline */
-.speed-controls { display: flex; justify-content: space-around; margin-bottom: 15px; background: var(--surface-light); padding: 10px; border-radius: 8px;}
-.timeline { list-style: none; position: relative; }
-.timeline::before { content: ''; position: absolute; left: 20px; top: 0; bottom: 0; width: 2px; background: #444; }
-.speed-item { display: flex; align-items: center; margin-bottom: 10px; position: relative; }
-.speed-number { width: 40px; text-align: right; margin-right: 15px; font-weight: bold; z-index: 2; background: var(--bg); font-family: monospace; color: var(--success); }
-.speed-name { background: var(--surface-light); padding: 10px 15px; border-radius: 20px; flex: 1; display: flex; align-items: center; gap: 10px; }
-.speed-name.enemy { border: 1px solid var(--danger); }
-
-/* Sprites & UI Elements */
-.sprite-icon { width: 40px; height: 40px; object-fit: contain; }
-.chip { padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; background: #444; }
-.tera-btn { border: 1px solid var(--primary); color: var(--primary); padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; margin-top: 5px; display: inline-block;}
-.tera-active { background: var(--primary); color: #000; }
-
-/* Matriz simplificada */
-.matchup-grid { display: flex; flex-direction: column; gap: 10px; }
-.matchup-row { display: flex; align-items: center; background: var(--surface-light); padding: 10px; border-radius: 8px; gap: 10px;}
-.matchup-score { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; font-size: 0.9rem;}
-.score-good { background: rgba(3, 218, 198, 0.2); color: var(--success); }
-.score-bad { background: rgba(207, 102, 121, 0.2); color: var(--danger); }
-.score-neutral { background: rgba(255, 255, 255, 0.1); color: var(--text-muted); }
+.threat-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.threat-item {
+    background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--danger);
+    padding: 10px; border-radius: 8px; font-size: 0.9rem;
+}
+.threat-item span { color: var(--danger); font-weight: bold; }
