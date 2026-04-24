@@ -1,72 +1,65 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>VGC Team Preview Analyzer</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VGC Tactical Preview</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>VGC Tactician</h1>
-    <button id="btn-reset">Reset</button>
-  </header>
+    <header class="hero">
+        <h1>VGC TACTICAL LINK</h1>
+        <p>Análisis en 90 segundos</p>
+    </header>
 
-  <main>
-    <section id="section-my-team" class="card">
-      <h2>1. Importar mi Equipo</h2>
-      <textarea id="input-pokepaste" placeholder="Pega tu Poképaste de Showdown aquí..."></textarea>
-      <button id="btn-import" class="btn-primary">Cargar Equipo</button>
-      <div id="my-team-preview" class="team-grid hidden"></div>
-    </section>
+    <main id="builder-view">
+        <section class="team-section" id="my-team-section">
+            <h2>Mi Equipo <span class="counter" id="my-counter">0/6</span></h2>
+            <div class="slots-grid" id="my-slots"></div>
+        </section>
 
-    <section id="section-enemy-team" class="card hidden">
-      <h2>2. Equipo Rival</h2>
-      <div class="enemy-inputs">
-        <input type="text" class="enemy-search" placeholder="Pokémon 1..." data-index="0">
-        <input type="text" class="enemy-search" placeholder="Pokémon 2..." data-index="1">
-        <input type="text" class="enemy-search" placeholder="Pokémon 3..." data-index="2">
-        <input type="text" class="enemy-search" placeholder="Pokémon 4..." data-index="3">
-        <input type="text" class="enemy-search" placeholder="Pokémon 5..." data-index="4">
-        <input type="text" class="enemy-search" placeholder="Pokémon 6..." data-index="5">
-      </div>
-      <div id="enemy-team-preview" class="team-grid"></div>
-      <button id="btn-analyze" class="btn-primary" disabled>Analizar Matchup</button>
-    </section>
+        <section class="team-section" id="enemy-team-section">
+            <h2>Equipo Rival <span class="counter" id="enemy-counter">0/6</span></h2>
+            <div class="slots-grid" id="enemy-slots"></div>
+        </section>
 
-    <section id="section-dashboard" class="hidden">
-      <nav class="tabs">
-        <button class="tab-btn active" data-target="tab-leads">Leads & Picks</button>
-        <button class="tab-btn" data-target="tab-speed">Speed Tiers</button>
-        <button class="tab-btn" data-target="tab-matrix">Matriz</button>
-      </nav>
+        <button id="analyze-btn" class="cta-btn" disabled>Analizar Matchup</button>
+    </main>
 
-      <div id="tab-leads" class="tab-content active">
-        <div class="recommendation-card success">
-          <h3>Lead Óptimo Recomendado</h3>
-          <p id="optimal-lead-text">Calculando...</p>
+    <main id="results-view" class="hidden">
+        <button id="back-btn" class="secondary-btn">← Volver al setup</button>
+        
+        <section class="result-module">
+            <h2>Recomendación Táctica</h2>
+            <div class="tactical-card lead-card">
+                <h3>Vanguardia (Leads)</h3>
+                <div id="lead-result" class="pokemon-row"></div>
+                <p id="lead-reason" class="reasoning"></p>
+            </div>
+            
+            <div class="tactical-card core-card">
+                <h3>Backline (Resto del Core)</h3>
+                <div id="core-result" class="pokemon-row"></div>
+                <p id="core-reason" class="reasoning"></p>
+            </div>
+        </section>
+
+        <section class="result-module">
+            <h2>Radar de Amenazas</h2>
+            <div id="threat-list" class="threat-grid"></div>
+        </section>
+    </main>
+
+    <div id="search-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <input type="text" id="pokemon-search" placeholder="Buscar Pokémon..." autocomplete="off">
+                <button id="close-modal">X</button>
+            </div>
+            <ul id="search-results" class="results-list"></ul>
         </div>
-        <div class="recommendation-card danger">
-          <h3>Amenaza Principal Rival</h3>
-          <p id="threat-text">Calculando...</p>
-        </div>
-      </div>
+    </div>
 
-      <div id="tab-speed" class="tab-content">
-        <div class="speed-controls">
-          <label><input type="checkbox" id="toggle-tailwind-me"> Mi Tailwind</label>
-          <label><input type="checkbox" id="toggle-tailwind-enemy"> Su Tailwind</label>
-        </div>
-        <ul id="speed-tier-list" class="timeline"></ul>
-      </div>
-
-      <div id="tab-matrix" class="tab-content">
-        <p class="hint">Toca un Pokémon para simular su Terastalización probable.</p>
-        <div id="matchup-grid" class="matchup-grid"></div>
-      </div>
-    </section>
-  </main>
-
-  <script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
