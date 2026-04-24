@@ -1,824 +1,296 @@
-/* ============================================================
-   CHAMPIONS META · app.js
-   Fase 1 — Team Preview Pokémon Dobles 4v4
-   ============================================================ */
-
-'use strict';
-
-/* ============================================================
-   CONSTANTES
-   ============================================================ */
-const TEAM_SIZE = 6;
-const DEBOUNCE_MS = 280;
-const LS_KEY = 'champions_meta_myTeam_v1';
-const API = 'https://pokeapi.co/api/v2';
-
-/* ============================================================
-   CACHE
-   ============================================================ */
-const cache = {
-  pokemonList: null,       // [{name, url, id}] — lista completa en inglés
-  pokemon: new Map(),      // id → full pokemon object
-  species: new Map(),      // id → species (con nombres ES)
-  types: new Map(),        // slug → type data (con nombres ES y damage_relations)
-  abilities: new Map(),    // slug → ability (con nombres ES)
-  typeChart: new Map(),    // slug → {name_es, damage_relations}
+// --- 1. MATRIZ DE TIPOS (TYPE CHART 18x18) ---
+// Multiplicador de daño ofensivo: TYPE_CHART[tipo_ataque][tipo_defensor]
+const TYPE_CHART = {
+    normal: { rock: 0.5, ghost: 0, steel: 0.5 },
+    fire: { fire: 0.5, water: 0.5, grass: 2, ice: 2, bug: 2, rock: 0.5, dragon: 0.5, steel: 2 },
+    water: { fire: 2, water: 0.5, grass: 0.5, ground: 2, rock: 2, dragon: 0.5 },
+    electric: { water: 2, electric: 0.5, grass: 0.5, ground: 0, flying: 2, dragon: 0.5 },
+    grass: { fire: 0.5, water: 2, grass: 0.5, poison: 0.5, ground: 2, flying: 0.5, bug: 0.5, rock: 2, dragon: 0.5, steel: 0.5 },
+    ice: { fire: 0.5, water: 0.5, grass: 2, ice: 0.5, ground: 2, flying: 2, dragon: 2, steel: 0.5 },
+    fighting: { normal: 2, ice: 2, poison: 0.5, flying: 0.5, psychic: 0.5, bug: 0.5, rock: 2, ghost: 0, dark: 2, steel: 2, fairy: 0.5 },
+    poison: { grass: 2, poison: 0.5, ground: 0.5, rock: 0.5, ghost: 0.5, steel: 0, fairy: 2 },
+    ground: { fire: 2, electric: 2, grass: 0.5, poison: 2, flying: 0, bug: 0.5, rock: 2, steel: 2 },
+    flying: { electric: 0.5, grass: 2, fighting: 2, bug: 2, rock: 0.5, steel: 0.5 },
+    psychic: { fighting: 2, poison: 2, psychic: 0.5, dark: 0, steel: 0.5 },
+    bug: { fire: 0.5, grass: 2, fighting: 0.5, poison: 0.5, flying: 0.5, psychic: 2, ghost: 0.5, dark: 2, steel: 0.5, fairy: 0.5 },
+    rock: { fire: 2, ice: 2, fighting: 0.5, ground: 0.5, flying: 2, bug: 2, steel: 0.5 },
+    ghost: { normal: 0, psychic: 2, ghost: 2, dark: 0.5 },
+    dragon: { dragon: 2, steel: 0.5, fairy: 0 },
+    dark: { fighting: 0.5, psychic: 2, ghost: 2, dark: 0.5, fairy: 0.5 },
+    steel: { fire: 0.5, water: 0.5, electric: 0.5, ice: 2, rock: 2, steel: 0.5, fairy: 2 },
+    fairy: { fire: 0.5, fighting: 2, poison: 0.5, dragon: 2, dark: 2, steel: 0.5 }
 };
 
-/* ============================================================
-   ESTADO
-   ============================================================ */
-function makeSlot() {
-  return {
-    nameInput: '',
-    pokemon: null,    // objeto completo resuelto
-    status: 'empty',  // 'empty' | 'input' | 'loading' | 'error' | 'filled'
-    error: null,
-    moves: [null, null, null, null], // para Fase 2
-  };
-}
-
-const state = {
-  myTeam:    Array.from({ length: TEAM_SIZE }, makeSlot),
-  rivalTeam: Array.from({ length: TEAM_SIZE }, makeSlot),
+// --- 2. MOCK META Y CACHÉ ---
+const metaMock = {
+    "flutter-mane": { tera: "fairy", ability: "protosynthesis", item: "booster energy" },
+    "incineroar": { tera: "grass", ability: "intimidate", item: "sitrus berry" },
+    "urshifu-rapid-strike": { tera: "water", ability: "unseen fist", item: "mystic water" },
+    "ogerpon-hearthflame": { tera: "fire", ability: "mold breaker", item: "hearthflame mask" },
+    "rillaboom": { tera: "fire", ability: "grassy surge", item: "assault vest" },
+    "tornadus": { tera: "dark", ability: "prankster", item: "covert cloak" }
 };
 
-/* ============================================================
-   UTILIDADES
-   ============================================================ */
-function debounce(fn, ms) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}
+const apiCache = new Map();
+let myTeam = [];
+let enemyTeam = [];
 
-function capitalize(str) {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
+// --- 3. PARSER DE SHOWDOWN ---
+function parseShowdown(text) {
+    const blocks = text.trim().split(/\n\s*\n/);
+    const team = [];
+    blocks.forEach(block => {
+        if (!block) return;
+        const lines = block.split('\n');
+        let nameRaw = lines[0].split('@')[0].trim();
+        const species = nameRaw.replace(/\s*\(.*?\)/, '').trim().toLowerCase().replace(" ", "-");
+        
+        let speedStat = 50, teraType = "stellar", hasTailwind = false;
+        
+        lines.forEach(line => {
+            if (line.includes('EVs:')) {
+                const match = line.match(/(\d+)\s+Spe/i);
+                if (match) speedStat = calculateLevel50Speed(100, parseInt(match[1])); 
+            }
+            if (line.includes('Tera Type:')) teraType = line.split(':')[1].trim().toLowerCase();
+            if (line.toLowerCase().includes('- tailwind')) hasTailwind = true;
+        });
 
-function extractId(url) {
-  const m = url.match(/\/(\d+)\/?$/);
-  return m ? parseInt(m[1], 10) : null;
-}
-
-function getSpanishName(namesArray, fallback = '') {
-  if (!Array.isArray(namesArray)) return fallback;
-  const entry = namesArray.find(n => n.language?.name === 'es');
-  return entry ? entry.name : fallback;
-}
-
-function showToast(msg, duration = 2200) {
-  let el = document.getElementById('toast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'toast';
-    el.className = 'toast';
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.classList.add('is-visible');
-  clearTimeout(el._timer);
-  el._timer = setTimeout(() => el.classList.remove('is-visible'), duration);
-}
-
-/* ============================================================
-   TABLA DE TIPOS (cálculo de debilidades/resistencias)
-   ============================================================ */
-
-// Tabla de efectividad estática (evita múltiples fetches encadenados)
-const TYPE_EFFECTIVENESS = {
-  normal:   { weakTo: ['fighting'], immuneTo: ['ghost'], resistantTo: [] },
-  fire:     { weakTo: ['water','ground','rock'], immuneTo: [], resistantTo: ['fire','grass','ice','bug','steel','fairy'] },
-  water:    { weakTo: ['electric','grass'], immuneTo: [], resistantTo: ['fire','water','ice','steel'] },
-  electric: { weakTo: ['ground'], immuneTo: [], resistantTo: ['electric','flying','steel'] },
-  grass:    { weakTo: ['fire','ice','poison','flying','bug'], immuneTo: [], resistantTo: ['water','electric','grass','ground'] },
-  ice:      { weakTo: ['fire','fighting','rock','steel'], immuneTo: [], resistantTo: ['ice'] },
-  fighting: { weakTo: ['flying','psychic','fairy'], immuneTo: [], resistantTo: ['bug','rock','dark'] },
-  poison:   { weakTo: ['ground','psychic'], immuneTo: [], resistantTo: ['grass','fighting','poison','bug','fairy'] },
-  ground:   { weakTo: ['water','grass','ice'], immuneTo: ['electric'], resistantTo: ['poison','rock'] },
-  flying:   { weakTo: ['electric','ice','rock'], immuneTo: ['ground'], resistantTo: ['grass','fighting','bug'] },
-  psychic:  { weakTo: ['bug','ghost','dark'], immuneTo: [], resistantTo: ['fighting','psychic'] },
-  bug:      { weakTo: ['fire','flying','rock'], immuneTo: [], resistantTo: ['grass','fighting','ground'] },
-  rock:     { weakTo: ['water','grass','fighting','ground','steel'], immuneTo: [], resistantTo: ['normal','fire','poison','flying'] },
-  ghost:    { weakTo: ['ghost','dark'], immuneTo: ['normal','fighting'], resistantTo: ['poison','bug'] },
-  dragon:   { weakTo: ['ice','dragon','fairy'], immuneTo: [], resistantTo: ['fire','water','electric','grass'] },
-  dark:     { weakTo: ['fighting','bug','fairy'], immuneTo: ['psychic'], resistantTo: ['ghost','dark'] },
-  steel:    { weakTo: ['fire','fighting','ground'], immuneTo: ['poison'], resistantTo: ['normal','grass','ice','flying','psychic','bug','rock','dragon','steel','fairy'] },
-  fairy:    { weakTo: ['poison','steel'], immuneTo: ['dragon'], resistantTo: ['fighting','bug','dark'] },
-};
-
-const TYPE_ES = {
-  normal:'Normal', fire:'Fuego', water:'Agua', electric:'Eléctrico', grass:'Planta',
-  ice:'Hielo', fighting:'Lucha', poison:'Veneno', ground:'Tierra', flying:'Volador',
-  psychic:'Psíquico', bug:'Bicho', rock:'Roca', ghost:'Fantasma', dragon:'Dragón',
-  dark:'Siniestro', steel:'Acero', fairy:'Hada', stellar:'Estelar',
-};
-
-function computeWeaknesses(types) {
-  // types: array de strings en inglés (slugs)
-  const mult = {};
-
-  // inicializar todos en 1
-  Object.keys(TYPE_EFFECTIVENESS).forEach(t => { mult[t] = 1; });
-
-  types.forEach(atkType => {
-    const entry = TYPE_EFFECTIVENESS[atkType];
-    if (!entry) return;
-
-    // Para cada tipo del Pokémon defensor recibimos daño de atkType según las reglas inversas
-    // Reinterpretamos: iteramos tipos atacantes y revisamos qué tipos defensores son weak/resist/immune
-  });
-
-  // Enfoque correcto: por cada tipo atacante (atkType), miramos el Pokémon defensor
-  // Resetear
-  const allTypes = Object.keys(TYPE_EFFECTIVENESS);
-  const result = {};
-  allTypes.forEach(atk => { result[atk] = 1; });
-
-  allTypes.forEach(atk => {
-    const entry = TYPE_EFFECTIVENESS[atk];
-    if (!entry) return;
-    // ¿Los tipos del Pokémon están en weakTo del atacante?
-    types.forEach(defType => {
-      if (entry.weakTo.includes(defType)) result[atk] *= 2;
-      if (entry.resistantTo.includes(defType)) result[atk] *= 0.5;
-      if (entry.immuneTo.includes(defType)) result[atk] = 0;
+        team.push({ name: species, teraType, hasTailwind, isMyTeam: true, isTeraMode: false });
     });
-  });
-
-  return result;
+    return team.slice(0, 6);
 }
 
-function getWeaknessGroups(types) {
-  const mult = computeWeaknesses(types);
-  const weak4x = [], weak2x = [], resist4x = [], resist2x = [], immune = [];
-  Object.entries(mult).forEach(([t, m]) => {
-    if (m === 0) immune.push(t);
-    else if (m >= 4) weak4x.push(t);
-    else if (m >= 2) weak2x.push(t);
-    else if (m <= 0.25) resist4x.push(t);
-    else if (m <= 0.5) resist2x.push(t);
-  });
-  return { weak4x, weak2x, resist4x, resist2x, immune };
+function calculateLevel50Speed(baseSpeed, evs = 0) {
+    return Math.floor(((2 * baseSpeed + 31 + Math.floor(evs / 4)) * 50) / 100) + 5;
 }
 
-/* ============================================================
-   API FETCH
-   ============================================================ */
-async function loadPokemonList() {
-  if (cache.pokemonList) return cache.pokemonList;
-  const res = await fetch(`${API}/pokemon?limit=10000`);
-  if (!res.ok) throw new Error('No se pudo cargar la lista de Pokémon');
-  const data = await res.json();
-  cache.pokemonList = data.results.map(p => ({
-    name: p.name,
-    id: extractId(p.url),
-    url: p.url,
-  }));
-  return cache.pokemonList;
-}
-
-async function fetchPokemon(id) {
-  if (cache.pokemon.has(id)) return cache.pokemon.get(id);
-  const res = await fetch(`${API}/pokemon/${id}`);
-  if (!res.ok) throw new Error(`Pokémon #${id} no encontrado`);
-  const data = await res.json();
-  cache.pokemon.set(id, data);
-  return data;
-}
-
-async function fetchSpecies(id) {
-  if (cache.species.has(id)) return cache.species.get(id);
-  const res = await fetch(`${API}/pokemon-species/${id}`);
-  if (!res.ok) return null;
-  const data = await res.json();
-  cache.species.set(id, data);
-  return data;
-}
-
-async function fetchAbility(slug) {
-  if (cache.abilities.has(slug)) return cache.abilities.get(slug);
-  const res = await fetch(`${API}/ability/${slug}`);
-  if (!res.ok) return null;
-  const data = await res.json();
-  cache.abilities.set(slug, data);
-  return data;
-}
-
-async function resolvePokemon(nameOrId) {
-  // 1. Buscar en la lista cargada
-  const list = await loadPokemonList();
-  const query = String(nameOrId).toLowerCase().trim();
-  let entry = list.find(p => p.name === query || String(p.id) === query);
-  if (!entry) {
-    // intento directo por si acaso el nombre es un id numérico
-    const byId = parseInt(query, 10);
-    if (!isNaN(byId)) entry = list.find(p => p.id === byId);
-  }
-  if (!entry) throw new Error(`"${nameOrId}" no encontrado`);
-
-  const id = entry.id;
-
-  // 2. Pokémon base
-  const pokemon = await fetchPokemon(id);
-
-  // 3. Species → nombre ES
-  const species = await fetchSpecies(id);
-  const nameEs = species ? getSpanishName(species.names, capitalize(entry.name)) : capitalize(entry.name);
-
-  // 4. Tipos en ES (usamos tabla estática para no disparar fetches adicionales)
-  const types = pokemon.types.map(t => t.type.name);
-  const typesEs = types.map(t => TYPE_ES[t] || capitalize(t));
-
-  // 5. Habilidades en ES
-  const abilitySlugs = pokemon.abilities.map(a => a.ability.name);
-  const abilityDataArr = await Promise.all(abilitySlugs.map(s => fetchAbility(s)));
-  const abilitiesEs = abilityDataArr.map((data, i) => {
-    if (!data) return capitalize(abilitySlugs[i]);
-    return getSpanishName(data.names, capitalize(abilitySlugs[i]));
-  });
-
-  // 6. Stats
-  const statsMap = {};
-  pokemon.stats.forEach(s => { statsMap[s.stat.name] = s.base_stat; });
-
-  // 7. Debilidades/Resistencias
-  const weaknessGroups = getWeaknessGroups(types);
-
-  // 8. Sprite
-  const sprite =
-    pokemon.sprites?.front_default ||
-    `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
-
-  return {
-    id,
-    nameEn: entry.name,
-    nameEs,
-    sprite,
-    types,       // ['fire', 'flying']
-    typesEs,     // ['Fuego', 'Volador']
-    stats: {
-      hp:   statsMap['hp'],
-      atk:  statsMap['attack'],
-      def:  statsMap['defense'],
-      spa:  statsMap['special-attack'],
-      spd:  statsMap['special-defense'],
-      spe:  statsMap['speed'],
-    },
-    abilitiesEs,
-    weaknessGroups,
-  };
-}
-
-/* ============================================================
-   PERSISTENCIA
-   ============================================================ */
-function serializeTeam(team) {
-  return team.map(slot => ({
-    nameEn: slot.pokemon?.nameEn || null,
-    status: slot.status === 'filled' ? 'filled' : 'empty',
-  }));
-}
-
-function saveMyTeam() {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(serializeTeam(state.myTeam)));
-    showToast('✅ Equipo guardado');
-  } catch (e) {
-    showToast('❌ Error al guardar');
-  }
-}
-
-async function loadSavedTeam() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return;
-    const saved = JSON.parse(raw);
-    if (!Array.isArray(saved)) return;
-    const promises = saved.map(async (entry, i) => {
-      if (entry.status === 'filled' && entry.nameEn) {
-        state.myTeam[i].status = 'loading';
-        renderSlot('my', i);
-        try {
-          const resolved = await resolvePokemon(entry.nameEn);
-          state.myTeam[i].pokemon = resolved;
-          state.myTeam[i].status = 'filled';
-        } catch {
-          state.myTeam[i].status = 'empty';
-        }
-        renderSlot('my', i);
-      }
-    });
-    await Promise.all(promises);
-  } catch (e) {
-    // fail silently
-  }
-}
-
-/* ============================================================
-   RENDER — quirúrgico por slot
-   ============================================================ */
-function getSlotEl(team, index) {
-  const gridId = team === 'my' ? 'myTeamGrid' : 'rivalTeamGrid';
-  const grid = document.getElementById(gridId);
-  return grid?.querySelector(`[data-slot-index="${index}"]`);
-}
-
-function renderTypeBadges(typesEs, typesEn) {
-  return typesEs.map((tEs, i) => {
-    const tEn = typesEn[i] || '';
-    return `<span class="type-badge type--${tEn}" title="${tEs}">${tEs}</span>`;
-  }).join('');
-}
-
-function renderStats(stats) {
-  const labels = { hp:'HP', atk:'Atk', def:'Def', spa:'SpA', spd:'SpD', spe:'Vel' };
-  return Object.entries(labels).map(([key, label]) =>
-    `<div class="stat-item">
-      <span class="stat-label">${label}</span>
-      <span class="stat-value">${stats[key] ?? '–'}</span>
-    </div>`
-  ).join('');
-}
-
-function renderWeaknesses(groups) {
-  const rows = [];
-
-  const renderBadges = (arr, cls, title) => {
-    if (!arr.length) return '';
-    const badges = arr.map(t => {
-      const tEs = TYPE_ES[t] || capitalize(t);
-      return `<span class="matchup-badge type--${t} ${cls}" title="${tEs}">${tEs}</span>`;
-    }).join('');
-    return `<div class="matchup-row">
-      <span class="matchup-label" title="${title}">${title}</span>
-      ${badges}
-    </div>`;
-  };
-
-  rows.push(renderBadges(groups.weak4x, 'matchup-badge--4x', '4×'));
-  rows.push(renderBadges(groups.weak2x, 'matchup-badge--2x', '2×'));
-  rows.push(renderBadges(groups.immune, 'matchup-badge--immune', '0×'));
-  rows.push(renderBadges(groups.resist2x, 'matchup-badge--half', '½'));
-  rows.push(renderBadges(groups.resist4x, 'matchup-badge--quarter', '¼'));
-
-  const content = rows.filter(Boolean).join('');
-  if (!content) return '';
-  return `<div class="slot__matchup">${content}</div>`;
-}
-
-function renderFilledCard(pokemon, team, index) {
-  return `
-    <div class="slot__card">
-      <div class="slot__card-header">
-        <div class="slot__sprite-wrap">
-          <img class="slot__sprite" src="${pokemon.sprite}" alt="${pokemon.nameEs}" loading="lazy" decoding="async" />
-        </div>
-        <div class="slot__meta">
-          <span class="slot__name">${pokemon.nameEs}</span>
-          <div class="slot__types">${renderTypeBadges(pokemon.typesEs, pokemon.types)}</div>
-        </div>
-        <button class="slot__btn-remove" data-team="${team}" data-index="${index}" aria-label="Eliminar ${pokemon.nameEs}">✕</button>
-      </div>
-      <div class="slot__stats">${renderStats(pokemon.stats)}</div>
-      <div class="slot__abilities">${pokemon.abilitiesEs.map(a => `<span class="ability-badge">${a}</span>`).join('')}</div>
-      ${renderWeaknesses(pokemon.weaknessGroups)}
-    </div>`;
-}
-
-function renderSlot(team, index) {
-  const slotEl = getSlotEl(team, index);
-  if (!slotEl) return;
-
-  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
-  const colorClass = team === 'my' ? 'slot--my' : 'slot--rival';
-
-  // Limpiar clases de estado previas
-  slotEl.className = `slot ${colorClass}`;
-
-  switch (slot.status) {
-    case 'empty': {
-      slotEl.innerHTML = `
-        <div class="slot__empty" data-team="${team}" data-index="${index}" role="button" tabindex="0" aria-label="Añadir Pokémon al slot ${index + 1}">
-          <span class="slot__empty-icon">＋</span>
-          <span class="slot__empty-label">Añadir</span>
-        </div>`;
-      break;
-    }
-
-    case 'input': {
-      slotEl.classList.add('slot--active');
-      slotEl.innerHTML = `
-        <div class="slot__input-wrap">
-          <input
-            class="slot__input"
-            type="search"
-            inputmode="search"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            spellcheck="false"
-            placeholder="Buscar Pokémon…"
-            data-team="${team}"
-            data-index="${index}"
-            value="${escapeHtml(slot.nameInput)}"
-            aria-label="Buscar Pokémon para slot ${index + 1}"
-            aria-autocomplete="list"
-          />
-          <ul class="autocomplete-list" id="ac-${team}-${index}" role="listbox" aria-label="Sugerencias"></ul>
-        </div>`;
-
-      // Montar autocomplete y enfocar SIN scroll
-      const input = slotEl.querySelector('.slot__input');
-      const list = slotEl.querySelector('.autocomplete-list');
-      initAutocomplete(input, list, team, index);
-      // Foco sin scroll
-      input.focus({ preventScroll: true });
-      break;
-    }
-
-    case 'loading': {
-      slotEl.innerHTML = `
-        <div class="slot__loading">
-          <div class="spinner"></div>
-          <span>Cargando…</span>
-        </div>`;
-      break;
-    }
-
-    case 'error': {
-      slotEl.innerHTML = `
-        <div class="slot__error">
-          <span class="slot__error-msg">⚠️ ${escapeHtml(slot.error || 'Error desconocido')}</span>
-          <button class="slot__error-retry" data-team="${team}" data-index="${index}">Reintentar</button>
-        </div>`;
-      break;
-    }
-
-    case 'filled': {
-      slotEl.classList.add('slot--filled');
-      slotEl.innerHTML = renderFilledCard(slot.pokemon, team, index);
-      break;
-    }
-  }
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function renderAllSlots(team) {
-  const arr = team === 'my' ? state.myTeam : state.rivalTeam;
-  arr.forEach((_, i) => renderSlot(team, i));
-}
-
-/* ============================================================
-   AUTOCOMPLETE
-   ============================================================ */
-function initAutocomplete(input, listEl, team, index) {
-  let currentQuery = '';
-  let pokemonListLoaded = false;
-  let highlighted = -1;
-
-  function getSlotState() {
-    return team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
-  }
-
-  function updateHighlight(items, newIdx) {
-    if (highlighted >= 0 && items[highlighted]) {
-      items[highlighted].classList.remove('is-highlighted');
-    }
-    highlighted = newIdx;
-    if (highlighted >= 0 && items[highlighted]) {
-      items[highlighted].classList.add('is-highlighted');
-    }
-  }
-
-  const doSearch = debounce(async (query) => {
-    // Re-verificar que el slot sigue en modo input
-    if (getSlotState().status !== 'input') return;
-    if (!query || query.length < 2) {
-      listEl.innerHTML = '';
-      listEl.classList.remove('is-open');
-      return;
-    }
-
-    let list;
+// --- 4. FETCH API ---
+async function fetchPokemonData(name) {
+    const cleanName = name.toLowerCase().replace(" ", "-");
+    if (apiCache.has(cleanName)) return apiCache.get(cleanName);
+    
     try {
-      list = await loadPokemonList();
-      pokemonListLoaded = true;
-    } catch {
-      return;
-    }
-
-    // Si el input ha cambiado mientras cargaba, no actualizar
-    if (input.value.trim().toLowerCase() !== query) return;
-
-    const q = query.toLowerCase();
-    const results = list
-      .filter(p => p.name.includes(q) || String(p.id) === q)
-      .slice(0, 8);
-
-    if (!results.length) {
-      listEl.innerHTML = '<li style="padding:12px;font-size:.8rem;color:var(--clr-text-muted);">Sin resultados</li>';
-      listEl.classList.add('is-open');
-      return;
-    }
-
-    highlighted = -1;
-    listEl.innerHTML = results.map((p, i) =>
-      `<li class="autocomplete-list__item"
-          role="option"
-          data-name="${p.name}"
-          data-id="${p.id}"
-          tabindex="-1">
-        <img class="autocomplete-list__img"
-             src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png"
-             alt=""
-             loading="lazy"
-             decoding="async" />
-        <span class="autocomplete-list__name">${capitalize(p.name)}</span>
-        <span class="autocomplete-list__id">#${String(p.id).padStart(4,'0')}</span>
-      </li>`
-    ).join('');
-
-    listEl.classList.add('is-open');
-  }, DEBOUNCE_MS);
-
-  async function selectPokemon(nameEn) {
-    const slotState = getSlotState();
-    slotState.status = 'loading';
-    // NO re-renderizar el slot completo para no perder foco — solo cerrar el dropdown
-    listEl.innerHTML = '';
-    listEl.classList.remove('is-open');
-
-    // Renderizar solo el loading
-    renderSlot(team, index);
-
-    try {
-      const resolved = await resolvePokemon(nameEn);
-      slotState.pokemon = resolved;
-      slotState.status = 'filled';
+        const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${cleanName}`);
+        if (!response.ok) return null;
+        const data = await response.json();
+        const result = {
+            name: data.name,
+            sprite: data.sprites.front_default,
+            types: data.types.map(t => t.type.name),
+            speedBase: data.stats.find(s => s.stat.name === 'speed').base_stat
+        };
+        apiCache.set(cleanName, result);
+        return result;
     } catch (e) {
-      slotState.status = 'error';
-      slotState.error = e.message || 'Error al cargar el Pokémon';
+        return null;
     }
+}
 
-    renderSlot(team, index);
-  }
-
-  // ---- EVENTOS ----
-
-  input.addEventListener('input', () => {
-    const slotState = getSlotState();
-    if (slotState.status !== 'input') return;
-    slotState.nameInput = input.value;
-    const query = input.value.trim().toLowerCase();
-    currentQuery = query;
-    doSearch(query);
-  });
-
-  input.addEventListener('keydown', (e) => {
-    const items = Array.from(listEl.querySelectorAll('.autocomplete-list__item'));
-    if (!items.length) return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      updateHighlight(items, Math.min(highlighted + 1, items.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      updateHighlight(items, Math.max(highlighted - 1, 0));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (highlighted >= 0 && items[highlighted]) {
-        const name = items[highlighted].dataset.name;
-        if (name) selectPokemon(name);
-      }
-    } else if (e.key === 'Escape') {
-      listEl.innerHTML = '';
-      listEl.classList.remove('is-open');
-      cancelInput(team, index);
-    }
-  });
-
-  // mousedown en vez de click para que se ejecute ANTES del blur del input
-  listEl.addEventListener('mousedown', (e) => {
-    e.preventDefault(); // evita que el input pierda el foco
-    const item = e.target.closest('.autocomplete-list__item');
-    if (item && item.dataset.name) {
-      selectPokemon(item.dataset.name);
-    }
-  });
-
-  // Touch: igual que mousedown
-  listEl.addEventListener('touchstart', (e) => {
-    const item = e.target.closest('.autocomplete-list__item');
-    if (item && item.dataset.name) {
-      e.preventDefault();
-      selectPokemon(item.dataset.name);
-    }
-  }, { passive: false });
-
-  input.addEventListener('blur', () => {
-    // Pequeño delay para que mousedown/touchstart se ejecuten primero
-    setTimeout(() => {
-      const slotState = getSlotState();
-      if (slotState.status === 'input') {
-        listEl.innerHTML = '';
-        listEl.classList.remove('is-open');
-        // Si no hay nada escrito, volver a empty
-        if (!slotState.nameInput.trim()) {
-          cancelInput(team, index);
+// --- 5. LÓGICA DE MATEMÁTICAS Y SCORING ---
+function getMultiplier(attackType, defenderTypes) {
+    let mult = 1;
+    defenderTypes.forEach(defType => {
+        if (TYPE_CHART[attackType] && TYPE_CHART[attackType][defType] !== undefined) {
+            mult *= TYPE_CHART[attackType][defType];
         }
-      }
-    }, 200);
-  });
+    });
+    return mult;
 }
 
-function cancelInput(team, index) {
-  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
-  slot.status = 'empty';
-  slot.nameInput = '';
-  renderSlot(team, index);
+// Calcula la ventaja de 'miMon' contra 'enemyMon'
+function getMatchupScore(myMon, enemyMon) {
+    let score = 0;
+    const myCurrentTypes = myMon.isTeraMode ? [myMon.teraType] : myMon.types;
+    // Asumimos que el rival NO está Terastalizado a menos que expandamos la UI
+    const enemyCurrentTypes = enemyMon.types; 
+
+    // Score Ofensivo (Mis STABs contra su combinación de tipos)
+    let maxOffense = 0;
+    myCurrentTypes.forEach(myType => {
+        let mult = getMultiplier(myType, enemyCurrentTypes);
+        if (mult >= 2) maxOffense = 1; // Súper Efectivo suma
+    });
+    score += maxOffense;
+
+    // Score Defensivo (Sus STABs contra mi combinación de tipos actual)
+    let minDefense = 0;
+    enemyCurrentTypes.forEach(enemyType => {
+        let mult = getMultiplier(enemyType, myCurrentTypes);
+        if (mult >= 2) minDefense = -1; // Débil resta
+        else if (mult <= 0.5 && minDefense === 0) minDefense = 0.5; // Resistencia pura ayuda un poco
+    });
+    score += minDefense;
+
+    return score;
 }
 
-/* ============================================================
-   SCAFFOLD DE SLOTS — crear elementos DOM base sin innerHTML
-   ============================================================ */
-function buildSlotScaffold(team, index) {
-  const el = document.createElement('div');
-  el.className = `slot slot--${team === 'my' ? 'my' : 'rival'}`;
-  el.setAttribute('data-slot-index', index);
-  el.setAttribute('role', 'listitem');
-  return el;
+// --- 6. EVENTOS DE UI ---
+document.getElementById('btn-import').addEventListener('click', async () => {
+    const paste = document.getElementById('input-pokepaste').value;
+    if (!paste) return;
+    
+    document.getElementById('btn-import').innerText = "Parseando...";
+    const parsed = parseShowdown(paste);
+    myTeam = [];
+    
+    for (let p of parsed) {
+        const apiData = await fetchPokemonData(p.name);
+        if (apiData) {
+            myTeam.push({ ...p, ...apiData, actualSpeed: calculateLevel50Speed(apiData.speedBase, 252) });
+        }
+    }
+    
+    document.getElementById('section-my-team').classList.add('hidden');
+    document.getElementById('section-enemy-team').classList.remove('hidden');
+});
+
+const enemyInputs = document.querySelectorAll('.enemy-search');
+enemyInputs.forEach(input => {
+    input.addEventListener('change', async (e) => {
+        const name = e.target.value.trim().toLowerCase();
+        if(!name) return;
+        const index = e.target.getAttribute('data-index');
+        
+        const apiData = await fetchPokemonData(name);
+        if(apiData) {
+            e.target.style.borderColor = "var(--success)";
+            const meta = metaMock[apiData.name] || {};
+            enemyTeam[index] = { 
+                ...apiData, 
+                isMyTeam: false,
+                actualSpeed: calculateLevel50Speed(apiData.speedBase, 252),
+                tera: meta.tera || "stellar"
+            };
+            document.getElementById('btn-analyze').disabled = false;
+        } else {
+            e.target.style.borderColor = "var(--danger)";
+        }
+    });
+});
+
+document.getElementById('btn-analyze').addEventListener('click', () => {
+    document.getElementById('section-enemy-team').classList.add('hidden');
+    document.getElementById('section-dashboard').classList.remove('hidden');
+    renderSpeedTiers();
+    calculateLeadsAndThreats();
+    renderMatrix();
+});
+
+// Pestañas
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        e.target.classList.add('active');
+        document.getElementById(e.target.getAttribute('data-target')).classList.add('active');
+    });
+});
+
+// Speed Tiers
+function renderSpeedTiers() {
+    const list = document.getElementById('speed-tier-list');
+    list.innerHTML = '';
+    const myTailwind = document.getElementById('toggle-tailwind-me').checked;
+    const enemyTailwind = document.getElementById('toggle-tailwind-enemy').checked;
+
+    let allMons = [];
+    myTeam.forEach(m => allMons.push({ ...m, currentSpeed: m.actualSpeed * (myTailwind ? 2 : 1) }));
+    enemyTeam.filter(Boolean).forEach(m => allMons.push({ ...m, currentSpeed: m.actualSpeed * (enemyTailwind ? 2 : 1) }));
+    allMons.sort((a, b) => b.currentSpeed - a.currentSpeed);
+    
+    allMons.forEach(mon => {
+        const li = document.createElement('li');
+        li.className = 'speed-item';
+        li.innerHTML = `<div class="speed-number">${Math.floor(mon.currentSpeed)}</div>
+                        <div class="speed-name ${mon.isMyTeam ? '' : 'enemy'}">
+                            <img src="${mon.sprite}" class="sprite-icon"> <span style="text-transform: capitalize;">${mon.name}</span>
+                        </div>`;
+        list.appendChild(li);
+    });
 }
+document.getElementById('toggle-tailwind-me').addEventListener('change', renderSpeedTiers);
+document.getElementById('toggle-tailwind-enemy').addEventListener('change', renderSpeedTiers);
 
-function initGrid(team) {
-  const gridId = team === 'my' ? 'myTeamGrid' : 'rivalTeamGrid';
-  const grid = document.getElementById(gridId);
-  if (!grid) return;
-  grid.innerHTML = '';
-  for (let i = 0; i < TEAM_SIZE; i++) {
-    grid.appendChild(buildSlotScaffold(team, i));
-  }
-}
+// --- 7. INTELIGENCIA DE DASHBOARD (MATRIZ Y LEADS) ---
+function calculateLeadsAndThreats() {
+    const validEnemies = enemyTeam.filter(Boolean);
+    if(validEnemies.length === 0) return;
 
-/* ============================================================
-   EVENTOS
-   ============================================================ */
-function handleSlotActivation(team, index) {
-  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
-  if (slot.status === 'empty') {
-    slot.status = 'input';
-    slot.nameInput = '';
-    renderSlot(team, index);
-  }
-}
+    // Calcular amenaza principal (El enemigo que mejor Score Defensivo/Ofensivo tiene contra todo tu equipo)
+    let biggestThreat = null;
+    let worstGlobalScore = 999; 
 
-function handleRemove(team, index) {
-  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
-  slot.status = 'empty';
-  slot.pokemon = null;
-  slot.nameInput = '';
-  slot.error = null;
-  renderSlot(team, index);
-}
-
-function handleRetry(team, index) {
-  const slot = team === 'my' ? state.myTeam[index] : state.rivalTeam[index];
-  slot.status = 'input';
-  slot.error = null;
-  slot.nameInput = '';
-  renderSlot(team, index);
-}
-
-function clearTeam(team) {
-  const arr = team === 'my' ? state.myTeam : state.rivalTeam;
-  arr.forEach((slot, i) => {
-    slot.status = 'empty';
-    slot.pokemon = null;
-    slot.nameInput = '';
-    slot.error = null;
-  });
-  renderAllSlots(team);
-}
-
-function bindEvents() {
-  // Delegación de eventos en grids
-  ['myTeamGrid', 'rivalTeamGrid'].forEach(gridId => {
-    const grid = document.getElementById(gridId);
-    const team = gridId === 'myTeamGrid' ? 'my' : 'rival';
-
-    grid.addEventListener('click', (e) => {
-      // Activar slot vacío
-      const emptyEl = e.target.closest('[data-slot-index]');
-      if (!emptyEl) return;
-      const index = parseInt(emptyEl.dataset.slotIndex ?? emptyEl.closest('[data-slot-index]')?.dataset.slotIndex, 10);
-
-      // Botón eliminar
-      const removeBtn = e.target.closest('.slot__btn-remove');
-      if (removeBtn) {
-        const t = removeBtn.dataset.team;
-        const i = parseInt(removeBtn.dataset.index, 10);
-        handleRemove(t, i);
-        return;
-      }
-
-      // Retry
-      const retryBtn = e.target.closest('.slot__error-retry');
-      if (retryBtn) {
-        const t = retryBtn.dataset.team;
-        const i = parseInt(retryBtn.dataset.index, 10);
-        handleRetry(t, i);
-        return;
-      }
-
-      // Activar slot vacío
-      const emptyArea = e.target.closest('.slot__empty');
-      if (emptyArea) {
-        const t = emptyArea.dataset.team;
-        const i = parseInt(emptyArea.dataset.index, 10);
-        handleSlotActivation(t, i);
-        return;
-      }
+    validEnemies.forEach(enemy => {
+        let scoreVsMyTeam = 0;
+        myTeam.forEach(me => scoreVsMyTeam += getMatchupScore(me, enemy));
+        if (scoreVsMyTeam < worstGlobalScore) {
+            worstGlobalScore = scoreVsMyTeam;
+            biggestThreat = enemy;
+        }
     });
 
-    // Teclado en slot vacío (accesibilidad)
-    grid.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        const emptyArea = e.target.closest('.slot__empty');
-        if (emptyArea) {
-          e.preventDefault();
-          const t = emptyArea.dataset.team;
-          const i = parseInt(emptyArea.dataset.index, 10);
-          handleSlotActivation(t, i);
-        }
-      }
+    if(biggestThreat) {
+        document.getElementById('threat-text').innerHTML = `
+            <strong>${biggestThreat.name.toUpperCase()}</strong><br>
+            <span style="font-size:0.85rem; color:var(--text-muted)">Tiene un matchup muy dominante por STAB. Vigila sus coberturas.</span>
+        `;
+    }
+
+    // Lead Sugerido (Tus dos Pokémon más rápidos que no tengan puntuación negativa vs la core rival)
+    const sortedMyTeam = [...myTeam].sort((a,b) => b.actualSpeed - a.actualSpeed);
+    if(sortedMyTeam.length >= 2) {
+        document.getElementById('optimal-lead-text').innerHTML = `
+            <strong>${sortedMyTeam[0].name.toUpperCase()} + ${sortedMyTeam[1].name.toUpperCase()}</strong><br>
+            <span style="font-size:0.85rem; color:var(--text-muted)">Garantizan velocidad. Asegúrate de que no comparten debilidad a ${biggestThreat ? biggestThreat.name : 'la core rival'}.</span>
+        `;
+    }
+}
+
+function renderMatrix() {
+    const matrix = document.getElementById('matchup-grid');
+    matrix.innerHTML = '';
+    const validEnemies = enemyTeam.filter(Boolean);
+
+    myTeam.forEach((me, index) => {
+        // Calcular Score Neto de este Pokémon contra todo el equipo rival
+        let totalScore = 0;
+        validEnemies.forEach(enemy => {
+            totalScore += getMatchupScore(me, enemy);
+        });
+
+        // Limitar visualmente entre -3 y +3 para claridad
+        let displayScore = Math.max(-3, Math.min(3, Math.floor(totalScore)));
+        let scoreClass = displayScore > 0 ? 'score-good' : (displayScore < 0 ? 'score-bad' : 'score-neutral');
+        let scoreText = displayScore > 0 ? `+${displayScore}` : displayScore;
+
+        const row = document.createElement('div');
+        row.className = 'matchup-row';
+        row.innerHTML = `
+            <img src="${me.sprite}" class="sprite-icon">
+            <div class="matchup-score ${scoreClass}">${scoreText}</div>
+            <div style="flex:1;">
+                <strong style="text-transform: capitalize;">${me.name}</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted)">
+                    Tipos: ${me.isTeraMode ? `<span style="color:var(--primary)">Tera ${me.teraType}</span>` : me.types.join('/')}
+                </div>
+            </div>
+            <button class="tera-btn ${me.isTeraMode ? 'tera-active' : ''}" data-index="${index}">
+                ${me.isTeraMode ? 'Tera ON' : 'Tera Sim'}
+            </button>
+        `;
+        matrix.appendChild(row);
     });
-  });
 
-  // Guardar
-  document.getElementById('saveTeamBtn')?.addEventListener('click', saveMyTeam);
-
-  // Limpiar equipos
-  document.getElementById('clearMyTeamBtn')?.addEventListener('click', () => {
-    if (confirm('¿Limpiar todo mi equipo?')) clearTeam('my');
-  });
-  document.getElementById('clearRivalTeamBtn')?.addEventListener('click', () => {
-    if (confirm('¿Limpiar el equipo rival?')) clearTeam('rival');
-  });
+    // Eventos de Botón Tera Sim (Recalcula la matriz en tiempo real)
+    document.querySelectorAll('.tera-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = e.target.getAttribute('data-index');
+            myTeam[index].isTeraMode = !myTeam[index].isTeraMode;
+            renderMatrix(); // Re-render de la vista al cambiar el estado
+            calculateLeadsAndThreats(); // Recalcula si de repente tu peor amenaza cambia
+        });
+    });
 }
 
-function bindTheme() {
-  const btn = document.getElementById('themeToggle');
-  const icon = btn?.querySelector('.theme-toggle__icon');
-  const html = document.documentElement;
-
-  // Cargar tema guardado
-  const saved = localStorage.getItem('champions_meta_theme');
-  if (saved) {
-    html.setAttribute('data-theme', saved);
-    if (icon) icon.textContent = saved === 'light' ? '☀️' : '🌙';
-  }
-
-  btn?.addEventListener('click', () => {
-    const current = html.getAttribute('data-theme');
-    const next = current === 'dark' ? 'light' : 'dark';
-    html.setAttribute('data-theme', next);
-    if (icon) icon.textContent = next === 'light' ? '☀️' : '🌙';
-    localStorage.setItem('champions_meta_theme', next);
-  });
-}
-
-/* ============================================================
-   INIT
-   ============================================================ */
-async function init() {
-  bindTheme();
-
-  // Construir grids
-  initGrid('my');
-  initGrid('rival');
-
-  // Renderizar estado inicial
-  renderAllSlots('my');
-  renderAllSlots('rival');
-
-  // Eventos
-  bindEvents();
-
-  // Cargar lista de Pokémon en segundo plano (pre-warm del caché)
-  loadPokemonList().catch(() => {});
-
-  // Restaurar equipo guardado
-  await loadSavedTeam();
-}
-
-document.addEventListener('DOMContentLoaded', init);
+document.getElementById('btn-reset').addEventListener('click', () => location.reload());
