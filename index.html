@@ -1,65 +1,134 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VGC Tactical Preview</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokémon VGC Team Builder & Comparator</title>
+  <script defer src="./app.js"></script>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-    <header class="hero">
-        <h1>VGC TACTICAL LINK</h1>
-        <p>Análisis en 90 segundos</p>
-    </header>
+  <a href="#mainContent">Saltar al contenido</a>
 
-    <main id="builder-view">
-        <section class="team-section" id="my-team-section">
-            <h2>Mi Equipo <span class="counter" id="my-counter">0/6</span></h2>
-            <div class="slots-grid" id="my-slots"></div>
-        </section>
+  <header id="appHeader" class="app-header">
+    <div class="header-content">
+      <div class="header-copy">
+        <p class="app-eyebrow">Pokémon VGC</p>
+        <h1 id="appTitle">Team Builder &amp; Comparator</h1>
+        <p id="appDescription">Maquetación estructural y lógica funcional para un builder con análisis estilo ChampionsLab.</p>
+      </div>
 
-        <section class="team-section" id="enemy-team-section">
-            <h2>Equipo Rival <span class="counter" id="enemy-counter">0/6</span></h2>
-            <div class="slots-grid" id="enemy-slots"></div>
-        </section>
-
-        <button id="analyze-btn" class="cta-btn" disabled>Analizar Matchup</button>
-    </main>
-
-    <main id="results-view" class="hidden">
-        <button id="back-btn" class="secondary-btn">← Volver al setup</button>
-        
-        <section class="result-module">
-            <h2>Recomendación Táctica</h2>
-            <div class="tactical-card lead-card">
-                <h3>Vanguardia (Leads)</h3>
-                <div id="lead-result" class="pokemon-row"></div>
-                <p id="lead-reason" class="reasoning"></p>
-            </div>
-            
-            <div class="tactical-card core-card">
-                <h3>Backline (Resto del Core)</h3>
-                <div id="core-result" class="pokemon-row"></div>
-                <p id="core-reason" class="reasoning"></p>
-            </div>
-        </section>
-
-        <section class="result-module">
-            <h2>Radar de Amenazas</h2>
-            <div id="threat-list" class="threat-grid"></div>
-        </section>
-    </main>
-
-    <div id="search-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <input type="text" id="pokemon-search" placeholder="Buscar Pokémon..." autocomplete="off">
-                <button id="close-modal">X</button>
-            </div>
-            <ul id="search-results" class="results-list"></ul>
-        </div>
+      <nav class="global-actions" aria-label="Acciones globales del builder">
+        <button id="loadEnemyMetaBtn" type="button">Cargar Meta Rival</button>
+        <button id="swapSidesBtn" type="button">Intercambiar Lados</button>
+      </nav>
     </div>
+  </header>
 
-    <script src="app.js"></script>
+  <main id="mainContent" class="app-main">
+    <section id="stickyPicksSection" class="sticky-picks-section" aria-labelledby="stickyPicksTitle">
+      <header class="section-header">
+        <h2 id="stickyPicksTitle">Sticky Picks Bar</h2>
+      </header>
+
+      <div id="stickyPicksBar" class="sticky-picks-bar" aria-live="polite" aria-atomic="true"></div>
+    </section>
+
+    <section id="builderSection" class="builder-section" aria-labelledby="builderSectionTitle">
+      <header class="section-header">
+        <h2 id="builderSectionTitle">Arena de Construcción</h2>
+        <p>Self vs Enemy</p>
+      </header>
+
+      <div class="builder-arena">
+        <section id="selfTeamSection" class="team-panel self-team-panel" aria-labelledby="selfTeamTitle">
+          <header class="team-panel-header">
+            <h3 id="selfTeamTitle">Tu equipo</h3>
+          </header>
+
+          <div id="selfTeamGrid" class="team-grid" data-side="self" role="list" aria-label="Slots de tu equipo"></div>
+        </section>
+
+        <section id="enemyTeamSection" class="team-panel enemy-team-panel" aria-labelledby="enemyTeamTitle">
+          <header class="team-panel-header">
+            <h3 id="enemyTeamTitle">Rival</h3>
+          </header>
+
+          <div id="enemyTeamGrid" class="team-grid" data-side="enemy" role="list" aria-label="Slots del equipo rival"></div>
+        </section>
+      </div>
+
+      <div id="searchPortal" class="search-portal" hidden aria-hidden="true">
+        <div class="search-portal-panel" role="group" aria-labelledby="searchPortalTitle">
+          <div class="search-portal-header">
+            <h3 id="searchPortalTitle">Búsqueda rápida</h3>
+            <button id="closeSearchPortalBtn" type="button">Cerrar</button>
+          </div>
+
+          <label for="pokemonSearchInput">Buscar Pokémon</label>
+          <input
+            id="pokemonSearchInput"
+            class="pokemon-search-input"
+            type="text"
+            placeholder="Ej: Incineroar, Rillaboom, Flutter Mane"
+            autocomplete="off"
+            spellcheck="false"
+          />
+
+          <ul id="pokemonSearchResults" class="pokemon-search-results" aria-label="Resultados de búsqueda"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="analysisSection" class="analysis-section" aria-labelledby="analysisSectionTitle">
+      <header class="section-header">
+        <h2 id="analysisSectionTitle">Análisis Táctico</h2>
+      </header>
+
+      <div class="analysis-grid">
+        <section class="analysis-card recommendations-card" aria-labelledby="recoListTitle">
+          <header class="analysis-card-header">
+            <h3 id="recoListTitle">Picks sugeridos</h3>
+          </header>
+          <div id="recoList" class="analysis-output"></div>
+        </section>
+
+        <section class="analysis-card threats-card" aria-labelledby="threatListTitle">
+          <header class="analysis-card-header">
+            <h3 id="threatListTitle">Amenazas del rival</h3>
+          </header>
+          <div id="threatList" class="analysis-output"></div>
+        </section>
+
+        <section class="analysis-card reasons-card" aria-labelledby="reasonListTitle">
+          <header class="analysis-card-header">
+            <h3 id="reasonListTitle">Razones de elección</h3>
+          </header>
+          <div id="reasonList" class="analysis-output"></div>
+        </section>
+
+        <section class="analysis-card enemy-board-card" aria-labelledby="enemyQuickBoardTitle">
+          <header class="analysis-card-header">
+            <h3 id="enemyQuickBoardTitle">Enemy Quick Board</h3>
+          </header>
+          <div id="enemyQuickBoard" class="analysis-output"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="savedTeamsSection" class="saved-teams-section" aria-labelledby="savedTeamsTitle">
+      <header class="section-header">
+        <h2 id="savedTeamsTitle">Mis Equipos</h2>
+      </header>
+
+      <form id="saveTeamForm" class="save-team-form">
+        <label for="teamNameInput">Nombre del equipo</label>
+        <input id="teamNameInput" name="teamName" type="text" placeholder="Ej: Balance anti-rain" required />
+        <button id="saveTeamBtn" type="submit">Guardar</button>
+      </form>
+
+      <div id="savedTeamsList" class="saved-teams-list" aria-live="polite"></div>
+    </section>
+  </main>
 </body>
 </html>
