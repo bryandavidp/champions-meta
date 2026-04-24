@@ -1,71 +1,71 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Herramienta táctica para VGC Dobles — preview de equipos Pokémon" />
-  <title>Champions Meta · Team Preview</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>VGC Team Preview Analyzer</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-  <!-- HERO -->
-  <header class="hero">
-    <div class="hero__inner">
-      <h1 class="hero__title">Champions Meta</h1>
-      <p class="hero__sub">Team Preview · Dobles 4v4</p>
-    </div>
-    <button class="btn-icon theme-toggle" id="themeToggle" aria-label="Cambiar tema">
-      <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
-    </button>
+  <header>
+    <h1>VGC Tactician</h1>
+    <button id="btn-reset">Reset</button>
   </header>
 
-  <!-- MAIN -->
-  <main class="main">
-
-    <!-- MI EQUIPO -->
-    <section class="team-section" id="myTeamSection" aria-label="Mi equipo">
-      <div class="section-header">
-        <h2 class="section-title">
-          <span class="section-title__dot dot--my"></span>Mi equipo
-        </h2>
-        <div class="section-actions">
-          <button class="btn btn--ghost btn--sm" id="saveTeamBtn" title="Guardar equipo">
-            💾 Guardar
-          </button>
-          <button class="btn btn--ghost btn--sm btn--danger" id="clearMyTeamBtn" title="Limpiar equipo">
-            🗑️
-          </button>
-        </div>
-      </div>
-      <div class="team-grid" id="myTeamGrid" role="list">
-        <!-- slots se renderizan aquí -->
-      </div>
+  <main>
+    <section id="section-my-team" class="card">
+      <h2>1. Importar mi Equipo</h2>
+      <textarea id="input-pokepaste" placeholder="Pega tu Poképaste de Showdown aquí..."></textarea>
+      <button id="btn-import" class="btn-primary">Cargar Equipo</button>
+      <div id="my-team-preview" class="team-grid hidden"></div>
     </section>
 
-    <!-- EQUIPO RIVAL -->
-    <section class="team-section" id="rivalTeamSection" aria-label="Equipo rival">
-      <div class="section-header">
-        <h2 class="section-title">
-          <span class="section-title__dot dot--rival"></span>Equipo rival
-        </h2>
-        <div class="section-actions">
-          <button class="btn btn--ghost btn--sm btn--danger" id="clearRivalTeamBtn" title="Limpiar rival">
-            🗑️
-          </button>
-        </div>
+    <section id="section-enemy-team" class="card hidden">
+      <h2>2. Equipo Rival</h2>
+      <div class="enemy-inputs">
+        <input type="text" class="enemy-search" placeholder="Pokémon 1..." data-index="0">
+        <input type="text" class="enemy-search" placeholder="Pokémon 2..." data-index="1">
+        <input type="text" class="enemy-search" placeholder="Pokémon 3..." data-index="2">
+        <input type="text" class="enemy-search" placeholder="Pokémon 4..." data-index="3">
+        <input type="text" class="enemy-search" placeholder="Pokémon 5..." data-index="4">
+        <input type="text" class="enemy-search" placeholder="Pokémon 6..." data-index="5">
       </div>
-      <div class="team-grid" id="rivalTeamGrid" role="list">
-        <!-- slots se renderizan aquí -->
-      </div>
+      <div id="enemy-team-preview" class="team-grid"></div>
+      <button id="btn-analyze" class="btn-primary" disabled>Analizar Matchup</button>
     </section>
 
+    <section id="section-dashboard" class="hidden">
+      <nav class="tabs">
+        <button class="tab-btn active" data-target="tab-leads">Leads & Picks</button>
+        <button class="tab-btn" data-target="tab-speed">Speed Tiers</button>
+        <button class="tab-btn" data-target="tab-matrix">Matriz</button>
+      </nav>
+
+      <div id="tab-leads" class="tab-content active">
+        <div class="recommendation-card success">
+          <h3>Lead Óptimo Recomendado</h3>
+          <p id="optimal-lead-text">Calculando...</p>
+        </div>
+        <div class="recommendation-card danger">
+          <h3>Amenaza Principal Rival</h3>
+          <p id="threat-text">Calculando...</p>
+        </div>
+      </div>
+
+      <div id="tab-speed" class="tab-content">
+        <div class="speed-controls">
+          <label><input type="checkbox" id="toggle-tailwind-me"> Mi Tailwind</label>
+          <label><input type="checkbox" id="toggle-tailwind-enemy"> Su Tailwind</label>
+        </div>
+        <ul id="speed-tier-list" class="timeline"></ul>
+      </div>
+
+      <div id="tab-matrix" class="tab-content">
+        <p class="hint">Toca un Pokémon para simular su Terastalización probable.</p>
+        <div id="matchup-grid" class="matchup-grid"></div>
+      </div>
+    </section>
   </main>
-
-  <!-- FOOTER -->
-  <footer class="footer">
-    <p>Champions Meta · Fase 1 · Datos: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a></p>
-  </footer>
 
   <script src="app.js"></script>
 </body>
