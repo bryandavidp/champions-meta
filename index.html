@@ -128,8 +128,17 @@
       animation: pulseSkeleton 1.5s infinite ease-in-out;
     }
 
-    .hidden {
-      display: none !important
+    .mega-icon {
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      width: 14px;
+      height: 14px;
+      background: linear-gradient(135deg, #ff99cc, #99ccff, #99ffcc);
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      z-index: 2;
     }
 
     .app {
@@ -1794,6 +1803,22 @@
       <article class="insight-card">
         <div class="insight-head">
           <div>
+            <h3>Línea de Tiempo (Speed Tiers)</h3>
+            <p>Orden de acción estimado a Nivel 50.</p>
+          </div>
+          <span class="tiny-chip">Turno 1</span>
+        </div>
+        <div style="display:flex; gap:6px; margin-bottom:10px;">
+          <button class="btn small ghost" id="toggleTailwindSelfBtn">Mi Tailwind</button>
+          <button class="btn small ghost" id="toggleTailwindEnemyBtn">Su Tailwind</button>
+          <button class="btn small ghost" id="toggleTrickRoomBtn">Trick Room</button>
+        </div>
+        <div id="speedTierList" class="list" style="max-height: 280px; overflow-y: auto;"></div>
+      </article>
+
+      <article class="insight-card">
+        <div class="insight-head">
+          <div>
             <h3>Semáforo rival</h3>
             <p>Evalúa presión, utilidad y tempo del set más probable de cada enemigo.</p>
           </div>
@@ -2072,6 +2097,25 @@
     const DEMO_SELF = ['incineroar', 'garchomp', 'kingambit', 'sinistcha', 'rotom-wash', 'sneasler'];
     const DEMO_ENEMY = ['charizard-mega-y', 'whimsicott', 'farigiraf', 'heatran', 'landorus-therian', 'azumarill'];
 
+    const MEGA_STONES = {
+      'venusaurite': 'venusaur-mega', 'charizardite x': 'charizard-mega-x', 'charizardite y': 'charizard-mega-y',
+      'blastoisinite': 'blastoise-mega', 'alakazite': 'alakazam-mega', 'gengarite': 'gengar-mega',
+      'kangaskhanite': 'kangaskhan-mega', 'pinsirite': 'pinsir-mega', 'gyaradosite': 'gyarados-mega',
+      'aerodactylite': 'aerodactyl-mega', 'mewtwonite x': 'mewtwo-mega-x', 'mewtwonite y': 'mewtwo-mega-y',
+      'ampharosite': 'ampharos-mega', 'scizorite': 'scizor-mega', 'heracronite': 'heracross-mega',
+      'houndoominite': 'houndoom-mega', 'tyranitarite': 'tyranitar-mega', 'sceptilite': 'sceptile-mega',
+      'blazikenite': 'blaziken-mega', 'swampertite': 'swampert-mega', 'gardevoirite': 'gardevoir-mega',
+      'sablenite': 'sableye-mega', 'mawilite': 'mawile-mega', 'aggronite': 'aggron-mega',
+      'medichamite': 'medicham-mega', 'manectite': 'manectric-mega', 'banettite': 'banette-mega',
+      'absolite': 'absol-mega', 'garchompite': 'garchomp-mega', 'lucarionite': 'lucario-mega',
+      'abomasite': 'abomasnow-mega', 'latiasite': 'latias-mega', 'latiosite': 'latios-mega',
+      'rayquazite': 'rayquaza-mega', 'galladite': 'gallade-mega', 'audinite': 'audino-mega',
+      'diancite': 'diancie-mega', 'cameruptite': 'camerupt-mega', 'glalitite': 'glalie-mega',
+      'salamencite': 'salamence-mega', 'metagrossite': 'metagross-mega', 'altarianite': 'altaria-mega',
+      'lopunnite': 'lopunny-mega', 'pidgeotite': 'pidgeot-mega', 'beedrillite': 'beedrill-mega',
+      'slowbronite': 'slowbro-mega', 'steelixite': 'steelix-mega', 'sharpedonite': 'sharpedo-mega'
+    };
+
     const state = {
       self: Array(6).fill(null),
       enemy: Array(6).fill(null),
@@ -2084,7 +2128,12 @@
       metaIndex: new Map(),
       metaRanked: [],
       rating: localStorage.getItem(RATING_STORAGE_KEY) || '1760',
-      loadingMeta: false
+      loadingMeta: false,
+      field: {
+        tailwindSelf: false,
+        tailwindEnemy: false,
+        trickRoom: false
+      }
     };
 
     const selfSlots = document.getElementById('selfSlots');
@@ -2299,6 +2348,32 @@
       };
     }
 
+    function calculateSpeed(mon, side) {
+      if (!mon) return 0;
+      const baseSpe = mon.raw?.stats?.find(s => s.stat.name === 'speed')?.base_stat || 100;
+      const evsSpe = mon.set?.evs?.spe || 0;
+      const nature = mon.set?.nature || '';
+      
+      // Level 50 stat calculation
+      let spe = Math.floor(((2 * baseSpe + 31 + Math.floor(evsSpe / 4)) * 50) / 100) + 5;
+      
+      if (['Timid', 'Hasty', 'Jolly', 'Naive'].includes(nature)) {
+        spe = Math.floor(spe * 1.1);
+      } else if (['Brave', 'Relaxed', 'Quiet', 'Sassy'].includes(nature)) {
+        spe = Math.floor(spe * 0.9);
+      }
+      
+      // Modifier logic
+      let modifier = 1;
+      const field = state.field;
+      if (side === 'self' && field.tailwindSelf) modifier *= 2;
+      if (side === 'enemy' && field.tailwindEnemy) modifier *= 2;
+      // Other modifiers like Choice Scarf can go here
+      
+      let finalSpe = Math.floor(spe * modifier);
+      return field.trickRoom ? -finalSpe : finalSpe;
+    }
+
     function serializeSetSummary(set) {
       if (!set) return [];
       const lines = [];
@@ -2387,7 +2462,13 @@
       return state.metaIndex.get(normalizeText(speciesId)) || null;
     }
 
-    function chooseBestItem(itemEntries, side, ignoreIndex = -1) {
+    function chooseBestItem(itemEntries, side, ignoreIndex = -1, speciesId = '') {
+      // Force mega stone if species is a mega
+      const entryPair = Object.entries(MEGA_STONES).find(([, megaId]) => megaId === speciesId);
+      if (entryPair) {
+        return entryPair[0].replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase()); // Format the mega stone name
+      }
+
       const usedItems = new Set(
         state[side]
           .map((mon, idx) => idx === ignoreIndex ? null : mon?.set?.item)
@@ -2406,7 +2487,7 @@
           source: 'fallback',
           rating: state.rating,
           ability: '',
-          item: '',
+          item: chooseBestItem({}, side, slotIndex, speciesId),
           nature: '',
           evs: null,
           moves: [],
@@ -2430,7 +2511,7 @@
         source: 'smogon-chaos',
         rating: state.rating,
         ability: abilities[0]?.key || '',
-        item: chooseBestItem(entry.Items || {}, side, slotIndex),
+        item: chooseBestItem(entry.Items || {}, side, slotIndex, speciesId),
         nature: spread.nature || '',
         evs: spread.evs || null,
         moves,
@@ -2620,6 +2701,7 @@
 
         return `
           <button class="mini-slot" data-action="pick" data-side="${side}" data-index="${idx}" aria-label="${mon.displayName}">
+            ${mon.name.includes('-mega') ? '<div class="mega-icon"></div>' : ''}
             <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
             ${side === 'self' ? `<span class="slot-edit-badge">SET</span>` : ''}
             <span class="slot-remove" data-action="remove" data-side="${side}" data-index="${idx}"><i data-lucide="x" style="width:10px;height:10px;"></i></span>
@@ -3366,6 +3448,40 @@
       renderNoBringList(preview.noBring);
     }
 
+    function renderSpeedTiers() {
+      const speedTierList = document.getElementById('speedTierList');
+      const allMons = [
+        ...state.self.map(m => m ? { mon: m, side: 'self' } : null).filter(Boolean),
+        ...state.enemy.map(m => m ? { mon: m, side: 'enemy' } : null).filter(Boolean)
+      ];
+
+      if (!allMons.length) {
+        speedTierList.innerHTML = `<div class="empty">Añade Pokémon para ver el orden de velocidad.</div>`;
+        return;
+      }
+
+      const tiers = allMons.map(item => {
+        const spe = calculateSpeed(item.mon, item.side);
+        return { ...item, spe };
+      }).sort((a, b) => b.spe - a.spe);
+
+      speedTierList.innerHTML = tiers.map((item, idx) => `
+        <div class="strategy-row" style="border-left: 3px solid ${item.side === 'self' ? 'var(--blue)' : 'var(--red)'};">
+          <div class="sprite-sm">
+            <img src="${item.mon.sprite}" alt="${item.mon.displayName}" loading="lazy">
+          </div>
+          <div style="min-width:0; display:flex; justify-content:space-between; align-items:center;">
+            <div class="row-title">${item.mon.displayName}</div>
+            <div class="tabular-nums" style="font-weight:900; color:${item.spe < 0 ? 'var(--purple)' : '#fff'};">${Math.abs(item.spe)}</div>
+          </div>
+        </div>
+      `).join('');
+
+      document.getElementById('toggleTailwindSelfBtn').className = `btn small ${state.field.tailwindSelf ? 'blue' : 'ghost'}`;
+      document.getElementById('toggleTailwindEnemyBtn').className = `btn small ${state.field.tailwindEnemy ? 'red' : 'ghost'}`;
+      document.getElementById('toggleTrickRoomBtn').className = `btn small ${state.field.trickRoom ? 'gold' : 'ghost'}`;
+    }
+
     function updateIcons() {
       if (typeof lucide !== 'undefined' && lucide.createIcons) {
         lucide.createIcons();
@@ -3386,8 +3502,24 @@
       const preview = computeQuickPreview(rows);
       renderQuickPreview(preview);
       renderWeaknessSummary();
+      renderSpeedTiers();
       updateIcons();
     }
+
+    document.getElementById('toggleTailwindSelfBtn').addEventListener('click', () => {
+      state.field.tailwindSelf = !state.field.tailwindSelf;
+      renderSpeedTiers();
+    });
+
+    document.getElementById('toggleTailwindEnemyBtn').addEventListener('click', () => {
+      state.field.tailwindEnemy = !state.field.tailwindEnemy;
+      renderSpeedTiers();
+    });
+
+    document.getElementById('toggleTrickRoomBtn').addEventListener('click', () => {
+      state.field.trickRoom = !state.field.trickRoom;
+      renderSpeedTiers();
+    });
 
     selfSlots.addEventListener('click', async (e) => {
       const remove = e.target.closest('[data-action="remove"]');
@@ -3746,6 +3878,20 @@
         set.ability = clean;
       } else if (state.setChoice.kind === 'item') {
         set.item = clean;
+        const normalizedItem = normalizeText(clean);
+        if (MEGA_STONES[normalizedItem] && mon.name !== MEGA_STONES[normalizedItem]) {
+          // Trigger species change
+          const newSpecies = MEGA_STONES[normalizedItem];
+          pickPokemonIntoSlot('self', state.setEditor.index, newSpecies).then(() => {
+            const newMon = getEditorMon();
+            if (newMon && newMon.set) {
+              newMon.set.item = clean;
+            }
+            openSetEditor(state.setEditor.index);
+          });
+          closeSetChoice();
+          return; // early return since pickPokemonIntoSlot rebuilds the set
+        }
       } else if (state.setChoice.kind === 'move') {
         const idx = Number(state.setChoice.moveIndex);
         while (set.moves.length < 4) set.moves.push('');
@@ -3812,7 +3958,13 @@
       const set = ensureEditableSet(mon);
 
       if (btn.dataset.action === 'edit-ability') openSetChoice('ability');
-      if (btn.dataset.action === 'edit-item') openSetChoice('item');
+      if (btn.dataset.action === 'edit-item') {
+        if (mon.name.includes('-mega')) {
+          alert('Los Pokémon Megaevolucionados no pueden cambiar de objeto.');
+          return;
+        }
+        openSetChoice('item');
+      }
       if (btn.dataset.action === 'edit-move') openSetChoice('move', Number(btn.dataset.index));
 
       if (btn.dataset.action === 'quick-ability') {
