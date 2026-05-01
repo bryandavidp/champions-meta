@@ -1592,6 +1592,33 @@
         grid-template-columns: repeat(2, minmax(0, 1fr))
       }
     }
+
+    /* --- FASE 1 RÁPIDA: Quick Preview CSS --- */
+    .quick-preview-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    
+    @media (min-width: 600px) {
+      .quick-preview-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    
+    @media (min-width: 900px) {
+      .quick-preview-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    .sticky-cta {
+      position: sticky;
+      top: 10px;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .4);
+    }
   </style>
 </head>
 
@@ -1648,6 +1675,61 @@
           <div class="v" id="metricMeta">Cargando</div>
           <div class="s" id="metaStatusText">Smogon Champions OU 2026-04</div>
         </div>
+      </div>
+    </section>
+
+    <section class="panel section-pad" id="quickPreviewPanel" style="display: none;">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Análisis rápido</h2>
+          <p class="section-subtitle">Recomendaciones inmediatas antes de jugar.</p>
+        </div>
+        <button class="btn blue small sticky-cta" id="viewMyFourBtn" style="display:none;">Ver mis 4</button>
+      </div>
+      <div class="insight-grid quick-preview-grid">
+        <article class="insight-card" id="planRivalCard">
+          <div class="insight-head">
+            <div>
+              <h3>Plan Rival</h3>
+              <p>Estrategia esperada</p>
+            </div>
+            <span class="tiny-chip">Scout</span>
+          </div>
+          <div class="list" id="planRivalList"></div>
+        </article>
+
+        <article class="insight-card" id="bestFourCard">
+          <div class="insight-head">
+            <div>
+              <h3>Mis 4 mejores</h3>
+              <p>Presión general</p>
+            </div>
+            <span class="tiny-chip">Core</span>
+          </div>
+          <div class="list" id="bestFourList"></div>
+        </article>
+
+        <article class="insight-card" id="leadCard">
+          <div class="insight-head">
+            <div>
+              <h3>Lead Sugerido</h3>
+              <p>Turno 1</p>
+            </div>
+            <span class="tiny-chip">T1</span>
+          </div>
+          <div class="list" id="leadList"></div>
+        </article>
+
+        <article class="insight-card" id="noBringCard">
+          <div class="insight-head">
+            <div>
+              <h3>No Llevar</h3>
+              <p>Peor matchup</p>
+            </div>
+            <span class="tiny-chip status-red">Ban</span>
+          </div>
+          <div class="list" id="noBringList"></div>
+        </article>
       </div>
     </section>
 
@@ -1826,6 +1908,7 @@
     const STORAGE_KEY = 'offensive-matrix-saved-teams-v4';
     const CACHE_KEY_PREFIX = 'smogon-chaos-cache-2026-04-';
     const MOVE_CACHE_KEY = 'pokeapi-move-cache-v1';
+    const I18N_CACHE_KEY = 'pokeapi-i18n-cache-es-v1';
     const RATING_STORAGE_KEY = 'smogon-champions-rating';
     const SMOGON_MONTH = '2026-04';
     const SMOGON_BASE = './data/';
@@ -1997,6 +2080,52 @@
       try {
         localStorage.setItem(MOVE_CACHE_KEY, JSON.stringify(state.moveTypeCache));
       } catch { }
+    }
+
+    const i18nCache = loadI18nCache();
+
+    function loadI18nCache() {
+      try { return JSON.parse(localStorage.getItem(I18N_CACHE_KEY)) || {}; } catch { return {}; }
+    }
+
+    function saveI18nCache() {
+      try { localStorage.setItem(I18N_CACHE_KEY, JSON.stringify(i18nCache)); } catch { }
+    }
+
+    function t(englishName, category) {
+      if (!englishName) return '';
+      const clean = normalizeText(englishName);
+      const cacheKey = `${category}:${clean}`;
+      if (i18nCache[cacheKey]) return i18nCache[cacheKey];
+      return englishName;
+    }
+
+    async function fetchTranslation(englishName, category) {
+      if (!englishName) return;
+      const clean = normalizeText(englishName);
+      const cacheKey = `${category}:${clean}`;
+      if (i18nCache[cacheKey] || i18nCache[cacheKey] === null) return;
+
+      try {
+        let url = '';
+        if (category === 'move') url = `https://pokeapi.co/api/v2/move/${clean}`;
+        else if (category === 'ability') url = `https://pokeapi.co/api/v2/ability/${clean}`;
+        else if (category === 'item') url = `https://pokeapi.co/api/v2/item/${clean}`;
+        else return;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Not found');
+        const data = await res.json();
+        const esName = data.names?.find(n => n.language.name === 'es')?.name;
+        if (esName) {
+          i18nCache[cacheKey] = esName;
+          saveI18nCache();
+        } else {
+          i18nCache[cacheKey] = null;
+        }
+      } catch {
+        i18nCache[cacheKey] = null;
+      }
     }
 
     function normalizeText(str = '') {
@@ -2344,8 +2473,21 @@
         if (token !== moveWarmupToken) return;
         const mons = [...state.self, ...state.enemy].filter(Boolean);
         const moveNames = [...new Set(mons.flatMap(mon => mon?.set?.moves || []).filter(Boolean))];
-        await Promise.all(moveNames.map(fetchMoveInfo));
+        const abilityNames = [...new Set(mons.map(mon => mon?.set?.ability).filter(Boolean))];
+        const itemNames = [...new Set(mons.map(mon => mon?.set?.item).filter(Boolean))];
+
+        const promises = [];
+        moveNames.forEach(m => { promises.push(fetchMoveInfo(m)); promises.push(fetchTranslation(m, 'move')); });
+        abilityNames.forEach(a => promises.push(fetchTranslation(a, 'ability')));
+        itemNames.forEach(i => promises.push(fetchTranslation(i, 'item')));
+
+        await Promise.all(promises);
         renderAll();
+        
+        if (state.setEditor.index !== null) {
+          renderSetEditor();
+          if (state.setChoice.kind) renderSetChoiceList();
+        }
       }, 50);
     }
 
@@ -2492,10 +2634,10 @@
 
               ${row.cells.map(cell => `
                 <td>
-                  <div class="cell ${effClass(cell.mult)}" title="${row.attacker.displayName} → ${cell.defender.displayName} · ${cell.move} · ${fmtMult(cell.mult)}">
+                  <div class="cell ${effClass(cell.mult)}" title="${row.attacker.displayName} → ${cell.defender.displayName} · ${t(cell.move, 'move')} · ${fmtMult(cell.mult)}">
                     <div class="mult">${fmtMult(cell.mult)}</div>
                     ${typeDot(cell.type)}
-                    <div class="move-hint">${compactName(cell.move || TYPE_META[cell.type]?.name || cell.type)}</div>
+                    <div class="move-hint">${compactName(t(cell.move, 'move') || TYPE_META[cell.type]?.name || cell.type)}</div>
                   </div>
                 </td>
               `).join('')}
@@ -2580,9 +2722,9 @@
             <div class="row-title">${mon.displayName}</div>
             <div class="row-sub">${threat.reasons.join(' · ')}</div>
             <div class="set-stack">
-              ${mon.set?.ability ? `<span class="set-chip">Hab ${mon.set.ability}</span>` : ''}
-              ${mon.set?.item ? `<span class="set-chip">Obj ${mon.set.item}</span>` : ''}
-              ${(mon.set?.moves || []).slice(0, 2).map(move => `<span class="set-chip">${move}</span>`).join('')}
+              ${mon.set?.ability ? `<span class="set-chip">Hab ${t(mon.set.ability, 'ability')}</span>` : ''}
+              ${mon.set?.item ? `<span class="set-chip">Obj ${t(mon.set.item, 'item')}</span>` : ''}
+              ${(mon.set?.moves || []).slice(0, 2).map(move => `<span class="set-chip">${t(move, 'move')}</span>`).join('')}
             </div>
             ${threat.bestAnswers.length ? `<div class="row-sub" style="margin-top:6px">Respuestas: ${threat.bestAnswers.join(', ')}</div>` : ''}
           </div>
@@ -2620,7 +2762,7 @@
 
           <div style="min-width:0">
             <div class="row-title">${compactName(item.attacker.displayName)} → ${compactName(item.defender.displayName)}</div>
-            <div class="row-sub">${compactName(item.move || 'Cobertura')} abre una ventana ofensiva fuerte.</div>
+            <div class="row-sub">${compactName(t(item.move, 'move') || 'Cobertura')} abre una ventana ofensiva fuerte.</div>
           </div>
 
           ${typeChip(item.type)}
@@ -2957,6 +3099,228 @@
       await fillTeamWithSpecies(side, top);
     }
 
+    // --- NORMALIZATION ---
+    function normalizeBattleData(data) {
+      return data;
+    }
+    function normalizeLegacySavedTeams(teams) {
+      return teams;
+    }
+    function getMoveKey(move) {
+      return normalizeText(move);
+    }
+    function getItemKey(item) {
+      return normalizeText(item);
+    }
+    function getAbilityKey(ability) {
+      return normalizeText(ability);
+    }
+
+    // --- META INFERENCE ---
+    function inferPokemonRole(mon) {
+      return 'general';
+    }
+    function inferEnemyArchetypeScores(team) {
+      return {};
+    }
+
+    // --- SCORING ---
+    function scorePokemonForMatchup(mon, enemyTeam) {
+      return scorePokemonForQuickPick(mon, enemyTeam);
+    }
+    function scoreBringFour(selfTeam, enemyTeam) {
+      return [];
+    }
+
+    function getPokemonUtilityFlags(mon) {
+      const set = mon?.set || {};
+      const moves = set.moves || [];
+      const ability = set.ability || '';
+      const item = set.item || '';
+      return {
+        fakeOut: moves.includes('Fake Out'),
+        tailwind: moves.includes('Tailwind'),
+        trickRoom: moves.includes('Trick Room'),
+        redirection: moves.includes('Follow Me') || moves.includes('Rage Powder'),
+        protect: moves.includes('Protect') || moves.includes('Detect'),
+        weather: ['Drizzle', 'Drought', 'Sand Stream', 'Snow Warning'].includes(ability),
+        pivot: moves.includes('U-turn') || moves.includes('Volt Switch') || moves.includes('Parting Shot'),
+        intimidate: ability === 'Intimidate'
+      };
+    }
+
+    function scorePokemonForQuickPick(mon, enemyTeam) {
+      let score = 50;
+      const flags = getPokemonUtilityFlags(mon);
+      
+      if (flags.fakeOut) score += 15;
+      if (flags.tailwind) score += 10;
+      if (flags.redirection) score += 10;
+      if (flags.weather) score += 10;
+      if (flags.intimidate) score += 15;
+      
+      const enemy = enemyTeam.filter(Boolean);
+      let strongHits = 0;
+      let weakHits = 0;
+      
+      for (const e of enemy) {
+        const attack = bestAttack(mon, e);
+        if (attack.mult >= 2) strongHits++;
+        else if (attack.mult < 1) weakHits++;
+        
+        const defense = bestAttack(e, mon);
+        if (defense.mult >= 2) score -= 10;
+        else if (defense.mult < 1) score += 5;
+      }
+      
+      score += (strongHits * 12);
+      score -= (weakHits * 5);
+      
+      return score;
+    }
+
+    function scoreLeadPair(monA, monB, enemyTeam) {
+      return scoreLeadPairQuick(monA, monB, enemyTeam);
+    }
+
+    function scoreLeadPairQuick(monA, monB, enemyTeam) {
+      let score = scorePokemonForQuickPick(monA, enemyTeam) + scorePokemonForQuickPick(monB, enemyTeam);
+      const flagsA = getPokemonUtilityFlags(monA);
+      const flagsB = getPokemonUtilityFlags(monB);
+      
+      if ((flagsA.fakeOut && flagsB.tailwind) || (flagsB.fakeOut && flagsA.tailwind)) score += 20;
+      if ((flagsA.fakeOut && flagsB.trickRoom) || (flagsB.fakeOut && flagsA.trickRoom)) score += 20;
+      if ((flagsA.redirection && !flagsB.redirection) || (flagsB.redirection && !flagsA.redirection)) score += 15;
+      if (flagsA.intimidate || flagsB.intimidate) score += 10;
+      if (flagsA.weather || flagsB.weather) score += 5;
+      
+      if (flagsA.fakeOut && flagsB.fakeOut) score -= 15;
+      if (flagsA.tailwind && flagsB.tailwind) score -= 15;
+      
+      return score;
+    }
+
+    // --- PREVIEW UI ---
+    function computeQuickPreview(rows) {
+      const selfTeam = state.self.filter(Boolean);
+      const enemyTeam = state.enemy.filter(Boolean);
+      
+      if (!selfTeam.length || !enemyTeam.length) {
+        return { enemyPlan: [], bestFour: [], leadPair: [], noBring: [] };
+      }
+      
+      const scoredSelf = selfTeam.map(mon => ({
+        mon,
+        score: scorePokemonForQuickPick(mon, enemyTeam)
+      })).sort((a, b) => b.score - a.score);
+      
+      const bestFour = scoredSelf.slice(0, 4).map(x => x.mon);
+      const noBring = scoredSelf.slice(4).map(x => x.mon);
+      
+      let bestLeadScore = -Infinity;
+      let leadPair = [];
+      
+      if (bestFour.length >= 2) {
+        for (let i = 0; i < bestFour.length; i++) {
+          for (let j = i + 1; j < bestFour.length; j++) {
+            const score = scoreLeadPairQuick(bestFour[i], bestFour[j], enemyTeam);
+            if (score > bestLeadScore) {
+              bestLeadScore = score;
+              leadPair = [bestFour[i], bestFour[j]];
+            }
+          }
+        }
+      } else {
+        leadPair = bestFour.slice(0, 2);
+      }
+      
+      return {
+        enemyPlan: inferStrategies(enemyTeam),
+        bestFour,
+        leadPair,
+        noBring
+      };
+    }
+
+    function renderMyBestFour(bestFour) {
+      const bestFourList = document.getElementById('bestFourList');
+      if (!bestFourList) return;
+      bestFourList.innerHTML = `
+        <div style="display:flex;gap:4px">
+          ${bestFour.map(mon => `
+            <div class="sprite-sm" title="${mon.displayName}"><img src="${mon.sprite}"></div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderLeadSuggestions(leadPair) {
+      const leadList = document.getElementById('leadList');
+      if (!leadList) return;
+      leadList.innerHTML = `
+        <div style="display:flex;gap:4px">
+          ${leadPair.map(mon => `
+            <div class="sprite-sm" title="${mon.displayName}"><img src="${mon.sprite}"></div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderNoBringList(noBring) {
+      const noBringList = document.getElementById('noBringList');
+      if (!noBringList) return;
+      if (noBring.length) {
+        noBringList.innerHTML = `
+          <div style="display:flex;gap:4px">
+            ${noBring.map(mon => `
+              <div class="sprite-sm" title="${mon.displayName}"><img src="${mon.sprite}"></div>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        noBringList.innerHTML = '<div class="muted-small">No hay bans claros.</div>';
+      }
+    }
+
+    function renderWeaknessSummary() {
+      // Future
+    }
+
+    function renderQuickPreview(preview) {
+      const selfTeam = state.self.filter(Boolean);
+      const enemyTeam = state.enemy.filter(Boolean);
+      const panel = document.getElementById('quickPreviewPanel');
+      const viewMyFourBtn = document.getElementById('viewMyFourBtn');
+      
+      if (selfTeam.length < 4 || enemyTeam.length === 0) {
+        panel.style.display = 'none';
+        if (viewMyFourBtn) viewMyFourBtn.style.display = 'none';
+        return;
+      }
+      
+      panel.style.display = 'block';
+      if (viewMyFourBtn) viewMyFourBtn.style.display = 'inline-flex';
+      
+      const planList = document.getElementById('planRivalList');
+      if (preview.enemyPlan.length) {
+        planList.innerHTML = preview.enemyPlan.slice(0, 2).map(item => `
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
+            <span style="font-size:1.1rem">${item.icon}</span>
+            <div>
+              <div style="font-size:.75rem;font-weight:900;color:#fff">${item.title}</div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        planList.innerHTML = '<div class="muted-small">Sin plan claro detectado.</div>';
+      }
+      
+      renderMyBestFour(preview.bestFour);
+      renderLeadSuggestions(preview.leadPair);
+      renderNoBringList(preview.noBring);
+    }
+
+    // --- MAIN RENDER ---
     function renderAll() {
       renderDock('self');
       renderDock('enemy');
@@ -2966,6 +3330,10 @@
       renderOpportunities(rows);
       renderStrategies();
       renderSavedTeams();
+      
+      const preview = computeQuickPreview(rows);
+      renderQuickPreview(preview);
+      renderWeaknessSummary();
     }
 
     selfSlots.addEventListener('click', async (e) => {
@@ -3153,14 +3521,14 @@
             </div>
 
             <button class="editor-main-btn" data-action="edit-ability">
-              <span class="value">${set.ability || 'Sin habilidad'}</span>
+              <span class="value">${t(set.ability, 'ability') || 'Sin habilidad'}</span>
               <span class="meta">Cambiar</span>
             </button>
 
             <div class="editor-pill-list">
               ${abilityOptions.map(value => `
                 <button class="editor-pill ${value === set.ability ? 'active' : ''}" data-action="quick-ability" data-value="${value}">
-                  ${value}
+                  ${t(value, 'ability')}
                 </button>
               `).join('')}
             </div>
@@ -3175,14 +3543,14 @@
             </div>
 
             <button class="editor-main-btn" data-action="edit-item">
-              <span class="value">${set.item || 'Sin objeto'}</span>
+              <span class="value">${t(set.item, 'item') || 'Sin objeto'}</span>
               <span class="meta">Cambiar</span>
             </button>
 
             <div class="editor-pill-list">
               ${itemOptions.map(value => `
                 <button class="editor-pill ${value === set.item ? 'active' : ''}" data-action="quick-item" data-value="${value}">
-                  ${value}
+                  ${t(value, 'item')}
                 </button>
               `).join('')}
             </div>
@@ -3208,7 +3576,7 @@
               </div>
 
               <button class="editor-main-btn" data-action="edit-move" data-index="${idx}">
-                <span class="value">${move || 'Sin movimiento'}</span>
+                <span class="value">${t(move, 'move') || 'Sin movimiento'}</span>
                 <span class="meta">Elegir</span>
               </button>
             </div>
@@ -3217,7 +3585,7 @@
           <div class="editor-pill-list">
             ${moveOptions.map(value => `
               <button class="editor-pill" data-action="quick-move-any" data-value="${value}">
-                ${value}
+                ${t(value, 'move')}
               </button>
             `).join('')}
           </div>
@@ -3288,7 +3656,11 @@
       const q = normalizeText(setChoiceSearch.value || '');
       const options = (state.setChoice.options || [])
         .filter(Boolean)
-        .filter(value => !q || normalizeText(value).includes(q));
+        .filter(value => {
+          if (!q) return true;
+          const translated = t(value, state.setChoice.kind);
+          return normalizeText(value).includes(q) || normalizeText(translated).includes(q);
+        });
 
       if (!options.length) {
         setChoiceList.innerHTML = `<div class="empty">Sin coincidencias. Puedes usar el texto escrito arriba.</div>`;
@@ -3300,12 +3672,15 @@
           state.setChoice.kind === 'item' ? (set.item || '') :
             (set.moves[state.setChoice.moveIndex] || '');
 
-      setChoiceList.innerHTML = options.map(value => `
-        <button class="choice-item ${value === currentValue ? 'active' : ''}" data-action="apply-choice" data-value="${value}">
-          <strong>${value}</strong>
-          <span>${value === currentValue ? 'Valor actual' : 'Tocar para aplicar'}</span>
-        </button>
-      `).join('');
+      setChoiceList.innerHTML = options.map(value => {
+        const translated = t(value, state.setChoice.kind);
+        return `
+          <button class="choice-item ${value === currentValue ? 'active' : ''}" data-action="apply-choice" data-value="${value}">
+            <strong>${translated}</strong>
+            <span>${value === currentValue ? 'Valor actual' : 'Tocar para aplicar'} ${translated !== value ? `(${value})` : ''}</span>
+          </button>
+        `;
+      }).join('');
     }
 
     function applySetChoice(value) {
@@ -3446,11 +3821,26 @@
       if (e.target === setChoiceModal) closeSetChoice();
     });
 
-    (async function init() {
-      renderAll();
-      await loadSmogonMeta(state.rating);
+    document.getElementById('viewMyFourBtn').addEventListener('click', () => {
+      document.getElementById('bestFourCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    async function hydrateSavedState() {
       renderSavedTeams();
-    })();
+    }
+
+    async function warmupLocalizationCaches() {
+      // Future translation or cache warmups
+    }
+
+    async function initApp() {
+      await loadSmogonMeta(state.rating);
+      await hydrateSavedState();
+      await warmupLocalizationCaches();
+      renderAll();
+    }
+
+    initApp();
   </script>
 </body>
 
