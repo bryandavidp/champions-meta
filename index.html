@@ -956,6 +956,364 @@
       line-height: 1.2;
     }
 
+    .slot-edit-badge {
+      position: absolute;
+      left: 3px;
+      bottom: 3px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: rgba(73, 182, 255, .18);
+      border: 1px solid rgba(73, 182, 255, .30);
+      color: #dff3ff;
+      font-size: .48rem;
+      font-weight: 900;
+      line-height: 1;
+      z-index: 3;
+      backdrop-filter: blur(6px);
+    }
+
+    .editor-modal-card {
+      width: 100vw;
+      height: 100dvh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .015)),
+        linear-gradient(180deg, #101b2f, #0a121f);
+    }
+
+    .editor-head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background:
+        linear-gradient(180deg, rgba(16, 27, 47, .96), rgba(10, 18, 31, .94));
+      backdrop-filter: blur(12px);
+    }
+
+    .editor-head h3 {
+      margin: 0;
+      font: 900 .98rem/1 'Cabinet Grotesk', sans-serif;
+    }
+
+    .editor-head p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: .72rem;
+      line-height: 1.2;
+    }
+
+    .editor-body {
+      overflow: auto;
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .editor-foot {
+      padding: 10px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      position: sticky;
+      bottom: 0;
+      z-index: 3;
+      background:
+        linear-gradient(180deg, rgba(10, 18, 31, .94), rgba(8, 14, 25, .98));
+      backdrop-filter: blur(12px);
+    }
+
+    .editor-hero {
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      background: linear-gradient(180deg, #13213a, #0d1726);
+    }
+
+    .editor-hero .sprite-box {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, .14), transparent 42%),
+        linear-gradient(180deg, #1a2944, #0f1828);
+      border: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .editor-hero .sprite-box img {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+    }
+
+    .editor-name {
+      font: 900 .96rem/1 'Cabinet Grotesk', sans-serif;
+      color: #fff;
+    }
+
+    .editor-sub {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: .68rem;
+      line-height: 1.22;
+    }
+
+    .editor-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .editor-section {
+      padding: 10px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .01)),
+        linear-gradient(180deg, #0f1a2d, #0b1423);
+      display: grid;
+      gap: 10px;
+    }
+
+    .editor-section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .editor-section-head strong {
+      font: 900 .78rem/1 'Cabinet Grotesk', sans-serif;
+      letter-spacing: .02em;
+      color: #fff;
+    }
+
+    .editor-section-head span {
+      color: var(--muted);
+      font-size: .62rem;
+      line-height: 1.2;
+    }
+
+    .editor-main-btn {
+      width: 100%;
+      min-height: 46px;
+      border: none;
+      border-radius: 14px;
+      padding: 10px 12px;
+      text-align: left;
+      color: var(--text);
+      background: linear-gradient(180deg, #16243c, #0d1727);
+      border: 1px solid rgba(255, 255, 255, .10);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-size: .75rem;
+      font-weight: 800;
+    }
+
+    .editor-main-btn .value {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .editor-main-btn .meta {
+      color: var(--muted);
+      font-size: .62rem;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+
+    .editor-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .editor-pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .editor-pill {
+      border: none;
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid rgba(255, 255, 255, .08);
+      color: #eef4ff;
+      font-size: .66rem;
+      font-weight: 800;
+      line-height: 1;
+      min-height: 32px;
+    }
+
+    .editor-pill.active {
+      background: rgba(73, 182, 255, .14);
+      border-color: rgba(73, 182, 255, .35);
+      color: #dff3ff;
+    }
+
+    .move-slot-card {
+      display: grid;
+      gap: 8px;
+      padding: 8px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid rgba(255, 255, 255, .06);
+    }
+
+    .move-slot-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .move-slot-label {
+      color: var(--muted);
+      font-size: .62rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 900;
+    }
+
+    .move-slot-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .icon-mini-btn {
+      min-width: 34px;
+      height: 34px;
+      border-radius: 11px;
+      border: 1px solid rgba(255, 255, 255, .10);
+      background: linear-gradient(180deg, #16243c, #0d1727);
+      color: #eef4ff;
+      font-size: .72rem;
+      font-weight: 900;
+      display: grid;
+      place-items: center;
+      padding: 0 8px;
+    }
+
+    .choice-search-box {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 6px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background:
+        linear-gradient(180deg, rgba(16, 27, 47, .98), rgba(10, 18, 31, .96));
+      backdrop-filter: blur(12px);
+    }
+
+    .choice-list {
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      overflow: auto;
+      align-content: start;
+    }
+
+    .choice-item {
+      width: 100%;
+      border: none;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      background: linear-gradient(180deg, #13213a, #0d1726);
+      color: #eef4ff;
+      padding: 12px;
+      text-align: left;
+      display: grid;
+      gap: 4px;
+    }
+
+    .choice-item strong {
+      font: 900 .78rem/1 'Cabinet Grotesk', sans-serif;
+      color: #fff;
+    }
+
+    .choice-item span {
+      color: var(--muted);
+      font-size: .66rem;
+      line-height: 1.2;
+    }
+
+    .choice-item.active {
+      border-color: rgba(73, 182, 255, .34);
+      background: linear-gradient(180deg, #173050, #10233c);
+    }
+
+    .editor-note {
+      color: var(--muted);
+      font-size: .64rem;
+      line-height: 1.22;
+    }
+
+    @media (min-width:820px) {
+      .editor-modal-card {
+        width: min(680px, calc(100vw - 24px));
+        height: min(92dvh, 920px);
+        margin: auto;
+        border-radius: 26px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, .08);
+        box-shadow: var(--shadow);
+      }
+
+      .editor-body {
+        padding: 12px;
+      }
+
+      .choice-list {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width:560px) {
+      .editor-foot {
+        grid-template-columns: 1fr;
+      }
+
+      .editor-grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .editor-main-btn {
+        min-height: 50px;
+      }
+
+      .choice-item {
+        padding: 13px 12px;
+      }
+    }
+
     .search-box {
       padding: 10px 12px;
       border-bottom: 1px solid var(--line);
@@ -1415,6 +1773,51 @@
 
       <div class="result-list" id="resultList">
         <div class="loader">Preparando Pokédex…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="setEditorModal">
+    <div class="editor-modal-card">
+      <div class="editor-head">
+        <div>
+          <h3 id="setEditorTitle">Editar set</h3>
+          <p id="setEditorSubtitle">Modifica movimientos, objeto y habilidad para este Pokémon.</p>
+        </div>
+        <button class="btn small" id="closeSetEditorBtn">Cerrar</button>
+      </div>
+
+      <div class="editor-body" id="setEditorBody"></div>
+
+      <div class="editor-foot">
+        <button class="btn blue" id="resetSetBtn">Reset meta</button>
+        <button class="btn ghost" id="changePokemonBtn">Cambiar Pokémon</button>
+        <button class="btn green" id="doneSetBtn">Listo</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="setChoiceModal">
+    <div class="editor-modal-card">
+      <div class="editor-head">
+        <div>
+          <h3 id="setChoiceTitle">Elegir valor</h3>
+          <p id="setChoiceSubtitle">Selecciona una opción sugerida o escribe una personalizada.</p>
+        </div>
+        <button class="btn small" id="closeSetChoiceBtn">Cerrar</button>
+      </div>
+
+      <div class="choice-search-box">
+        <input class="search-input" id="setChoiceSearch" type="text" placeholder="Buscar o escribir valor..." />
+        <div class="editor-note">Puedes aplicar un valor personalizado aunque no aparezca en la lista.</div>
+      </div>
+
+      <div class="choice-list" id="setChoiceList"></div>
+
+      <div class="editor-foot">
+        <button class="btn ghost" id="clearSetChoiceBtn">Vaciar</button>
+        <button class="btn blue" id="applyCustomChoiceBtn">Usar texto escrito</button>
+        <button class="btn green" id="confirmSetChoiceBtn">Cerrar</button>
       </div>
     </div>
   </div>
@@ -2024,6 +2427,7 @@
         return `
           <button class="mini-slot" data-action="pick" data-side="${side}" data-index="${idx}" aria-label="${mon.displayName}">
             <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
+            ${side === 'self' ? `<span class="slot-edit-badge">SET</span>` : ''}
             <span class="slot-remove" data-action="remove" data-side="${side}" data-index="${idx}">×</span>
           </button>
         `;
@@ -2414,16 +2818,26 @@
       renderSavedTeams();
     }
 
-    function loadSavedTeam(id) {
-      const team = getSavedTeams().find(t => t.id === id);
+    async function loadSavedTeam(id) {
+      const teams = getSavedTeams();
+      const team = teams.find(t => t.id === id);
       if (!team) return;
 
-      state.self = team.mons.slice(0, 6).map(mon => ({
-        ...mon,
-        set: buildDefaultSetForSpecies(mon.name, 'self')
+      const mons = await Promise.all(team.mons.map(async saved => {
+        try {
+          const mon = await fetchPokemon(saved.name);
+          mon.set = saved.set || mon.set;
+          if (!Array.isArray(mon.set?.moves)) mon.set.moves = ['', '', '', ''];
+          while (mon.set.moves.length < 4) mon.set.moves.push('');
+          return mon;
+        } catch {
+          return saved;
+        }
       }));
+
+      state.self = mons.slice(0, 6);
       while (state.self.length < 6) state.self.push(null);
-      scheduleMoveWarmup();
+      if (typeof scheduleMoveWarmup === 'function') scheduleMoveWarmup();
       renderAll();
     }
 
@@ -2562,8 +2976,16 @@
         renderAll();
         return;
       }
+
       const pick = e.target.closest('[data-action="pick"]');
-      if (pick) openModal('self', Number(pick.dataset.index));
+      if (!pick) return;
+
+      const idx = Number(pick.dataset.index);
+      if (state.self[idx]) {
+        openSetEditor(idx);
+      } else {
+        openModal('self', idx);
+      }
     });
 
     enemySlots.addEventListener('click', async (e) => {
@@ -2618,6 +3040,410 @@
 
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeModal();
+    });
+
+    state.setEditor = { index: null };
+    state.setChoice = { kind: '', moveIndex: null, options: [], query: '' };
+
+    const setEditorModal = document.getElementById('setEditorModal');
+    const setEditorBody = document.getElementById('setEditorBody');
+    const setEditorTitle = document.getElementById('setEditorTitle');
+    const setEditorSubtitle = document.getElementById('setEditorSubtitle');
+
+    const setChoiceModal = document.getElementById('setChoiceModal');
+    const setChoiceTitle = document.getElementById('setChoiceTitle');
+    const setChoiceSubtitle = document.getElementById('setChoiceSubtitle');
+    const setChoiceSearch = document.getElementById('setChoiceSearch');
+    const setChoiceList = document.getElementById('setChoiceList');
+
+    function ensureEditableSet(mon) {
+      if (!mon.set || typeof mon.set !== 'object') mon.set = {};
+      if (!Array.isArray(mon.set.moves)) mon.set.moves = [];
+      while (mon.set.moves.length < 4) mon.set.moves.push('');
+      if (!mon.set.raw || typeof mon.set.raw !== 'object') mon.set.raw = {};
+      return mon.set;
+    }
+
+    function uniqValues(arr = []) {
+      return [...new Set(arr.map(x => String(x || '').trim()).filter(Boolean))];
+    }
+
+    function getEditorMon() {
+      const idx = state.setEditor.index;
+      if (idx == null) return null;
+      return state.self[idx] || null;
+    }
+
+    function getQuickOptions(mon, kind) {
+      const set = ensureEditableSet(mon);
+      const raw = set.raw || {};
+      const entry = (typeof getMetaRecord === 'function' ? getMetaRecord(mon.name)?.entry : null) || {};
+
+      if (kind === 'ability') {
+        return uniqValues([
+          ...(raw.abilities || []).map(x => x.key),
+          ...Object.keys(entry.Abilities || {}),
+          set.ability || ''
+        ]).slice(0, 10);
+      }
+
+      if (kind === 'item') {
+        return uniqValues([
+          ...(raw.items || []).map(x => x.key),
+          ...Object.keys(entry.Items || {}),
+          set.item || ''
+        ]).slice(0, 12);
+      }
+
+      if (kind === 'move') {
+        return uniqValues([
+          ...(raw.moves || []).map(x => x.key),
+          ...Object.keys(entry.Moves || {}),
+          ...(set.moves || [])
+        ]).slice(0, 18);
+      }
+
+      return [];
+    }
+
+    function renderSetEditor() {
+      const mon = getEditorMon();
+      if (!mon) {
+        setEditorBody.innerHTML = `<div class="empty">No hay Pokémon seleccionado.</div>`;
+        return;
+      }
+
+      const set = ensureEditableSet(mon);
+      const abilityOptions = getQuickOptions(mon, 'ability').slice(0, 6);
+      const itemOptions = getQuickOptions(mon, 'item').slice(0, 6);
+      const moveOptions = getQuickOptions(mon, 'move').slice(0, 8);
+
+      setEditorTitle.textContent = `Editar set · ${mon.displayName}`;
+      setEditorSubtitle.textContent = 'Toca un campo para cambiarlo o usa sugerencias rápidas.';
+
+      const typeChips = (mon.types || []).map(typeChip).join('');
+      const summaryLines = [
+        set.ability ? `Hab: ${set.ability}` : null,
+        set.item ? `Obj: ${set.item}` : null,
+        set.nature ? `Nat: ${set.nature}` : null
+      ].filter(Boolean);
+
+      setEditorBody.innerHTML = `
+        <section class="editor-hero">
+          <div class="sprite-box">
+            <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
+          </div>
+
+          <div style="min-width:0">
+            <div class="editor-name">${mon.displayName}</div>
+            <div class="editor-sub">${summaryLines.join(' · ') || 'Set personalizable desde aquí'}</div>
+            <div class="editor-chip-row">
+              ${typeChips}
+            </div>
+          </div>
+        </section>
+
+        <section class="editor-grid-2">
+          <article class="editor-section">
+            <div class="editor-section-head">
+              <div>
+                <strong>Habilidad</strong>
+                <span>Valor actual y acceso a sugerencias del meta.</span>
+              </div>
+            </div>
+
+            <button class="editor-main-btn" data-action="edit-ability">
+              <span class="value">${set.ability || 'Sin habilidad'}</span>
+              <span class="meta">Cambiar</span>
+            </button>
+
+            <div class="editor-pill-list">
+              ${abilityOptions.map(value => `
+                <button class="editor-pill ${value === set.ability ? 'active' : ''}" data-action="quick-ability" data-value="${value}">
+                  ${value}
+                </button>
+              `).join('')}
+            </div>
+          </article>
+
+          <article class="editor-section">
+            <div class="editor-section-head">
+              <div>
+                <strong>Objeto</strong>
+                <span>También admite valor personalizado.</span>
+              </div>
+            </div>
+
+            <button class="editor-main-btn" data-action="edit-item">
+              <span class="value">${set.item || 'Sin objeto'}</span>
+              <span class="meta">Cambiar</span>
+            </button>
+
+            <div class="editor-pill-list">
+              ${itemOptions.map(value => `
+                <button class="editor-pill ${value === set.item ? 'active' : ''}" data-action="quick-item" data-value="${value}">
+                  ${value}
+                </button>
+              `).join('')}
+            </div>
+          </article>
+        </section>
+
+        <article class="editor-section">
+          <div class="editor-section-head">
+            <div>
+              <strong>Movimientos</strong>
+              <span>Cuatro slots, pensados para editar rápido en móvil.</span>
+            </div>
+          </div>
+
+          ${(set.moves || []).slice(0, 4).map((move, idx) => `
+            <div class="move-slot-card">
+              <div class="move-slot-top">
+                <div class="move-slot-label">Movimiento ${idx + 1}</div>
+                <div class="move-slot-actions">
+                  <button class="icon-mini-btn" data-action="edit-move" data-index="${idx}">✎</button>
+                  <button class="icon-mini-btn" data-action="clear-move" data-index="${idx}">×</button>
+                </div>
+              </div>
+
+              <button class="editor-main-btn" data-action="edit-move" data-index="${idx}">
+                <span class="value">${move || 'Sin movimiento'}</span>
+                <span class="meta">Elegir</span>
+              </button>
+            </div>
+          `).join('')}
+
+          <div class="editor-pill-list">
+            ${moveOptions.map(value => `
+              <button class="editor-pill" data-action="quick-move-any" data-value="${value}">
+                ${value}
+              </button>
+            `).join('')}
+          </div>
+
+          <div class="editor-note">Las sugerencias rápidas salen del set/meta cargado; si no te basta, usa el selector completo.</div>
+        </article>
+      `;
+    }
+
+    function openSetEditor(index) {
+      const mon = state.self[index];
+      if (!mon) return;
+      state.setEditor.index = index;
+      ensureEditableSet(mon);
+      renderSetEditor();
+      setEditorModal.classList.add('open');
+    }
+
+    function closeSetEditor() {
+      setEditorModal.classList.remove('open');
+      state.setEditor.index = null;
+    }
+
+    function getChoiceStateLabel(kind, moveIndex = null) {
+      if (kind === 'ability') return {
+        title: 'Elegir habilidad',
+        subtitle: 'Selecciona una habilidad sugerida o escribe una personalizada.'
+      };
+      if (kind === 'item') return {
+        title: 'Elegir objeto',
+        subtitle: 'Selecciona un objeto sugerido o escribe uno personalizado.'
+      };
+      return {
+        title: `Elegir movimiento ${Number(moveIndex) + 1}`,
+        subtitle: 'Selecciona un movimiento sugerido o escribe uno personalizado.'
+      };
+    }
+
+    function openSetChoice(kind, moveIndex = null) {
+      const mon = getEditorMon();
+      if (!mon) return;
+
+      const options = getQuickOptions(mon, kind);
+      state.setChoice = { kind, moveIndex, options, query: '' };
+
+      const label = getChoiceStateLabel(kind, moveIndex);
+      setChoiceTitle.textContent = label.title;
+      setChoiceSubtitle.textContent = label.subtitle;
+      setChoiceSearch.value = '';
+      renderSetChoiceList();
+      setChoiceModal.classList.add('open');
+      setTimeout(() => setChoiceSearch.focus(), 30);
+    }
+
+    function closeSetChoice() {
+      setChoiceModal.classList.remove('open');
+      state.setChoice = { kind: '', moveIndex: null, options: [], query: '' };
+    }
+
+    function renderSetChoiceList() {
+      const mon = getEditorMon();
+      if (!mon) {
+        setChoiceList.innerHTML = `<div class="empty">No hay Pokémon activo.</div>`;
+        return;
+      }
+
+      const set = ensureEditableSet(mon);
+      const q = normalizeText(setChoiceSearch.value || '');
+      const options = (state.setChoice.options || [])
+        .filter(Boolean)
+        .filter(value => !q || normalizeText(value).includes(q));
+
+      if (!options.length) {
+        setChoiceList.innerHTML = `<div class="empty">Sin coincidencias. Puedes usar el texto escrito arriba.</div>`;
+        return;
+      }
+
+      const currentValue =
+        state.setChoice.kind === 'ability' ? (set.ability || '') :
+          state.setChoice.kind === 'item' ? (set.item || '') :
+            (set.moves[state.setChoice.moveIndex] || '');
+
+      setChoiceList.innerHTML = options.map(value => `
+        <button class="choice-item ${value === currentValue ? 'active' : ''}" data-action="apply-choice" data-value="${value}">
+          <strong>${value}</strong>
+          <span>${value === currentValue ? 'Valor actual' : 'Tocar para aplicar'}</span>
+        </button>
+      `).join('');
+    }
+
+    function applySetChoice(value) {
+      const mon = getEditorMon();
+      if (!mon) return;
+      const set = ensureEditableSet(mon);
+      const clean = String(value || '').trim();
+
+      if (state.setChoice.kind === 'ability') {
+        set.ability = clean;
+      } else if (state.setChoice.kind === 'item') {
+        set.item = clean;
+      } else if (state.setChoice.kind === 'move') {
+        const idx = Number(state.setChoice.moveIndex);
+        while (set.moves.length < 4) set.moves.push('');
+        set.moves[idx] = clean;
+      }
+
+      if (typeof scheduleMoveWarmup === 'function') scheduleMoveWarmup();
+      if (typeof renderAll === 'function') renderAll();
+      renderSetEditor();
+      closeSetChoice();
+    }
+
+    function clearSetChoiceValue() {
+      const mon = getEditorMon();
+      if (!mon) return;
+      const set = ensureEditableSet(mon);
+
+      if (state.setChoice.kind === 'ability') {
+        set.ability = '';
+      } else if (state.setChoice.kind === 'item') {
+        set.item = '';
+      } else if (state.setChoice.kind === 'move') {
+        const idx = Number(state.setChoice.moveIndex);
+        while (set.moves.length < 4) set.moves.push('');
+        set.moves[idx] = '';
+      }
+
+      if (typeof scheduleMoveWarmup === 'function') scheduleMoveWarmup();
+      if (typeof renderAll === 'function') renderAll();
+      renderSetEditor();
+      closeSetChoice();
+    }
+
+    function resetCurrentSetToMeta() {
+      const idx = state.setEditor.index;
+      const mon = getEditorMon();
+      if (idx == null || !mon) return;
+
+      if (typeof buildDefaultSetForSpecies === 'function') {
+        mon.set = buildDefaultSetForSpecies(mon.name, 'self', idx);
+      } else {
+        mon.set = { ability: '', item: '', nature: '', evs: null, moves: ['', '', '', ''], raw: {} };
+      }
+
+      ensureEditableSet(mon);
+      if (typeof scheduleMoveWarmup === 'function') scheduleMoveWarmup();
+      if (typeof renderAll === 'function') renderAll();
+      renderSetEditor();
+    }
+
+    function changeCurrentPokemonFromEditor() {
+      const idx = state.setEditor.index;
+      if (idx == null) return;
+      closeSetEditor();
+      openModal('self', idx);
+    }
+
+    setEditorBody.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+
+      const mon = getEditorMon();
+      if (!mon) return;
+      const set = ensureEditableSet(mon);
+
+      if (btn.dataset.action === 'edit-ability') openSetChoice('ability');
+      if (btn.dataset.action === 'edit-item') openSetChoice('item');
+      if (btn.dataset.action === 'edit-move') openSetChoice('move', Number(btn.dataset.index));
+
+      if (btn.dataset.action === 'quick-ability') {
+        set.ability = btn.dataset.value || '';
+        if (typeof renderAll === 'function') renderAll();
+        renderSetEditor();
+      }
+
+      if (btn.dataset.action === 'quick-item') {
+        set.item = btn.dataset.value || '';
+        if (typeof renderAll === 'function') renderAll();
+        renderSetEditor();
+      }
+
+      if (btn.dataset.action === 'quick-move-any') {
+        const firstEmpty = (set.moves || []).findIndex(x => !String(x || '').trim());
+        openSetChoice('move', firstEmpty >= 0 ? firstEmpty : 0);
+        setChoiceSearch.value = btn.dataset.value || '';
+        renderSetChoiceList();
+      }
+
+      if (btn.dataset.action === 'clear-move') {
+        const idx = Number(btn.dataset.index);
+        while (set.moves.length < 4) set.moves.push('');
+        set.moves[idx] = '';
+        if (typeof scheduleMoveWarmup === 'function') scheduleMoveWarmup();
+        if (typeof renderAll === 'function') renderAll();
+        renderSetEditor();
+      }
+    });
+
+    setChoiceSearch.addEventListener('input', renderSetChoiceList);
+
+    setChoiceList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action="apply-choice"]');
+      if (!btn) return;
+      applySetChoice(btn.dataset.value || '');
+    });
+
+    document.getElementById('closeSetEditorBtn').addEventListener('click', closeSetEditor);
+    document.getElementById('doneSetBtn').addEventListener('click', closeSetEditor);
+    document.getElementById('resetSetBtn').addEventListener('click', resetCurrentSetToMeta);
+    document.getElementById('changePokemonBtn').addEventListener('click', changeCurrentPokemonFromEditor);
+
+    document.getElementById('closeSetChoiceBtn').addEventListener('click', closeSetChoice);
+    document.getElementById('confirmSetChoiceBtn').addEventListener('click', closeSetChoice);
+    document.getElementById('clearSetChoiceBtn').addEventListener('click', clearSetChoiceValue);
+    document.getElementById('applyCustomChoiceBtn').addEventListener('click', () => {
+      const value = String(setChoiceSearch.value || '').trim();
+      if (!value) return;
+      applySetChoice(value);
+    });
+
+    setEditorModal.addEventListener('click', (e) => {
+      if (e.target === setEditorModal) closeSetEditor();
+    });
+
+    setChoiceModal.addEventListener('click', (e) => {
+      if (e.target === setChoiceModal) closeSetChoice();
     });
 
     (async function init() {
