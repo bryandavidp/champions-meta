@@ -367,6 +367,7 @@
       table-layout: fixed;
       border-collapse: separate;
       border-spacing: 0;
+      position: relative;
     }
 
     th,
@@ -388,14 +389,28 @@
     }
 
     thead th {
-      background: linear-gradient(180deg, rgba(18, 30, 51, .92), rgba(12, 20, 35, .92));
+      background: linear-gradient(180deg, rgba(18, 30, 51, .98), rgba(12, 20, 35, .98));
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    tbody th {
+      background: linear-gradient(90deg, rgba(18, 30, 51, .98), rgba(12, 20, 35, .98));
+      position: sticky;
+      left: 0;
+      z-index: 2;
     }
 
     .corner {
       width: 52px;
       min-width: 52px;
       max-width: 52px;
-      background: linear-gradient(180deg, rgba(18, 30, 51, .92), rgba(12, 20, 35, .92));
+      background: linear-gradient(180deg, rgba(18, 30, 51, .98), rgba(12, 20, 35, .98));
+      position: sticky;
+      top: 0;
+      left: 0;
+      z-index: 3;
     }
 
     .corner-mark {
@@ -410,7 +425,6 @@
       font-weight: 900;
       background: linear-gradient(180deg, #18253d, #10182a);
       border: 1px solid rgba(255, 255, 255, .08);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
     }
 
     .head-mon,
@@ -433,7 +447,6 @@
         radial-gradient(circle at 30% 30%, rgba(255, 255, 255, .12), transparent 42%),
         linear-gradient(180deg, #182940, #0f1828);
       border: 1px solid rgba(255, 255, 255, .08);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
     }
 
     .head-mon .sprite img,
@@ -446,76 +459,70 @@
 
     .cell {
       aspect-ratio: 1 / 1;
-      min-height: 56px;
-      border-radius: 14px;
-      border: 1px solid rgba(255, 255, 255, .07);
+      min-height: 44px;
+      border-radius: 6px;
       display: grid;
       align-content: center;
       justify-items: center;
       gap: 4px;
-      padding: 4px 2px;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, .03),
-        0 8px 18px rgba(0, 0, 0, .12);
+      padding: 4px;
       position: relative;
       overflow: hidden;
     }
 
-    .cell::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(255, 255, 255, .04), transparent 40%);
-      pointer-events: none;
-    }
-
     .eff-4 {
-      background: linear-gradient(180deg, rgba(126, 28, 48, .86), rgba(75, 20, 32, .86))
+      background: #7e1c30;
     }
 
     .eff-2 {
-      background: linear-gradient(180deg, rgba(111, 88, 24, .86), rgba(67, 54, 17, .86))
+      background: #6f5818;
     }
 
     .eff-1 {
-      background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .02))
+      background: transparent;
     }
 
     .eff-05 {
-      background: linear-gradient(180deg, rgba(26, 59, 95, .86), rgba(17, 42, 72, .86))
+      background: #1a3b5f;
     }
 
     .eff-025 {
-      background: linear-gradient(180deg, rgba(20, 84, 56, .86), rgba(12, 52, 36, .86))
+      background: #145438;
     }
 
     .eff-0 {
-      background: linear-gradient(180deg, rgba(61, 37, 95, .88), rgba(40, 25, 64, .88))
+      background: #3d255f;
     }
 
     .mult {
-      font: 900 .76rem/1 'Cabinet Grotesk', sans-serif;
+      font: 900 .8rem/1 'Cabinet Grotesk', sans-serif;
       color: #fff;
       letter-spacing: -.02em;
       position: relative;
       z-index: 1;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
     }
 
     .type-dot {
-      width: 18px;
-      height: 18px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      display: grid;
-      place-items: center;
-      color: #fff;
-      font-size: .52rem;
-      font-weight: 900;
-      line-height: 1;
-      border: 1px solid rgba(255, 255, 255, .16);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
-      position: relative;
+      position: absolute;
+      top: 4px;
+      right: 4px;
       z-index: 1;
-      background: rgba(255, 255, 255, .12);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+    
+    .dot-neutral {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
     }
 
     .move-hint {
@@ -1908,7 +1915,7 @@
     const STORAGE_KEY = 'offensive-matrix-saved-teams-v4';
     const CACHE_KEY_PREFIX = 'smogon-chaos-cache-2026-04-';
     const MOVE_CACHE_KEY = 'pokeapi-move-cache-v1';
-    const I18N_CACHE_KEY = 'pokeapi-i18n-cache-es-v1';
+    const I18N_CACHE_KEY = 'pokeapi-i18n-cache-es-v2';
     const RATING_STORAGE_KEY = 'smogon-champions-rating';
     const SMOGON_MONTH = '2026-04';
     const SMOGON_BASE = './data/';
@@ -2194,8 +2201,8 @@
     }
 
     function typeDot(type) {
-      const meta = TYPE_META[type] || { color: '#8aa2c6', icon: '•' };
-      return `<span class="type-dot" style="background:${hexToRgba(meta.color, .28)};border-color:${hexToRgba(meta.color, .46)}">${meta.icon}</span>`;
+      const meta = TYPE_META[type] || { color: '#8aa2c6', name: type };
+      return `<div class="type-dot" style="background:${meta.color};" title="Tipo: ${meta.name}"></div>`;
     }
 
     function typeChip(type) {
@@ -2476,17 +2483,29 @@
         const abilityNames = [...new Set(mons.map(mon => mon?.set?.ability).filter(Boolean))];
         const itemNames = [...new Set(mons.map(mon => mon?.set?.item).filter(Boolean))];
 
-        const promises = [];
-        moveNames.forEach(m => { promises.push(fetchMoveInfo(m)); promises.push(fetchTranslation(m, 'move')); });
-        abilityNames.forEach(a => promises.push(fetchTranslation(a, 'ability')));
-        itemNames.forEach(i => promises.push(fetchTranslation(i, 'item')));
-
-        await Promise.all(promises);
+        // Process Move Types first (important for Matrix)
+        await Promise.all(moveNames.map(m => fetchMoveInfo(m)));
+        if (token !== moveWarmupToken) return;
         renderAll();
-        
-        if (state.setEditor.index !== null) {
-          renderSetEditor();
-          if (state.setChoice.kind) renderSetChoiceList();
+
+        // Process translations in batches of 5 to avoid 429 Rate Limit
+        const translationTasks = [];
+        moveNames.forEach(m => translationTasks.push(() => fetchTranslation(m, 'move')));
+        abilityNames.forEach(a => translationTasks.push(() => fetchTranslation(a, 'ability')));
+        itemNames.forEach(i => translationTasks.push(() => fetchTranslation(i, 'item')));
+
+        for (let i = 0; i < translationTasks.length; i += 5) {
+          if (token !== moveWarmupToken) return;
+          await Promise.all(translationTasks.slice(i, i + 5).map(fn => fn()));
+          
+          if (token !== moveWarmupToken) return;
+          renderAll();
+          
+          if (state.setEditor.index !== null) {
+            renderSetEditor();
+            if (state.setChoice.kind) renderSetChoiceList();
+          }
+          await new Promise(r => setTimeout(r, 100)); // delay between batches
         }
       }, 50);
     }
@@ -2635,9 +2654,8 @@
               ${row.cells.map(cell => `
                 <td>
                   <div class="cell ${effClass(cell.mult)}" title="${row.attacker.displayName} → ${cell.defender.displayName} · ${t(cell.move, 'move')} · ${fmtMult(cell.mult)}">
-                    <div class="mult">${fmtMult(cell.mult)}</div>
-                    ${typeDot(cell.type)}
-                    <div class="move-hint">${compactName(t(cell.move, 'move') || TYPE_META[cell.type]?.name || cell.type)}</div>
+                    ${cell.mult !== 1 ? `<div class="mult">${fmtMult(cell.mult)}</div>` : ''}
+                    ${cell.mult !== 1 ? typeDot(cell.type) : '<div class="dot-neutral"></div>'}
                   </div>
                 </td>
               `).join('')}
