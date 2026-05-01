@@ -2330,6 +2330,32 @@
       return SMOGON_SPECIES_OVERRIDES[n] || name;
     }
 
+    /** Slugs para https://pokeapi.co/api/v2/pokemon/{slug} (Smogon ≠ PokeAPI en muchas formas). */
+    const POKEAPI_SPECIES_SLUG = {
+      palafin: 'palafin-hero',
+      basculegion: 'basculegion-male',
+      'basculegion-f': 'basculegion-female',
+      aegislash: 'aegislash-shield',
+      mimikyu: 'mimikyu-disguised',
+      morpeko: 'morpeko-full-belly',
+      lycanroc: 'lycanroc-midday',
+      gourgeist: 'gourgeist-average',
+      meowstic: 'meowstic-male',
+      maushold: 'maushold-family-of-three',
+      'meowstic-m-mega': 'meowstic-mega',
+      'meowstic-f-mega': 'meowstic-mega',
+      dudunsparce: 'dudunsparce-two-segment'
+    };
+
+    function pokeapiPokemonSlug(normalizedKey) {
+      const mapped = POKEAPI_SPECIES_SLUG[normalizedKey];
+      if (mapped) return mapped;
+      if (/^tauros-paldea-(combat|blaze|aqua)$/.test(normalizedKey)) {
+        return `${normalizedKey}-breed`;
+      }
+      return normalizedKey;
+    }
+
     function homeSpriteFromPokemon(data) {
       return (
         data?.sprites?.other?.home?.front_default ||
@@ -2659,7 +2685,8 @@
       let mon = await getFromIDB(key);
 
       if (!mon) {
-        const url = `https://pokeapi.co/api/v2/pokemon/${key}`;
+        const apiSlug = pokeapiPokemonSlug(key);
+        const url = `https://pokeapi.co/api/v2/pokemon/${apiSlug}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`No encontrado: ${name}`);
         const data = await res.json();
