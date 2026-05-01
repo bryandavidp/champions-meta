@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=cabinet-grotesk@500,700,800&display=swap"
     rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     :root {
       --bg: #060a12;
@@ -19,7 +20,7 @@
       --line: rgba(255, 255, 255, .08);
       --line2: rgba(255, 255, 255, .12);
       --text: #eef4ff;
-      --muted: #90a4c3;
+      --muted: #a3b5d1;
       --soft: #7286a7;
       --gold: #ffd35a;
       --blue: #49b6ff;
@@ -83,6 +84,48 @@
 
     button {
       cursor: pointer
+    }
+
+    .lucide {
+      width: 1em;
+      height: 1em;
+      vertical-align: -0.125em;
+    }
+
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* --- Animations and Microinteractions --- */
+    button:active, 
+    .mini-slot:active, 
+    .choice-item:active, 
+    .insight-card[style*="cursor: pointer"]:active, 
+    .result:active {
+      transform: scale(0.96);
+      transition: transform 0.1s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulseSkeleton {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .modal-card, .editor-modal-card {
+      animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .result {
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .skeleton-result {
+      animation: pulseSkeleton 1.5s infinite ease-in-out;
     }
 
     .hidden {
@@ -923,8 +966,9 @@
       display: none;
       align-items: stretch;
       justify-content: stretch;
-      background: rgba(3, 6, 11, .78);
-      backdrop-filter: blur(12px);
+      background: rgba(3, 6, 11, .60);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       z-index: 120;
     }
 
@@ -938,8 +982,9 @@
       display: grid;
       grid-template-rows: auto auto 1fr;
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .015)),
-        linear-gradient(180deg, #101b2f, #0a121f);
+        linear-gradient(180deg, rgba(16, 27, 47, .85), rgba(10, 18, 31, .95));
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
     }
 
     .modal-head {
@@ -949,6 +994,7 @@
       justify-content: space-between;
       gap: 8px;
       align-items: flex-start;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
 
     .modal-head h3 {
@@ -989,8 +1035,9 @@
       display: grid;
       grid-template-rows: auto 1fr auto;
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .015)),
-        linear-gradient(180deg, #101b2f, #0a121f);
+        linear-gradient(180deg, rgba(16, 27, 47, .85), rgba(10, 18, 31, .95));
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
     }
 
     .editor-head {
@@ -1006,6 +1053,7 @@
       background:
         linear-gradient(180deg, rgba(16, 27, 47, .96), rgba(10, 18, 31, .94));
       backdrop-filter: blur(12px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
 
     .editor-head h3 {
@@ -1634,7 +1682,7 @@
     <section class="panel hero">
       <div class="hero-top">
         <div>
-          <span class="eyebrow">⚔️ Matriz ofensiva + Smogon Chaos</span>
+          <span class="eyebrow"><i data-lucide="swords" style="width:14px;height:14px;"></i> Matriz ofensiva + Smogon Chaos</span>
           <h1>Lectura rápida, decisiones claras</h1>
           <p>La app aplica sets por defecto desde Smogon Champions OU, manteniendo matriz, semáforo, oportunidades,
             estrategias y guardado local en un único HTML.</p>
@@ -1651,8 +1699,8 @@
             </select>
           </label>
           <button class="btn gold" id="loadDemoBtn">Ejemplo</button>
-          <button class="btn blue" id="swapBtn" title="Swap" style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;">🔄</button>
-          <button class="btn red" id="clearBtn" title="Limpiar" style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;">🗑️</button>
+          <button class="btn blue" id="swapBtn" title="Swap" style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;"><i data-lucide="refresh-cw" style="width:16px;height:16px;"></i></button>
+          <button class="btn red" id="clearBtn" title="Limpiar" style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
         </div>
       </div>
 
@@ -1840,7 +1888,13 @@
       </div>
 
       <div class="result-list" id="resultList">
-        <div class="loader">Preparando Pokédex…</div>
+        ${Array(15).fill(0).map(() => `
+          <div class="result skeleton-result">
+            <div class="result-sprite" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.02);"></div>
+            <div style="width: 80%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 8px;"></div>
+            <div style="width: 50%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;"></div>
+          </div>
+        `).join('')}
       </div>
     </div>
   </div>
@@ -2568,7 +2622,7 @@
           <button class="mini-slot" data-action="pick" data-side="${side}" data-index="${idx}" aria-label="${mon.displayName}">
             <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
             ${side === 'self' ? `<span class="slot-edit-badge">SET</span>` : ''}
-            <span class="slot-remove" data-action="remove" data-side="${side}" data-index="${idx}">×</span>
+            <span class="slot-remove" data-action="remove" data-side="${side}" data-index="${idx}"><i data-lucide="x" style="width:10px;height:10px;"></i></span>
           </button>
         `;
       }).join('');
@@ -2603,7 +2657,7 @@
         <thead>
           <tr>
             <th class="corner">
-              <div class="corner-mark">⚔</div>
+              <div class="corner-mark"><i data-lucide="swords" style="width:16px;height:16px;"></i></div>
             </th>
             ${enemy.map(mon => `
               <th>
@@ -3312,6 +3366,12 @@
       renderNoBringList(preview.noBring);
     }
 
+    function updateIcons() {
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+      }
+    }
+
     // --- MAIN RENDER ---
     function renderAll() {
       renderDock('self');
@@ -3326,6 +3386,7 @@
       const preview = computeQuickPreview(rows);
       renderQuickPreview(preview);
       renderWeaknessSummary();
+      updateIcons();
     }
 
     selfSlots.addEventListener('click', async (e) => {
@@ -3562,8 +3623,8 @@
               <div class="move-slot-top">
                 <div class="move-slot-label">Movimiento ${idx + 1}</div>
                 <div class="move-slot-actions">
-                  <button class="icon-mini-btn" data-action="edit-move" data-index="${idx}">✎</button>
-                  <button class="icon-mini-btn" data-action="clear-move" data-index="${idx}">×</button>
+                  <button class="icon-mini-btn" data-action="edit-move" data-index="${idx}"><i data-lucide="pencil" style="width:14px;height:14px;"></i></button>
+                  <button class="icon-mini-btn" data-action="clear-move" data-index="${idx}"><i data-lucide="x" style="width:16px;height:16px;"></i></button>
                 </div>
               </div>
 
