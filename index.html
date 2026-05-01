@@ -1776,6 +1776,25 @@
       </div>
     </section>
 
+    <section class="panel section-pad" id="turn1SimulatorPanel" style="display: none;">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Simulador de Turno 1 (Lead vs Lead)</h2>
+          <p class="section-subtitle">Analiza interacciones clave eligiendo los posibles leads.</p>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center;">
+        <span class="tiny-chip" style="background: rgba(73, 182, 255, 0.1); border-color: rgba(73, 182, 255, 0.2);">Mis Leads</span>
+        <select id="t1Self1" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 8px; font-size: 0.75rem; font-weight: 800;"></select>
+        <select id="t1Self2" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 8px; font-size: 0.75rem; font-weight: 800;"></select>
+        <span style="font-weight: 900; color: var(--muted); margin: 0 4px;">VS</span>
+        <span class="tiny-chip" style="background: rgba(255, 98, 127, 0.1); border-color: rgba(255, 98, 127, 0.2);">Sus Leads</span>
+        <select id="t1Enemy1" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 8px; font-size: 0.75rem; font-weight: 800;"></select>
+        <select id="t1Enemy2" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 8px; font-size: 0.75rem; font-weight: 800;"></select>
+      </div>
+      <div id="t1InsightsList" class="list"></div>
+    </section>
+
     <section class="panel section-pad">
       <div class="section-head">
         <div>
@@ -1869,7 +1888,7 @@
 
   <aside class="picker-dock">
     <div class="dock-shell">
-      <div class="dock-row">
+      <div class="dock-row" style="flex-wrap: wrap;">
         <div class="dock-label">
           <strong>Tu equipo</strong>
           <span>Atacantes</span>
@@ -1880,6 +1899,7 @@
         <div class="mini-actions">
           <button class="mini-btn" id="fillMetaLeftBtn">Preset</button>
         </div>
+        <div id="defensiveAlerts" style="grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap;"></div>
       </div>
 
       <div class="dock-row">
@@ -2133,7 +2153,8 @@
         tailwindSelf: false,
         tailwindEnemy: false,
         trickRoom: false
-      }
+      },
+      leads: { self: [0, 1], enemy: [0, 1] }
     };
 
     const selfSlots = document.getElementById('selfSlots');
@@ -3140,16 +3161,25 @@
 
     function renderPokedex(query = '') {
       const q = normalizeText(query);
+      const parts = q.split(/[-\s]+/).filter(Boolean);
+
       const list = state.pokedex
-        .filter(mon => !q || normalizeText(mon.name).includes(q) || normalizeText(mon.displayName).includes(q))
-        .slice(0, 80);
+        .filter(mon => {
+          if (!q) return true;
+          const monName = normalizeText(mon.name);
+          const monDisplay = normalizeText(mon.displayName);
+          return parts.every(p => monName.includes(p) || monDisplay.includes(p));
+        })
+        .slice(0, q ? 80 : 15);
 
       if (!list.length) {
         resultList.innerHTML = `<div class="loader">No hay resultados.</div>`;
         return;
       }
 
-      resultList.innerHTML = list.map(mon => `
+      const quickPicksHtml = !q ? `<div style="grid-column: 1 / -1; margin-bottom: -4px;"><span class="tiny-chip" style="background: rgba(73, 182, 255, 0.1); border-color: rgba(73, 182, 255, 0.2);">Top Meta (Quick Picks)</span></div>` : '';
+
+      resultList.innerHTML = quickPicksHtml + list.map(mon => `
         <div class="result">
           <div class="result-sprite">
             <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/0.png" alt="${mon.displayName}" data-poke="${mon.name}" loading="lazy">
@@ -3187,7 +3217,6 @@
         const mon = await fetchPokemon(name);
         mon.set = buildDefaultSetForSpecies(mon.name, side, index);
         state[side][index] = mon;
-        closeModal();
         scheduleMoveWarmup();
         renderAll();
       } catch (err) {
@@ -3482,6 +3511,141 @@
       document.getElementById('toggleTrickRoomBtn').className = `btn small ${state.field.trickRoom ? 'gold' : 'ghost'}`;
     }
 
+    function renderDefensiveAlerts() {
+      const alertList = document.getElementById('defensiveAlerts');
+      const mons = state.self.filter(Boolean);
+      if (mons.length < 3) {
+        alertList.innerHTML = '';
+        return;
+      }
+
+      const alerts = [];
+      const types = Object.keys(TYPE_CHART);
+      for (const t of types) {
+        let weak = 0, resist = 0, immune = 0;
+        for (const mon of mons) {
+          let mult = effectiveness(t, mon.types);
+          const ab = mon.set?.ability || '';
+          
+          if (t === 'ground' && (ab === 'Levitate' || mon.set?.item === 'Air Balloon')) mult = 0;
+          if (t === 'water' && ['Water Absorb', 'Storm Drain', 'Dry Skin'].includes(ab)) mult = 0;
+          if (t === 'fire' && ['Flash Fire', 'Well-Baked Body'].includes(ab)) mult = 0;
+          if (t === 'electric' && ['Volt Absorb', 'Lightning Rod', 'Motor Drive'].includes(ab)) mult = 0;
+          if (t === 'grass' && ['Sap Sipper'].includes(ab)) mult = 0;
+
+          if (mult > 1) weak++;
+          else if (mult === 0) immune++;
+          else if (mult < 1) resist++;
+        }
+        
+        if (weak >= 3 && immune === 0 && resist <= 1) {
+          alerts.push({ type: t, name: TYPE_META[t].name });
+        }
+      }
+
+      if (!alerts.length) {
+        alertList.innerHTML = '';
+        return;
+      }
+
+      alertList.innerHTML = alerts.map(a => `
+        <div class="tiny-chip" style="background: rgba(255, 98, 127, 0.15); border-color: rgba(255, 98, 127, 0.3); color: #ff9fb3;">
+          ⚠️ Extrema debilidad a ${a.name}. Sin inmunidades.
+        </div>
+      `).join('');
+    }
+
+    function isPhysicalAttacker(mon) {
+      if (!mon) return false;
+      const moves = mon.set?.moves || [];
+      const hasPhysical = moves.some(m => state.moveTypeCache[m]?.damageClass === 'physical');
+      if (hasPhysical) return true;
+      const atk = mon.raw?.stats?.find(s => s.stat.name === 'attack')?.base_stat || 0;
+      const spa = mon.raw?.stats?.find(s => s.stat.name === 'special-attack')?.base_stat || 0;
+      return atk > spa;
+    }
+
+    function renderTurn1Simulator() {
+      const panel = document.getElementById('turn1SimulatorPanel');
+      const list = document.getElementById('t1InsightsList');
+      const selfTeam = state.self.filter(Boolean);
+      const enemyTeam = state.enemy.filter(Boolean);
+
+      if (selfTeam.length < 2 || enemyTeam.length < 2) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.style.display = 'block';
+
+      ['t1Self1', 't1Self2', 't1Enemy1', 't1Enemy2'].forEach(id => {
+        const select = document.getElementById(id);
+        const side = id.includes('Self') ? 'self' : 'enemy';
+        const team = side === 'self' ? selfTeam : enemyTeam;
+        const currentVal = select.value;
+        select.innerHTML = team.map((m, i) => `<option value="${i}">${m.displayName}</option>`).join('');
+        if (currentVal && team[currentVal]) select.value = currentVal;
+      });
+
+      const s1 = selfTeam[document.getElementById('t1Self1').value] || selfTeam[0];
+      const s2 = selfTeam[document.getElementById('t1Self2').value] || selfTeam[1];
+      const e1 = enemyTeam[document.getElementById('t1Enemy1').value] || enemyTeam[0];
+      const e2 = enemyTeam[document.getElementById('t1Enemy2').value] || enemyTeam[1];
+      
+      const leads = [
+        { mon: s1, side: 'self', spe: calculateSpeed(s1, 'self') },
+        { mon: s2, side: 'self', spe: calculateSpeed(s2, 'self') },
+        { mon: e1, side: 'enemy', spe: calculateSpeed(e1, 'enemy') },
+        { mon: e2, side: 'enemy', spe: calculateSpeed(e2, 'enemy') }
+      ].filter(x => x.mon).sort((a, b) => b.spe - a.spe);
+
+      const insights = [];
+
+      // 1. Fake Out
+      const fakeOutUsers = leads.filter(x => (x.mon.set?.moves || []).includes('Fake Out'));
+      if (fakeOutUsers.length > 0) {
+        if (fakeOutUsers.length === 1) {
+          insights.push({ icon: '✋', text: `<strong style="color:${fakeOutUsers[0].side==='self'?'var(--blue)':'var(--red)'}">${fakeOutUsers[0].mon.displayName}</strong> tiene presión gratuita de Fake Out.` });
+        } else {
+          insights.push({ icon: '✋', text: `<strong style="color:${fakeOutUsers[0].side==='self'?'var(--blue)':'var(--red)'}">${fakeOutUsers[0].mon.displayName}</strong> es el usuario de Fake Out más rápido.` });
+        }
+      }
+
+      // 2. Intimidate
+      const intimidators = leads.filter(x => (x.mon.set?.ability || '') === 'Intimidate');
+      intimidators.forEach(intim => {
+        const targets = leads.filter(x => x.side !== intim.side && isPhysicalAttacker(x.mon));
+        const color = intim.side === 'self' ? 'var(--blue)' : 'var(--red)';
+        if (targets.length) {
+          insights.push({ icon: '🦁', text: `<strong style="color:${color}">${intim.mon.displayName}</strong> aplica Intimidate, afectando a ${targets.map(t => `<strong style="color:${t.side==='self'?'var(--blue)':'var(--red)'}">${t.mon.displayName}</strong>`).join(' y ')}.` });
+        } else {
+          insights.push({ icon: '🦁', text: `<strong style="color:${color}">${intim.mon.displayName}</strong> aplica Intimidate, pero no hay atacantes físicos relevantes en frente.` });
+        }
+      });
+
+      // 3. Weather
+      const WEATHER_MAP = { 'Drizzle': 'Lluvia 🌧️', 'Drought': 'Sol ☀️', 'Sand Stream': 'Arena 🪨', 'Snow Warning': 'Nieve ❄️' };
+      const weatherSetters = leads.filter(x => WEATHER_MAP[x.mon.set?.ability || '']);
+      if (weatherSetters.length > 0) {
+        if (weatherSetters.length === 1) {
+          insights.push({ icon: '🌤️', text: `<strong style="color:${weatherSetters[0].side==='self'?'var(--blue)':'var(--red)'}">${weatherSetters[0].mon.displayName}</strong> establece ${WEATHER_MAP[weatherSetters[0].mon.set.ability]}.` });
+        } else {
+          const slowest = weatherSetters[weatherSetters.length - 1]; // Slowest goes last, overwriting
+          insights.push({ icon: '🌤️', text: `<strong style="color:${slowest.side==='self'?'var(--blue)':'var(--red)'}">${slowest.mon.displayName}</strong> es más lento, por lo que prevalecerá ${WEATHER_MAP[slowest.mon.set.ability]}.` });
+        }
+      }
+
+      if (!insights.length) {
+        list.innerHTML = `<div class="muted-small">No se detectaron interacciones críticas de Turno 1 (Fake Out, Clima o Intimidate) entre estos leads.</div>`;
+      } else {
+        list.innerHTML = insights.map(i => `
+          <div class="strategy-row" style="padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,0.02);">
+            <div style="font-size:1.1rem;">${i.icon}</div>
+            <div style="font-size:0.75rem; line-height:1.3; color:#eef4ff;">${i.text}</div>
+          </div>
+        `).join('');
+      }
+    }
+
     function updateIcons() {
       if (typeof lucide !== 'undefined' && lucide.createIcons) {
         lucide.createIcons();
@@ -3503,6 +3667,8 @@
       renderQuickPreview(preview);
       renderWeaknessSummary();
       renderSpeedTiers();
+      renderDefensiveAlerts();
+      renderTurn1Simulator();
       updateIcons();
     }
 
@@ -3519,6 +3685,12 @@
     document.getElementById('toggleTrickRoomBtn').addEventListener('click', () => {
       state.field.trickRoom = !state.field.trickRoom;
       renderSpeedTiers();
+    });
+
+    ['t1Self1', 't1Self2', 't1Enemy1', 't1Enemy2'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        renderTurn1Simulator();
+      });
     });
 
     selfSlots.addEventListener('click', async (e) => {
@@ -3556,7 +3728,22 @@
     resultList.addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-action="pick-result"]');
       if (!btn) return;
-      await pickPokemonIntoSlot(state.modal.side, state.modal.index, btn.dataset.name);
+      
+      const side = state.modal.side;
+      const currentIndex = state.modal.index;
+      
+      await pickPokemonIntoSlot(side, currentIndex, btn.dataset.name);
+      
+      const nextIndex = state[side].findIndex(mon => !mon);
+      if (nextIndex !== -1) {
+        state.modal.index = nextIndex;
+        modalTitle.textContent = side === 'self' ? `Tu equipo · Slot ${nextIndex + 1}` : `Rival · Slot ${nextIndex + 1}`;
+        searchInput.value = '';
+        renderPokedex('');
+        setTimeout(() => searchInput.focus(), 20);
+      } else {
+        closeModal();
+      }
     });
 
     searchInput.addEventListener('input', (e) => {
