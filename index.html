@@ -1651,37 +1651,26 @@
             </select>
           </label>
           <button class="btn gold" id="loadDemoBtn">Ejemplo</button>
-          <button class="btn blue" id="swapBtn">Swap</button>
-          <button class="btn red" id="clearBtn">Limpiar</button>
+          <button class="btn blue" id="swapBtn" title="Swap" style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;">🔄</button>
+          <button class="btn red" id="clearBtn" title="Limpiar" style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;">🗑️</button>
         </div>
       </div>
 
-      <div class="hero-stats">
-        <div class="stat">
-          <div class="k">Cruces</div>
-          <div class="v" id="metricCross">0</div>
-          <div class="s">Total de enfrentamientos</div>
+      <div class="hero-stats-compact" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+        <div class="tiny-chip" style="background: rgba(255, 211, 90, 0.1); border-color: rgba(255, 211, 90, 0.2); color: #ffd35a;">
+          <span style="opacity: 0.8; font-weight: 500; margin-right: 4px;">Fuertes</span> <span id="metricStrong">0</span>
         </div>
-        <div class="stat">
-          <div class="k">Fuertes</div>
-          <div class="v" id="metricStrong">0</div>
-          <div class="s">x2 o mejor</div>
+        <div class="tiny-chip" style="background: rgba(255, 98, 127, 0.1); border-color: rgba(255, 98, 127, 0.2); color: #ff627f;">
+          <span style="opacity: 0.8; font-weight: 500; margin-right: 4px;">Pico</span> <span id="metricPeak">×0</span>
         </div>
-        <div class="stat">
-          <div class="k">Pico</div>
-          <div class="v" id="metricPeak">×0</div>
-          <div class="s">Mejor presión</div>
+        <div class="tiny-chip" style="opacity: 0.7;">
+          <span style="font-weight: 500; margin-right: 4px;">Meta</span> <span id="metricMeta">Cargando</span>
         </div>
-        <div class="stat">
-          <div class="k">Presión media</div>
-          <div class="v" id="metricAvg">0.00</div>
-          <div class="s">Cobertura general</div>
+        <div class="tiny-chip" style="opacity: 0.7;" title="Cruces Totales">
+          <span id="metricCross">0</span> cruces
         </div>
-        <div class="stat">
-          <div class="k">Meta</div>
-          <div class="v" id="metricMeta">Cargando</div>
-          <div class="s" id="metaStatusText">Smogon Champions OU 2026-04</div>
-        </div>
+        <div style="display:none;" id="metricAvg">0.00</div>
+        <div style="display:none;" id="metaStatusText">Smogon Champions OU 2026-04</div>
       </div>
     </section>
 
@@ -1689,54 +1678,44 @@
       <div class="section-head">
         <div>
           <h2 class="section-title">Análisis rápido</h2>
-          <p class="section-subtitle">Recomendaciones inmediatas antes de jugar.</p>
         </div>
-        <button class="btn blue small sticky-cta" id="viewMyFourBtn" style="display:none;">Ver mis 4</button>
       </div>
-      <div class="insight-grid quick-preview-grid">
-        <article class="insight-card" id="planRivalCard">
+      <div class="insight-grid" style="grid-template-columns: 1fr;">
+        <article class="insight-card" id="planRivalCard" style="margin-bottom: 8px;">
           <div class="insight-head">
             <div>
               <h3>Plan Rival</h3>
-              <p>Estrategia esperada</p>
             </div>
             <span class="tiny-chip">Scout</span>
           </div>
-          <div class="list" id="planRivalList"></div>
+          <div class="list" id="planRivalList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
         </article>
 
-        <article class="insight-card" id="bestFourCard">
-          <div class="insight-head">
-            <div>
-              <h3>Mis 4 mejores</h3>
-              <p>Presión general</p>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <article class="insight-card" id="bestFourCard" style="cursor: pointer; background: linear-gradient(180deg, rgba(73, 182, 255, 0.08), rgba(73, 182, 255, 0.02)); border-color: rgba(73, 182, 255, 0.2);">
+            <div class="insight-head">
+              <h3>Core & Lead</h3>
+              <span class="tiny-chip status-blue">Pick</span>
             </div>
-            <span class="tiny-chip">Core</span>
-          </div>
-          <div class="list" id="bestFourList"></div>
-        </article>
+            <div style="margin-bottom:8px;">
+              <div style="font-size:0.6rem; color:var(--muted); margin-bottom:4px; font-weight:bold; text-transform:uppercase;">Mis 4 mejores</div>
+              <div class="list" id="bestFourList"></div>
+            </div>
+            <div>
+              <div style="font-size:0.6rem; color:var(--muted); margin-bottom:4px; font-weight:bold; text-transform:uppercase;">Lead Sugerido</div>
+              <div class="list" id="leadList"></div>
+            </div>
+          </article>
 
-        <article class="insight-card" id="leadCard">
-          <div class="insight-head">
-            <div>
-              <h3>Lead Sugerido</h3>
-              <p>Turno 1</p>
+          <article class="insight-card" id="noBringCard" style="background: linear-gradient(180deg, rgba(255, 98, 127, 0.08), rgba(255, 98, 127, 0.02)); border-color: rgba(255, 98, 127, 0.2);">
+            <div class="insight-head">
+              <h3>Ban</h3>
+              <span class="tiny-chip status-red">Evitar</span>
             </div>
-            <span class="tiny-chip">T1</span>
-          </div>
-          <div class="list" id="leadList"></div>
-        </article>
-
-        <article class="insight-card" id="noBringCard">
-          <div class="insight-head">
-            <div>
-              <h3>No Llevar</h3>
-              <p>Peor matchup</p>
-            </div>
-            <span class="tiny-chip status-red">Ban</span>
-          </div>
-          <div class="list" id="noBringList"></div>
-        </article>
+            <div style="font-size:0.6rem; color:var(--muted); margin-bottom:4px; font-weight:bold; text-transform:uppercase;">No llevar</div>
+            <div class="list" id="noBringList"></div>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -2807,7 +2786,7 @@
       if (hasAnyMove(['Trick Room']) || (hasAnyName(['farigiraf', 'indeedee-female', 'indeedee-male', 'bronzong']) && hasAnyName(['heatran', 'kingambit', 'iron-hands', 'azumarill']))) {
         strategies.push({
           icon: '⏱️',
-          title: 'Control de velocidad invertida',
+          title: 'Trick Room',
           text: 'Hay señales de Trick Room o de un plan que quiere ganar turnos con piezas más lentas y pesadas.'
         });
       }
@@ -2815,7 +2794,7 @@
       if (hasAnyMove(['Tailwind', 'Icy Wind']) || hasAnyName(['whimsicott', 'tornadus-incarnate', 'tornadus-therian', 'pelipper', 'talonflame'])) {
         strategies.push({
           icon: '💨',
-          title: 'Speed control activo',
+          title: 'Viento Afín',
           text: 'Puede intentar dominar el tempo con Tailwind, Icy Wind o presión temprana de velocidad.'
         });
       }
@@ -2823,7 +2802,7 @@
       if (hasAnyAbility(['Drizzle']) || hasAnyName(['pelipper', 'politoed']) || (hasAnyName(['basculegion', 'archaludon']) && hasAnyName(['pelipper', 'politoed']))) {
         strategies.push({
           icon: '🌧️',
-          title: 'Plan de lluvia',
+          title: 'Lluvia',
           text: 'La composición puede apoyarse en lluvia, daño de agua y compañeros que escalan con ese ritmo.'
         });
       }
@@ -2831,7 +2810,7 @@
       if (hasAnyAbility(['Drought']) || hasAnyName(['charizard-mega-y', 'torkoal']) || hasAnyName(['venusaur', 'lilligant'])) {
         strategies.push({
           icon: '☀️',
-          title: 'Plan solar',
+          title: 'Sol',
           text: 'Hay un núcleo claro de sol o de presión de fuego/planta alrededor del setter principal.'
         });
       }
@@ -2839,7 +2818,7 @@
       if (hasAnyAbility(['Sand Stream']) || (hasAnyName(['tyranitar', 'tyranitar-mega']) && hasAnyName(['excadrill', 'garchomp']))) {
         strategies.push({
           icon: '🪨',
-          title: 'Núcleo de arena',
+          title: 'Arena',
           text: 'Puede buscar chip constante, control de ritmo y sweepers que mejoran bajo arena.'
         });
       }
@@ -2847,7 +2826,7 @@
       if (hasAnyMove(['Fake Out', 'Parting Shot', 'Volt Switch', 'U-turn']) || hasAnyAbility(['Intimidate']) || hasAnyName(['incineroar', 'landorus-therian', 'iron-hands'])) {
         strategies.push({
           icon: '🔁',
-          title: 'Pivot y presión inicial',
+          title: 'Pivot',
           text: 'El rival probablemente jugará a colocarse bien, intercambiar y ganar posición desde el turno 1.'
         });
       }
@@ -2855,7 +2834,7 @@
       if (hasAnyMove(['Follow Me', 'Rage Powder', 'Helping Hand', 'Wide Guard'])) {
         strategies.push({
           icon: '🛡️',
-          title: 'Soporte de tablero',
+          title: 'Soporte',
           text: 'Tiene herramientas claras para proteger sweepers, redirigir o bloquear líneas comunes de dobles.'
         });
       }
@@ -2863,7 +2842,7 @@
       if (hasAnyMove(['Perish Song', 'Disable'])) {
         strategies.push({
           icon: '🎵',
-          title: 'Disrupción técnica',
+          title: 'Disrupción',
           text: 'Puede apoyarse en planes incómodos de control, bloqueo o win condition no lineal.'
         });
       }
@@ -2874,7 +2853,7 @@
         const paired = topEntries(topTeammateHits, 1)[0]?.key;
         strategies.push({
           icon: '🧩',
-          title: 'Cobertura balanceada',
+          title: 'Flexible',
           text: paired
             ? `No hay un arquetipo obvio; parece un equipo flexible con sinergias repartidas alrededor de ${displayFromSmogonName(paired)}.`
             : 'No hay un arquetipo obvio; parece un equipo flexible y de cobertura mixta.'
@@ -3308,25 +3287,20 @@
       const selfTeam = state.self.filter(Boolean);
       const enemyTeam = state.enemy.filter(Boolean);
       const panel = document.getElementById('quickPreviewPanel');
-      const viewMyFourBtn = document.getElementById('viewMyFourBtn');
       
       if (selfTeam.length < 4 || enemyTeam.length === 0) {
         panel.style.display = 'none';
-        if (viewMyFourBtn) viewMyFourBtn.style.display = 'none';
         return;
       }
       
       panel.style.display = 'block';
-      if (viewMyFourBtn) viewMyFourBtn.style.display = 'inline-flex';
       
       const planList = document.getElementById('planRivalList');
       if (preview.enemyPlan.length) {
-        planList.innerHTML = preview.enemyPlan.slice(0, 2).map(item => `
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
-            <span style="font-size:1.1rem">${item.icon}</span>
-            <div>
-              <div style="font-size:.75rem;font-weight:900;color:#fff">${item.title}</div>
-            </div>
+        planList.innerHTML = preview.enemyPlan.map(item => `
+          <div class="tiny-chip" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); padding: 4px 8px;" title="${item.text}">
+            <span style="font-size:0.9rem">${item.icon}</span>
+            <span style="font-size:0.7rem; font-weight:800">${item.title}</span>
           </div>
         `).join('');
       } else {
@@ -3839,8 +3813,8 @@
       if (e.target === setChoiceModal) closeSetChoice();
     });
 
-    document.getElementById('viewMyFourBtn').addEventListener('click', () => {
-      document.getElementById('bestFourCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('bestFourCard').addEventListener('click', () => {
+      // Feature: Click to highlight/expand best four (Future enhancement)
     });
 
     async function hydrateSavedState() {
