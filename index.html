@@ -2436,6 +2436,7 @@
         await rehydrateCurrentTeamsSets();
         ensurePokedex();
         renderAll();
+        preloadTopMeta(); // Lanza precarga en segundo plano
       } catch (err) {
         console.error(err);
         metricMeta.textContent = 'Error';
@@ -2444,6 +2445,20 @@
         renderAll();
       } finally {
         state.loadingMeta = false;
+      }
+    }
+
+    async function preloadTopMeta() {
+      // Evita colapsar la conexión, carga solo los top 50
+      const topMons = state.metaRanked.slice(0, 50);
+      for (const record of topMons) {
+        const key = normalizeText(record.slug);
+        const inIDB = await getFromIDB(key);
+        if (!inIDB && !state.cache.has(key)) {
+          // fetch silencioso sin await para no bloquear
+          fetchPokemon(key).catch(() => {});
+          await new Promise(r => setTimeout(r, 100)); // throttle entre requests
+        }
       }
     }
 
@@ -2547,32 +2562,91 @@
       };
     }
 
+    const IDB_STORE_NAME = 'pokemon-cache';
+    const idbPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open('smogon-champions-db', 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(IDB_STORE_NAME)) {
+          db.createObjectStore(IDB_STORE_NAME, { keyPath: 'name' });
+        }
+      };
+    });
+
+    async function getFromIDB(key) {
+      try {
+        const db = await idbPromise;
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(IDB_STORE_NAME, 'readonly');
+          const store = tx.objectStore(IDB_STORE_NAME);
+          const request = store.get(key);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+      } catch { return null; }
+    }
+
+    async function saveToIDB(data) {
+      try {
+        const db = await idbPromise;
+        const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(IDB_STORE_NAME);
+        store.put(data);
+      } catch { }
+    }
+
     async function fetchPokemon(name) {
       const key = normalizeText(name);
-      if (state.cache.has(key)) return structuredClone(state.cache.get(key));
+      if (state.cache.has(key)) {
+        const cloned = structuredClone(state.cache.get(key));
+        cloned.set = buildDefaultSetForSpecies(key);
+        return cloned;
+      }
 
-      const url = `https://pokeapi.co/api/v2/pokemon/${key}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`No encontrado: ${name}`);
-      const data = await res.json();
+      let mon = await getFromIDB(key);
 
-      const record = getMetaRecord(key);
-      const mon = {
-        id: data.id,
-        name: key,
-        displayName: record?.displayName || formatName(data.name),
-        sprite: homeSpriteFromPokemon(data),
-        types: data.types
-          .slice()
-          .sort((a, b) => a.slot - b.slot)
-          .map(x => x.type.name),
-        metaRank: record?.rank || null,
-        usage: record?.usage || 0,
-        set: buildDefaultSetForSpecies(key),
-        raw: data
-      };
+      if (!mon) {
+        const url = `https://pokeapi.co/api/v2/pokemon/${key}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`No encontrado: ${name}`);
+        const data = await res.json();
+
+        const record = getMetaRecord(key);
+        
+        let spriteUrl = homeSpriteFromPokemon(data);
+        if (record && record.rank <= 20) {
+          try {
+            const bRes = await fetch(spriteUrl);
+            const blob = await bRes.blob();
+            spriteUrl = await new Promise(r => {
+              const reader = new FileReader();
+              reader.onloadend = () => r(reader.result);
+              reader.readAsDataURL(blob);
+            });
+          } catch { }
+        }
+
+        mon = {
+          id: data.id,
+          name: key,
+          displayName: record?.displayName || formatName(data.name),
+          sprite: spriteUrl,
+          types: data.types
+            .slice()
+            .sort((a, b) => a.slot - b.slot)
+            .map(x => x.type.name),
+          metaRank: record?.rank || null,
+          usage: record?.usage || 0,
+          raw: data
+        };
+        await saveToIDB(mon);
+      }
 
       state.cache.set(key, structuredClone(mon));
+      
+      mon.set = buildDefaultSetForSpecies(key);
       scheduleMoveWarmup();
       return structuredClone(mon);
     }
@@ -3854,12 +3928,12 @@
       }
 
       const set = ensureEditableSet(mon);
-      const abilityOptions = getQuickOptions(mon, 'ability').slice(0, 6);
-      const itemOptions = getQuickOptions(mon, 'item').slice(0, 6);
-      const moveOptions = getQuickOptions(mon, 'move').slice(0, 8);
+      const abilityOptions = getQuickOptions(mon, 'ability');
+      const itemOptions = getQuickOptions(mon, 'item');
+      const moveOptions = getQuickOptions(mon, 'move');
 
       setEditorTitle.textContent = `Editar set · ${mon.displayName}`;
-      setEditorSubtitle.textContent = 'Toca un campo para cambiarlo o usa sugerencias rápidas.';
+      setEditorSubtitle.textContent = 'Despliega para cambiar o usa las sugerencias rápidas.';
 
       const typeChips = (mon.types || []).map(typeChip).join('');
       const summaryLines = [
@@ -3871,6 +3945,7 @@
       setEditorBody.innerHTML = `
         <section class="editor-hero">
           <div class="sprite-box">
+            ${mon.name.includes('-mega') ? '<div class="mega-icon" style="width:18px;height:18px;top:4px;left:4px;"></div>' : ''}
             <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
           </div>
 
@@ -3888,18 +3963,22 @@
             <div class="editor-section-head">
               <div>
                 <strong>Habilidad</strong>
-                <span>Valor actual y acceso a sugerencias del meta.</span>
               </div>
             </div>
 
-            <button class="editor-main-btn" data-action="edit-ability">
-              <span class="value">${t(set.ability, 'ability') || 'Sin habilidad'}</span>
-              <span class="meta">Cambiar</span>
-            </button>
+            <div style="position:relative;">
+              <select class="editor-main-btn" data-action="inline-ability" style="appearance:none; width:100%;">
+                <option value="">Sin habilidad</option>
+                ${abilityOptions.map(value => `
+                  <option value="${value}" ${value === set.ability ? 'selected' : ''}>${t(value, 'ability')}</option>
+                `).join('')}
+              </select>
+              <i data-lucide="chevron-down" style="position:absolute; right:12px; top:15px; color:var(--muted); pointer-events:none; width:16px; height:16px;"></i>
+            </div>
 
-            <div class="editor-pill-list">
-              ${abilityOptions.map(value => `
-                <button class="editor-pill ${value === set.ability ? 'active' : ''}" data-action="quick-ability" data-value="${value}">
+            <div class="editor-pill-list" style="flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
+              ${abilityOptions.slice(0, 4).map(value => `
+                <button class="editor-pill ${value === set.ability ? 'active' : ''}" style="white-space: nowrap; flex-shrink: 0;" data-action="quick-ability" data-value="${value}">
                   ${t(value, 'ability')}
                 </button>
               `).join('')}
@@ -3910,18 +3989,22 @@
             <div class="editor-section-head">
               <div>
                 <strong>Objeto</strong>
-                <span>También admite valor personalizado.</span>
               </div>
             </div>
 
-            <button class="editor-main-btn" data-action="edit-item">
-              <span class="value">${t(set.item, 'item') || 'Sin objeto'}</span>
-              <span class="meta">Cambiar</span>
-            </button>
+            <div style="position:relative;">
+              <select class="editor-main-btn" data-action="inline-item" style="appearance:none; width:100%;" ${mon.name.includes('-mega') ? 'disabled' : ''}>
+                <option value="">Sin objeto</option>
+                ${itemOptions.map(value => `
+                  <option value="${value}" ${value === set.item ? 'selected' : ''}>${t(value, 'item')}</option>
+                `).join('')}
+              </select>
+              <i data-lucide="chevron-down" style="position:absolute; right:12px; top:15px; color:var(--muted); pointer-events:none; width:16px; height:16px;"></i>
+            </div>
 
-            <div class="editor-pill-list">
-              ${itemOptions.map(value => `
-                <button class="editor-pill ${value === set.item ? 'active' : ''}" data-action="quick-item" data-value="${value}">
+            <div class="editor-pill-list" style="flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
+              ${itemOptions.slice(0, 4).map(value => `
+                <button class="editor-pill ${value === set.item ? 'active' : ''}" style="white-space: nowrap; flex-shrink: 0;" data-action="quick-item" data-value="${value}" ${mon.name.includes('-mega') ? 'disabled' : ''}>
                   ${t(value, 'item')}
                 </button>
               `).join('')}
@@ -3933,7 +4016,6 @@
           <div class="editor-section-head">
             <div>
               <strong>Movimientos</strong>
-              <span>Cuatro slots, pensados para editar rápido en móvil.</span>
             </div>
           </div>
 
@@ -3942,29 +4024,25 @@
               <div class="move-slot-top">
                 <div class="move-slot-label">Movimiento ${idx + 1}</div>
                 <div class="move-slot-actions">
-                  <button class="icon-mini-btn" data-action="edit-move" data-index="${idx}"><i data-lucide="pencil" style="width:14px;height:14px;"></i></button>
                   <button class="icon-mini-btn" data-action="clear-move" data-index="${idx}"><i data-lucide="x" style="width:16px;height:16px;"></i></button>
                 </div>
               </div>
 
-              <button class="editor-main-btn" data-action="edit-move" data-index="${idx}">
-                <span class="value">${t(move, 'move') || 'Sin movimiento'}</span>
-                <span class="meta">Elegir</span>
-              </button>
+              <div style="position:relative;">
+                <select class="editor-main-btn" data-action="inline-move" data-index="${idx}" style="appearance:none; width:100%;">
+                  <option value="">Sin movimiento</option>
+                  ${moveOptions.map(value => `
+                    <option value="${value}" ${value === move ? 'selected' : ''}>${t(value, 'move')}</option>
+                  `).join('')}
+                </select>
+                <i data-lucide="chevron-down" style="position:absolute; right:12px; top:15px; color:var(--muted); pointer-events:none; width:16px; height:16px;"></i>
+              </div>
             </div>
           `).join('')}
-
-          <div class="editor-pill-list">
-            ${moveOptions.map(value => `
-              <button class="editor-pill" data-action="quick-move-any" data-value="${value}">
-                ${t(value, 'move')}
-              </button>
-            `).join('')}
-          </div>
-
-          <div class="editor-note">Las sugerencias rápidas salen del set/meta cargado; si no te basta, usa el selector completo.</div>
         </article>
       `;
+
+      updateIcons();
     }
 
     function openSetEditor(index) {
@@ -4135,6 +4213,40 @@
       closeSetEditor();
       openModal('self', idx);
     }
+
+    setEditorBody.addEventListener('change', (e) => {
+      const select = e.target.closest('select[data-action]');
+      if (!select) return;
+
+      const mon = getEditorMon();
+      if (!mon) return;
+      const set = ensureEditableSet(mon);
+      const val = select.value;
+
+      if (select.dataset.action === 'inline-ability') {
+        set.ability = val;
+      } else if (select.dataset.action === 'inline-item') {
+        set.item = val;
+        const normalizedItem = normalizeText(val);
+        if (MEGA_STONES[normalizedItem] && mon.name !== MEGA_STONES[normalizedItem]) {
+          const newSpecies = MEGA_STONES[normalizedItem];
+          pickPokemonIntoSlot('self', state.setEditor.index, newSpecies).then(() => {
+            const newMon = getEditorMon();
+            if (newMon && newMon.set) newMon.set.item = val;
+            openSetEditor(state.setEditor.index);
+          });
+          return;
+        }
+      } else if (select.dataset.action === 'inline-move') {
+        const idx = Number(select.dataset.index);
+        while (set.moves.length < 4) set.moves.push('');
+        set.moves[idx] = val;
+      }
+
+      if (typeof scheduleMoveWarmup === 'function') scheduleMoveWarmup();
+      if (typeof renderAll === 'function') renderAll();
+      renderSetEditor();
+    });
 
     setEditorBody.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
