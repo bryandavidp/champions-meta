@@ -2048,6 +2048,16 @@
     };
 
     const SMOGON_SPECIES_OVERRIDES = {
+      'aegislash': 'Aegislash-Shield',
+      'mimikyu': 'Mimikyu-Disguised',
+      'minior': 'Minior-Red-Meteor',
+      'toxtricity': 'Toxtricity-Amped',
+      'urshifu': 'Urshifu-Single-Strike',
+      'enamorus': 'Enamorus-Incarnate',
+      'thundurus': 'Thundurus-Incarnate',
+      'tornadus': 'Tornadus-Incarnate',
+      'landorus': 'Landorus-Incarnate',
+      'shaymin': 'Shaymin-Land',
       'landorus-therian': 'Landorus-Therian',
       'tornadus-incarnate': 'Tornadus-Incarnate',
       'tornadus-therian': 'Tornadus-Therian',
@@ -2118,6 +2128,8 @@
     const DEMO_ENEMY = ['charizard-mega-y', 'whimsicott', 'farigiraf', 'heatran', 'landorus-therian', 'azumarill'];
 
     const MEGA_STONES = {
+      'meganiumite': 'meganium-mega', 'starmieite': 'starmie-mega', 'dragonitemite': 'dragonite-mega',
+      'froslassite': 'froslass-mega', 'floetteite': 'floette-mega',
       'venusaurite': 'venusaur-mega', 'charizardite x': 'charizard-mega-x', 'charizardite y': 'charizard-mega-y',
       'blastoisinite': 'blastoise-mega', 'alakazite': 'alakazam-mega', 'gengarite': 'gengar-mega',
       'kangaskhanite': 'kangaskhan-mega', 'pinsirite': 'pinsir-mega', 'gyaradosite': 'gyarados-mega',
@@ -2210,9 +2222,44 @@
       return englishName;
     }
 
+    const PAPI_MAP = {
+      'dazzlinggleam': 'dazzling-gleam', 'drainingkiss': 'draining-kiss', 'psychicnoise': 'psychic-noise',
+      'healingwish': 'healing-wish', 'magicbounce': 'magic-bounce', 'gigadrain': 'giga-drain',
+      'uturn': 'u-turn', 'voltswitch': 'volt-switch', 'willowisp': 'will-o-wisp',
+      'thunderwave': 'thunder-wave', 'earthpower': 'earth-power', 'stealthrock': 'stealth-rock',
+      'toxicspikes': 'toxic-spikes', 'stickyweb': 'sticky-web', 'bravebird': 'brave-bird',
+      'closecombat': 'close-combat', 'flareblitz': 'flare-blitz', 'leafblade': 'leaf-blade',
+      'rockslide': 'rock-slide', 'swordsdance': 'swords-dance', 'nastyplot': 'nasty-plot',
+      'dragondance': 'dragon-dance', 'quiverdance': 'quiver-dance', 'calmmind': 'calm-mind',
+      'bulkup': 'bulk-up', 'ironhead': 'iron-head', 'playrough': 'play-rough',
+      'icebeam': 'ice-beam', 'hydropump': 'hydro-pump', 'fireblast': 'fire-blast',
+      'focusblast': 'focus-blast', 'shadowball': 'shadow-ball', 'energyball': 'energy-ball',
+      'sludgebomb': 'sludge-bomb', 'dracometeor': 'draco-meteor', 'extremespeed': 'extreme-speed',
+      'suckerpunch': 'sucker-punch', 'aquajet': 'aqua-jet', 'fakeout': 'fake-out',
+      'helpinghand': 'helping-hand', 'wideguard': 'wide-guard', 'quickguard': 'quick-guard',
+      'partingshot': 'parting-shot', 'freezedry': 'freeze-dry'
+    };
+
+    const CUSTOM_TERMS = new Set([
+      'megasol', 'meganiumite', 'dragonitemite', 'starmieite', 'froslassite', 'floetteite', 
+      'meganium-mega', 'starmie-mega', 'dragonite-mega', 'froslass-mega', 'floette-mega'
+    ]);
+
+    function getPapiSlug(name, category = 'move') {
+      let n = normalizeText(name);
+      if (PAPI_MAP[n]) return PAPI_MAP[n];
+      if (category === 'item') {
+        if (n === 'choicescarf') return 'choice-scarf';
+        if (n === 'choicespecs') return 'choice-specs';
+        if (n === 'choiceband') return 'choice-band';
+      }
+      return n;
+    }
+
     async function fetchTranslation(englishName, category) {
       if (!englishName) return;
-      const clean = normalizeText(englishName);
+      const clean = getPapiSlug(englishName, category);
+      if (CUSTOM_TERMS.has(clean)) return;
       const cacheKey = `${category}:${clean}`;
       if (i18nCache[cacheKey] || i18nCache[cacheKey] === null) return;
 
@@ -2599,6 +2646,10 @@
 
     async function fetchPokemon(name) {
       const key = normalizeText(name);
+      if (CUSTOM_TERMS.has(key)) {
+        // Fallback para Pokémon custom del formato sin API
+        return { name: key, displayName: formatName(name), sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png', types: ['normal'], set: buildDefaultSetForSpecies(key) };
+      }
       if (state.cache.has(key)) {
         const cloned = structuredClone(state.cache.get(key));
         cloned.set = buildDefaultSetForSpecies(key);
@@ -2656,10 +2707,15 @@
       const cached = state.moveTypeCache[moveName];
       if (cached) return cached;
 
+      const slug = getPapiSlug(moveName, 'move');
+      if (CUSTOM_TERMS.has(slug)) {
+        const info = { type: 'normal', damageClass: 'status', power: 0 };
+        state.moveTypeCache[moveName] = info;
+        return info;
+      }
       const fallbackType = MOVE_TYPE_FALLBACK[moveName];
-      const moveSlug = normalizeText(moveName);
       try {
-        const res = await fetch(`https://pokeapi.co/api/v2/move/${moveSlug}`);
+        const res = await fetch(`https://pokeapi.co/api/v2/move/${slug}`);
         if (!res.ok) throw new Error('Move not found');
         const data = await res.json();
         const info = {
@@ -3287,6 +3343,18 @@
     }
 
     async function pickPokemonIntoSlot(side, index, name) {
+      // Validaciones de Formato (Champions OU)
+      if (side === 'self') {
+        const speciesId = normalizeText(name);
+        if (state.self.some((m, i) => m && i !== index && m.name === speciesId)) {
+          alert(`Species Clause: ${formatName(name)} ya está en tu equipo.`);
+          return;
+        }
+        if (speciesId.includes('-mega') && state.self.some((m, i) => m && i !== index && m.name.includes('-mega'))) {
+          alert('Mega Clause: Solo se permite una Mega Evolución por equipo.');
+          return;
+        }
+      }
       try {
         const mon = await fetchPokemon(name);
         mon.set = buildDefaultSetForSpecies(mon.name, side, index);
@@ -4142,8 +4210,15 @@
       if (state.setChoice.kind === 'ability') {
         set.ability = clean;
       } else if (state.setChoice.kind === 'item') {
-        set.item = clean;
         const normalizedItem = normalizeText(clean);
+        if (MEGA_STONES[normalizedItem]) {
+          const hasOtherMega = state.self.some((m, i) => m && i !== state.setEditor.index && m.name.includes('-mega'));
+          if (hasOtherMega) {
+            alert('Mega Clause: Ya tienes un Pokémon Megaevolucionado en el equipo.');
+            return;
+          }
+        }
+        set.item = clean;
         if (MEGA_STONES[normalizedItem] && mon.name !== MEGA_STONES[normalizedItem]) {
           // Trigger species change
           const newSpecies = MEGA_STONES[normalizedItem];
