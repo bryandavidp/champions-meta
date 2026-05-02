@@ -1873,7 +1873,7 @@ function inferStrategies(team) {
       hasAnyName(["heatran", "kingambit", "iron-hands", "azumarill"]))
   ) {
     strategies.push({
-      icon: "⏱️",
+      icon: '<i data-lucide="orbit"></i>',
       title: "Trick Room",
       text: "Hay señales de Trick Room o de un plan que quiere ganar turnos con piezas más lentas y pesadas.",
     });
@@ -1890,7 +1890,7 @@ function inferStrategies(team) {
     ])
   ) {
     strategies.push({
-      icon: "💨",
+      icon: '<i data-lucide="wind"></i>',
       title: "Viento Afín",
       text: "Puede intentar dominar el tempo con Tailwind, Icy Wind o presión temprana de velocidad.",
     });
@@ -1903,7 +1903,7 @@ function inferStrategies(team) {
       hasAnyName(["pelipper", "politoed"]))
   ) {
     strategies.push({
-      icon: "🌧️",
+      icon: '<i data-lucide="cloud-rain"></i>',
       title: "Lluvia",
       text: "La composición puede apoyarse en lluvia, daño de agua y compañeros que escalan con ese ritmo.",
     });
@@ -1915,7 +1915,7 @@ function inferStrategies(team) {
     hasAnyName(["venusaur", "lilligant"])
   ) {
     strategies.push({
-      icon: "☀️",
+      icon: '<i data-lucide="sun"></i>',
       title: "Sol",
       text: "Hay un núcleo claro de sol o de presión de fuego/planta alrededor del setter principal.",
     });
@@ -1927,7 +1927,7 @@ function inferStrategies(team) {
       hasAnyName(["excadrill", "garchomp"]))
   ) {
     strategies.push({
-      icon: "🪨",
+      icon: '<i data-lucide="mountain"></i>',
       title: "Arena",
       text: "Puede buscar chip constante, control de ritmo y sweepers que mejoran bajo arena.",
     });
@@ -1939,7 +1939,7 @@ function inferStrategies(team) {
     hasAnyName(["incineroar", "landorus-therian", "iron-hands"])
   ) {
     strategies.push({
-      icon: "🔁",
+      icon: '<i data-lucide="refresh-cw"></i>',
       title: "Pivot",
       text: "El rival probablemente jugará a colocarse bien, intercambiar y ganar posición desde el turno 1.",
     });
@@ -1947,7 +1947,7 @@ function inferStrategies(team) {
 
   if (hasAnyMove(["Follow Me", "Rage Powder", "Helping Hand", "Wide Guard"])) {
     strategies.push({
-      icon: "🛡️",
+      icon: '<i data-lucide="shield"></i>',
       title: "Soporte",
       text: "Tiene herramientas claras para proteger sweepers, redirigir o bloquear líneas comunes de dobles.",
     });
@@ -1955,7 +1955,7 @@ function inferStrategies(team) {
 
   if (hasAnyMove(["Perish Song", "Disable"])) {
     strategies.push({
-      icon: "🎵",
+      icon: '<i data-lucide="music"></i>',
       title: "Disrupción",
       text: "Puede apoyarse en planes incómodos de control, bloqueo o win condition no lineal.",
     });
@@ -1968,7 +1968,7 @@ function inferStrategies(team) {
     );
     const paired = topEntries(topTeammateHits, 1)[0]?.key;
     strategies.push({
-      icon: "🧩",
+      icon: '<i data-lucide="puzzle"></i>',
       title: "Flexible",
       text: paired
         ? `No hay un arquetipo obvio; parece un equipo flexible con sinergias repartidas alrededor de ${displayFromSmogonName(paired)}.`
@@ -2490,59 +2490,6 @@ function renderMvpBanner(mvp) {
   mvpBanner.innerHTML = `💡 Win Condition: Mantén a tu <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width:20px;height:20px;vertical-align:middle;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5)); margin: 0 4px;"> <strong>${mvp.displayName}</strong> vivo, el rival no tiene respuestas eficaces.`;
 }
 
-function renderMyBestFour(bestFour) {
-  const bestFourList = document.getElementById("bestFourList");
-  if (!bestFourList) return;
-  bestFourList.innerHTML = `
-        <div style="display:flex;gap:4px">
-          ${bestFour
-            .map(
-              (mon) => `
-            <div class="sprite-sm" title="${mon.displayName}"><img src="${mon.sprite}"></div>
-          `,
-            )
-            .join("")}
-        </div>
-      `;
-}
-
-function renderLeadSuggestions(leadPair) {
-  const leadList = document.getElementById("leadList");
-  if (!leadList) return;
-  leadList.innerHTML = `
-        <div style="display:flex;gap:4px">
-          ${leadPair
-            .map(
-              (mon) => `
-            <div class="sprite-sm" title="${mon.displayName}"><img src="${mon.sprite}"></div>
-          `,
-            )
-            .join("")}
-        </div>
-      `;
-}
-
-function renderNoBringList(noBring) {
-  const noBringList = document.getElementById("noBringList");
-  if (!noBringList) return;
-  if (noBring.length) {
-    noBringList.innerHTML = `
-          <div style="display:flex;gap:4px">
-            ${noBring
-              .map(
-                (mon) => `
-              <div class="sprite-sm" title="${mon.displayName}"><img src="${mon.sprite}"></div>
-            `,
-              )
-              .join("")}
-          </div>
-        `;
-  } else {
-    noBringList.innerHTML =
-      '<div class="muted-small">No hay bans claros.</div>';
-  }
-}
-
 function renderWeaknessSummary() {
   // Future
 }
@@ -2566,7 +2513,7 @@ function renderQuickPreview(preview) {
       .map(
         (item) => `
           <div class="tiny-chip" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); padding: 4px 8px;" title="${item.text}">
-            <span style="font-size:0.9rem">${item.icon}</span>
+            <span style="font-size:0.9rem; display:flex; align-items:center;">${item.icon}</span>
             <span style="font-size:0.7rem; font-weight:800">${item.title}</span>
           </div>
         `,
@@ -2577,9 +2524,46 @@ function renderQuickPreview(preview) {
       '<div class="muted-small">Sin plan claro detectado.</div>';
   }
 
-  renderMyBestFour(preview.bestFour);
-  renderLeadSuggestions(preview.leadPair);
-  renderNoBringList(preview.noBring);
+  const leadIds = new Set(preview.leadPair.map(m => m.name));
+  const backline = preview.bestFour.filter(m => !leadIds.has(m.name));
+
+  const bestFourCard = document.getElementById("bestFourCard");
+  bestFourCard.innerHTML = `
+    <div class="insight-head">
+      <h3>Tus 4 Elegidos</h3>
+      <span class="tiny-chip status-blue">Pick</span>
+    </div>
+    <div class="preview-squad">
+      <div class="preview-lead-row">
+        ${preview.leadPair.length === 2 ? `
+          <div class="preview-lead-sprite" title="${preview.leadPair[0].displayName}"><img src="${preview.leadPair[0].sprite}"></div>
+          <div class="preview-plus"><i data-lucide="plus"></i></div>
+          <div class="preview-lead-sprite" title="${preview.leadPair[1].displayName}"><img src="${preview.leadPair[1].sprite}"></div>
+        ` : preview.leadPair.map(m => `<div class="preview-lead-sprite" title="${m.displayName}"><img src="${m.sprite}"></div>`).join("")}
+      </div>
+      <div class="preview-bench-row">
+        ${backline.map(m => `<div class="preview-bench-sprite" title="${m.displayName}"><img src="${m.sprite}"></div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  const noBringCard = document.getElementById("noBringCard");
+  noBringCard.innerHTML = `
+    <div class="insight-head">
+      <h3>Banquillo Crítico</h3>
+      <span class="tiny-chip status-red">Evitar</span>
+    </div>
+    <div style="display:flex; gap:8px; justify-content:center; padding: 12px 0;">
+      ${preview.noBring.length > 0 ? preview.noBring.map(m => `
+        <div class="preview-banned-sprite" title="${m.displayName}">
+          <img src="${m.sprite}">
+          <div class="preview-ban-mark"><i data-lucide="ban"></i></div>
+        </div>
+      `).join('') : '<div class="muted-small">No hay bans claros.</div>'}
+    </div>
+  `;
+  
+  updateIcons();
 }
 
 function renderSpeedTiers() {

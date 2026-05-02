@@ -2241,3 +2241,16 @@ tbody th {
   width: 10px;
   height: 10px;
 }
+
+/* --- Quick Preview Redesign --- */
+.preview-squad { display: flex; flex-direction: column; gap: 8px; align-items: center; padding: 4px 0; }
+.preview-lead-row { display: flex; align-items: center; gap: 8px; }
+.preview-lead-sprite { width: 44px; height: 44px; border-radius: 12px; border: 2px solid var(--blue); background: radial-gradient(circle, rgba(50, 173, 230, .15), transparent); box-shadow: 0 0 10px rgba(50, 173, 230, .3); display: grid; place-items: center; }
+.preview-lead-sprite img { width: 36px; height: 36px; object-fit: contain; }
+.preview-plus { color: var(--blue); font-weight: 900; font-size: 1.2rem; }
+.preview-bench-row { display: flex; align-items: center; gap: 6px; opacity: 0.85; }
+.preview-bench-sprite { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,0.05); display: grid; place-items: center; }
+.preview-bench-sprite img { width: 28px; height: 28px; object-fit: contain; }
+.preview-banned-sprite { position: relative; width: 40px; height: 40px; border-radius: 10px; border: 1px dashed rgba(255, 59, 48, 0.4); background: rgba(255, 59, 48, 0.05); display: grid; place-items: center; opacity: 0.6; filter: grayscale(80%); }
+.preview-banned-sprite img { width: 32px; height: 32px; object-fit: contain; }
+.preview-ban-mark { position: absolute; inset: 0; display: grid; place-items: center; color: var(--red); font-size: 1.5rem; opacity: 0.8; }
