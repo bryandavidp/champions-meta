@@ -1636,22 +1636,50 @@ function renderMatrix(rows) {
 
               ${row.cells
                 .map((cell) => {
-                  const vClass = matrixCellClass(cell);
-                  const ohkoExtra = offensive && cell.ohko ? " cell--ohko" : "";
                   const dmgHint =
                     typeof cell.damage === "number" ? ` · ~${cell.damage}` : "";
-                  const ohkoMark =
-                    offensive && cell.ohko
-                      ? '<div class="cell-ohko-mark" aria-hidden="true">💀</div>'
-                      : "";
+                  const title = `${row.attacker.displayName} → ${cell.defender.displayName} · ${t(cell.move, "move")} · ${fmtMult(cell.mult)}${dmgHint}`;
+
+                  if (offensive) {
+                    let content = "";
+                    let cellClasses = ["cell"];
+
+                    if (cell.ohko) {
+                      cellClasses.push("cell--ohko");
+                      content = `
+                        <div class="lethality-icon">💀</div>
+                        ${typeDot(cell.type)}
+                      `;
+                    } else if (cell.mult === 0) {
+                      cellClasses.push("cell--immune");
+                      content = `<i data-lucide="ban" style="width:18px;height:18px;opacity:0.5;"></i>`;
+                    } else if (cell.mult < 1) {
+                      cellClasses.push("cell--resist");
+                      content = `<i data-lucide="chevron-down" style="width:16px;height:16px;opacity:0.6;"></i>`;
+                    } else if (cell.mult >= 2) {
+                      cellClasses.push("cell--se-no-ohko", effClass(cell.mult));
+                      content = `
+                        <div class="mult">${fmtMult(cell.mult)}</div>
+                        ${typeDot(cell.type)}
+                      `;
+                    } else {
+                      // mult === 1
+                      cellClasses.push(effClass(cell.mult)); // eff-1
+                      content = '<div class="dot-neutral"></div>';
+                    }
+
+                    return `<td><div class="${cellClasses.join(" ")}" title="${title}">${content}</div></td>`;
+                  }
+
+                  // Defensive mode
+                  const vClass = matrixCellClass(cell);
                   return `
-                <td>
-                  <div class="cell ${vClass}${ohkoExtra}" title="${row.attacker.displayName} → ${cell.defender.displayName} · ${t(cell.move, "move")} · ${fmtMult(cell.mult)}${dmgHint}">
-                    ${cell.mult !== 1 ? `<div class="mult">${fmtMult(cell.mult)}</div>` : ""}
-                    ${cell.mult !== 1 ? typeDot(cell.type) : '<div class="dot-neutral"></div>'}
-                    ${ohkoMark}
-                  </div>
-                </td>`;
+                    <td>
+                      <div class="cell ${vClass}" title="${title}">
+                        ${cell.mult !== 1 ? `<div class="mult">${fmtMult(cell.mult)}</div>` : ""}
+                        ${cell.mult !== 1 ? typeDot(cell.type) : '<div class="dot-neutral"></div>'}
+                      </div>
+                    </td>`;
                 })
                 .join("")}
             </tr>
@@ -2787,74 +2815,146 @@ function renderTurn1Simulator() {
     .sort((a, b) => b.spe - a.spe);
 
   const insights = [];
-  const micro = (mon) => `<img src="${mon.sprite}" class="sprite-micro" title="${mon.displayName}">`;
+  const micro = (mon) =>
+    `<img src="${mon.sprite}" class="sprite-micro" title="${mon.displayName}">`;
 
   // 1. Sistema de Detección Inmune a Formatos (Smogon / Traducciones PokeAPI)
-  const safeNorm = (str) => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const safeNorm = (str) =>
+    String(str || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
   const safeNormArray = (arr) => (arr || []).map(safeNorm);
 
-  const FAKE_OUT = new Set(['fakeout', 'sorpresa']);
-  const REDIRECTION = new Set(['followme', 'ragepowder', 'seuelo', 'polvoira']);
-  const TAUNT = new Set(['taunt', 'mofa']);
-  const TAILWIND = new Set(['tailwind', 'vientoafin', 'vientoafn']);
+  const FAKE_OUT = new Set(["fakeout", "sorpresa"]);
+  const REDIRECTION = new Set(["followme", "ragepowder", "seuelo", "polvoira"]);
+  const TAUNT = new Set(["taunt", "mofa"]);
+  const TAILWIND = new Set(["tailwind", "vientoafin", "vientoafn"]);
 
   const WEATHER_SETTERS = {
-    'drizzle': 'Lluvia 🌧️', 'llovizna': 'Lluvia 🌧️',
-    'drought': 'Sol ☀️', 'sequia': 'Sol ☀️', 'sequía': 'Sol ☀️',
-    'sandstream': 'Arena 🪨', 'chorroarena': 'Arena 🪨',
-    'snowwarning': 'Nieve ❄️', 'nevada': 'Nieve ❄️'
+    drizzle: "Lluvia 🌧️",
+    llovizna: "Lluvia 🌧️",
+    drought: "Sol ☀️",
+    sequia: "Sol ☀️",
+    sequía: "Sol ☀️",
+    sandstream: "Arena 🪨",
+    chorroarena: "Arena 🪨",
+    snowwarning: "Nieve ❄️",
+    nevada: "Nieve ❄️",
   };
 
   const TERRAIN_SETTERS = {
-    'psychicsurge': 'Terreno Psíquico 🔮', 'psicogenesis': 'Terreno Psíquico 🔮',
-    'grassysurge': 'Campo de Hierba 🌿', 'herbogenesis': 'Campo de Hierba 🌿',
-    'electricsurge': 'Campo Eléctrico ⚡', 'electrogenesis': 'Campo Eléctrico ⚡',
-    'mistysurge': 'Campo de Niebla 🧚', 'neblogenesis': 'Campo de Niebla 🧚', 'hadagenesis': 'Campo de Niebla 🧚'
+    psychicsurge: "Terreno Psíquico 🔮",
+    psicogenesis: "Terreno Psíquico 🔮",
+    grassysurge: "Campo de Hierba 🌿",
+    herbogenesis: "Campo de Hierba 🌿",
+    electricsurge: "Campo Eléctrico ⚡",
+    electrogenesis: "Campo Eléctrico ⚡",
+    mistysurge: "Campo de Niebla 🧚",
+    neblogenesis: "Campo de Niebla 🧚",
+    hadagenesis: "Campo de Niebla 🧚",
   };
 
-  const INTIMIDATE = new Set(['intimidate', 'intimidacion']);
-  const INTIMIDATE_IMMUNE = new Set(['clearbody', 'cuerpopuro', 'innerfocus', 'focointerno', 'guarddog', 'perroguardian', 'oblivious', 'despiste', 'owntempo', 'ritmopropio', 'scrappy', 'intrepido']);
-  const INTIMIDATE_PUNISH = new Set(['defiant', 'competitivo', 'competitive', 'tenacidad', 'contrary', 'respondon', 'respondón']);
-  const ANTI_PRIORITY = new Set(['armortail', 'colaarmadura', 'dazzling', 'cuerpovivido', 'queenlymajesty', 'regiamajestad']);
+  const INTIMIDATE = new Set(["intimidate", "intimidacion"]);
+  const INTIMIDATE_IMMUNE = new Set([
+    "clearbody",
+    "cuerpopuro",
+    "innerfocus",
+    "focointerno",
+    "guarddog",
+    "perroguardian",
+    "oblivious",
+    "despiste",
+    "owntempo",
+    "ritmopropio",
+    "scrappy",
+    "intrepido",
+  ]);
+  const INTIMIDATE_PUNISH = new Set([
+    "defiant",
+    "competitivo",
+    "competitive",
+    "tenacidad",
+    "contrary",
+    "respondon",
+    "respondón",
+  ]);
+  const ANTI_PRIORITY = new Set([
+    "armortail",
+    "colaarmadura",
+    "dazzling",
+    "cuerpovivido",
+    "queenlymajesty",
+    "regiamajestad",
+  ]);
 
   // Procesamiento previo por Lead
-  const fakeOutUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => FAKE_OUT.has(m)));
-  const redirectionUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => REDIRECTION.has(m)));
-  const weatherSetters = leads.filter((x) => WEATHER_SETTERS[safeNorm(x.mon.set?.ability)]);
-  const terrainSetters = leads.filter((x) => TERRAIN_SETTERS[safeNorm(x.mon.set?.ability)]);
-  const intimidators = leads.filter((x) => INTIMIDATE.has(safeNorm(x.mon.set?.ability)));
-  const tailwindUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => TAILWIND.has(m)));
-  const tauntUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => TAUNT.has(m)));
-  const antiPriorityUsers = leads.filter((x) => ANTI_PRIORITY.has(safeNorm(x.mon.set?.ability)));
+  const fakeOutUsers = leads.filter((x) =>
+    safeNormArray(x.mon.set?.moves).some((m) => FAKE_OUT.has(m)),
+  );
+  const redirectionUsers = leads.filter((x) =>
+    safeNormArray(x.mon.set?.moves).some((m) => REDIRECTION.has(m)),
+  );
+  const weatherSetters = leads.filter(
+    (x) => WEATHER_SETTERS[safeNorm(x.mon.set?.ability)],
+  );
+  const terrainSetters = leads.filter(
+    (x) => TERRAIN_SETTERS[safeNorm(x.mon.set?.ability)],
+  );
+  const intimidators = leads.filter((x) =>
+    INTIMIDATE.has(safeNorm(x.mon.set?.ability)),
+  );
+  const tailwindUsers = leads.filter((x) =>
+    safeNormArray(x.mon.set?.moves).some((m) => TAILWIND.has(m)),
+  );
+  const tauntUsers = leads.filter((x) =>
+    safeNormArray(x.mon.set?.moves).some((m) => TAUNT.has(m)),
+  );
+  const antiPriorityUsers = leads.filter((x) =>
+    ANTI_PRIORITY.has(safeNorm(x.mon.set?.ability)),
+  );
 
   // Anti-Priority general insight
   antiPriorityUsers.forEach((ap) => {
-    insights.push(`<span class="tag-pill tag-pill--info">🛡️ Bloqueo</span> ${micro(ap.mon)} anula prioridad (ej. Sorpresa).`);
+    insights.push(
+      `<span class="tag-pill tag-pill--info">🛡️ Bloqueo</span> ${micro(ap.mon)} anula prioridad (ej. Sorpresa).`,
+    );
   });
 
   // 4. Lógica Avanzada: Prioridad Fake Out vs Redirección
-  const effectiveFakeOuts = fakeOutUsers.filter(fo => !antiPriorityUsers.some(ap => ap.side !== fo.side));
+  const effectiveFakeOuts = fakeOutUsers.filter(
+    (fo) => !antiPriorityUsers.some((ap) => ap.side !== fo.side),
+  );
 
   if (effectiveFakeOuts.length > 0) {
     if (effectiveFakeOuts.length === 1) {
-      insights.push(`<span class="tag-pill tag-pill--warning">✋ Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} amenaza con Sorpresa.`);
+      insights.push(
+        `<span class="tag-pill tag-pill--warning">✋ Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} amenaza con Sorpresa.`,
+      );
     } else {
-      insights.push(`<span class="tag-pill tag-pill--warning">✋ Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} es el Sorpresa más rápido.`);
+      insights.push(
+        `<span class="tag-pill tag-pill--warning">✋ Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} es el Sorpresa más rápido.`,
+      );
     }
-    
+
     if (redirectionUsers.length > 0) {
-      insights.push(`<span class="tag-pill tag-pill--info">ℹ️ Prioridad</span> Sorpresa impactará antes que la redirección.`);
+      insights.push(
+        `<span class="tag-pill tag-pill--info">ℹ️ Prioridad</span> Sorpresa impactará antes que la redirección.`,
+      );
     }
   } else if (fakeOutUsers.length > 0) {
-    insights.push(`<span class="tag-pill tag-pill--danger">❌ Bloqueo</span> Sorpresa de ${fakeOutUsers.map(fo => micro(fo.mon)).join('')} inútil ante inmunidad.`);
+    insights.push(
+      `<span class="tag-pill tag-pill--danger">❌ Bloqueo</span> Sorpresa de ${fakeOutUsers.map((fo) => micro(fo.mon)).join("")} inútil ante inmunidad.`,
+    );
   }
 
   // 3. Lógica Avanzada: Inmunidades y Castigos a Intimidación
   intimidators.forEach((intim) => {
-    const opponents = leads.filter((x) => x.side !== intim.side && isPhysicalAttacker(x.mon));
+    const opponents = leads.filter(
+      (x) => x.side !== intim.side && isPhysicalAttacker(x.mon),
+    );
     const affected = [];
     const punished = [];
-    
+
     opponents.forEach((opp) => {
       const ab = safeNorm(opp.mon.set?.ability);
       if (INTIMIDATE_PUNISH.has(ab)) punished.push(opp);
@@ -2863,64 +2963,94 @@ function renderTurn1Simulator() {
 
     if (punished.length > 0) {
       punished.forEach((p) => {
-        insights.push(`<span class="tag-pill tag-pill--danger">⚠️ Peligro</span> ${micro(intim.mon)} ➔ 📈 +2 Atk ➔ ${micro(p.mon)}`);
+        insights.push(
+          `<span class="tag-pill tag-pill--danger">⚠️ Peligro</span> ${micro(intim.mon)} ➔ 📈 +2 Atk ➔ ${micro(p.mon)}`,
+        );
       });
     }
 
     if (affected.length > 0) {
-      insights.push(`<span class="tag-pill tag-pill--info">🦁 Intimidación</span> ${micro(intim.mon)} ➔ ⬇️ Atk ➔ ${affected.map(t => micro(t.mon)).join(' ')}`);
+      insights.push(
+        `<span class="tag-pill tag-pill--info">🦁 Intimidación</span> ${micro(intim.mon)} ➔ ⬇️ Atk ➔ ${affected.map((t) => micro(t.mon)).join(" ")}`,
+      );
     } else if (punished.length === 0) {
-      insights.push(`<span class="tag-pill tag-pill--info">🦁 Intimidación</span> ${micro(intim.mon)} ➔ 🤷 Sin objetivos físicos.`);
+      insights.push(
+        `<span class="tag-pill tag-pill--info">🦁 Intimidación</span> ${micro(intim.mon)} ➔ 🤷 Sin objetivos físicos.`,
+      );
     }
   });
 
   // 2. Lógica Avanzada: Guerras de Clima y Terreno
   if (weatherSetters.length > 0) {
     if (weatherSetters.length === 1) {
-      insights.push(`<span class="tag-pill tag-pill--success">🌤️ Clima</span> ${micro(weatherSetters[0].mon)} establece ${WEATHER_SETTERS[safeNorm(weatherSetters[0].mon.set?.ability)]}.`);
+      insights.push(
+        `<span class="tag-pill tag-pill--success">🌤️ Clima</span> ${micro(weatherSetters[0].mon)} establece ${WEATHER_SETTERS[safeNorm(weatherSetters[0].mon.set?.ability)]}.`,
+      );
     } else {
       const fastest = weatherSetters[0];
       const slowest = weatherSetters[weatherSetters.length - 1]; // Al estar ordenado por Speed, el último es el más lento.
-      insights.push(`<span class="tag-pill tag-pill--success">🌪️ Clima</span> ${micro(slowest.mon)} gana a ${micro(fastest.mon)} por ser más lento.`);
+      insights.push(
+        `<span class="tag-pill tag-pill--success">🌪️ Clima</span> ${micro(slowest.mon)} gana a ${micro(fastest.mon)} por ser más lento.`,
+      );
     }
   }
 
   if (terrainSetters.length > 0) {
     if (terrainSetters.length === 1) {
-      insights.push(`<span class="tag-pill tag-pill--success">✨ Terreno</span> ${micro(terrainSetters[0].mon)} establece ${TERRAIN_SETTERS[safeNorm(terrainSetters[0].mon.set?.ability)]}.`);
+      insights.push(
+        `<span class="tag-pill tag-pill--success">✨ Terreno</span> ${micro(terrainSetters[0].mon)} establece ${TERRAIN_SETTERS[safeNorm(terrainSetters[0].mon.set?.ability)]}.`,
+      );
     } else {
       const fastest = terrainSetters[0];
       const slowest = terrainSetters[terrainSetters.length - 1];
-      insights.push(`<span class="tag-pill tag-pill--success">🌪️ Terreno</span> ${micro(slowest.mon)} gana a ${micro(fastest.mon)} por ser más lento.`);
+      insights.push(
+        `<span class="tag-pill tag-pill--success">🌪️ Terreno</span> ${micro(slowest.mon)} gana a ${micro(fastest.mon)} por ser más lento.`,
+      );
     }
   }
 
   // Otras Utilidades (Tailwind y Taunt)
   tailwindUsers.forEach((tw) => {
-    insights.push(`<span class="tag-pill tag-pill--info">💨 Viento Afín</span> ${micro(tw.mon)} amenaza control de velocidad.`);
+    insights.push(
+      `<span class="tag-pill tag-pill--info">💨 Viento Afín</span> ${micro(tw.mon)} amenaza control de velocidad.`,
+    );
   });
 
   redirectionUsers.forEach((red) => {
-    insights.push(`<span class="tag-pill tag-pill--info">🛡️ Redirección</span> ${micro(red.mon)} atraerá los ataques.`);
+    insights.push(
+      `<span class="tag-pill tag-pill--info">🛡️ Redirección</span> ${micro(red.mon)} atraerá los ataques.`,
+    );
   });
 
   tauntUsers.forEach((taunt) => {
-    insights.push(`<span class="tag-pill tag-pill--warning">🚫 Mofa</span> ${micro(taunt.mon)} amenaza movimientos de estado.`);
+    insights.push(
+      `<span class="tag-pill tag-pill--warning">🚫 Mofa</span> ${micro(taunt.mon)} amenaza movimientos de estado.`,
+    );
   });
 
   // 8. Double Target
-  const selfLeads = leads.filter(x => x.side === "self").map(x => x.mon);
-  const enemyLeads = leads.filter(x => x.side === "enemy").map(x => x.mon);
+  const selfLeads = leads.filter((x) => x.side === "self").map((x) => x.mon);
+  const enemyLeads = leads.filter((x) => x.side === "enemy").map((x) => x.mon);
 
   if (selfLeads.length === 2 && enemyLeads.length === 2) {
-    selfLeads.forEach(myMon => {
-      if (bestAttack(enemyLeads[0], myMon).mult >= 2 && bestAttack(enemyLeads[1], myMon).mult >= 2) {
-        insights.push(`<span class="tag-pill tag-pill--danger">🎯 Double Target</span> ${micro(enemyLeads[0])} + ${micro(enemyLeads[1])} ➔ 💥 Presión ➔ ${micro(myMon)}`);
+    selfLeads.forEach((myMon) => {
+      if (
+        bestAttack(enemyLeads[0], myMon).mult >= 2 &&
+        bestAttack(enemyLeads[1], myMon).mult >= 2
+      ) {
+        insights.push(
+          `<span class="tag-pill tag-pill--danger">🎯 Double Target</span> ${micro(enemyLeads[0])} + ${micro(enemyLeads[1])} ➔ 💥 Presión ➔ ${micro(myMon)}`,
+        );
       }
     });
-    enemyLeads.forEach(enemyMon => {
-      if (bestAttack(selfLeads[0], enemyMon).mult >= 2 && bestAttack(selfLeads[1], enemyMon).mult >= 2) {
-        insights.push(`<span class="tag-pill tag-pill--success">🎯 Foco</span> ${micro(selfLeads[0])} + ${micro(selfLeads[1])} ➔ 💥 Presión ➔ ${micro(enemyMon)}`);
+    enemyLeads.forEach((enemyMon) => {
+      if (
+        bestAttack(selfLeads[0], enemyMon).mult >= 2 &&
+        bestAttack(selfLeads[1], enemyMon).mult >= 2
+      ) {
+        insights.push(
+          `<span class="tag-pill tag-pill--success">🎯 Foco</span> ${micro(selfLeads[0])} + ${micro(selfLeads[1])} ➔ 💥 Presión ➔ ${micro(enemyMon)}`,
+        );
       }
     });
   }
@@ -2928,27 +3058,35 @@ function renderTurn1Simulator() {
   // UI: Línea de tiempo
   const timelineHtml = `
     <div style="display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 12px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 12px; overflow-x: auto;">
-      ${leads.map((lead, idx) => `
+      ${leads
+        .map(
+          (lead, idx) => `
         <div class="sprite-sm" style="border: 1px solid ${lead.side === "self" ? "var(--blue)" : "var(--red)"}; flex-shrink: 0;" title="${lead.mon.displayName} - Spe: ${Math.abs(lead.spe)}">
           <img src="${lead.mon.sprite}" alt="${lead.mon.displayName}" loading="lazy">
         </div>
         ${idx < leads.length - 1 ? `<span style="color: var(--muted); font-size: 0.8rem; flex-shrink: 0;" aria-hidden="true">➔</span>` : ""}
-      `).join("")}
+      `,
+        )
+        .join("")}
     </div>
   `;
 
   if (!insights.length) {
-    list.innerHTML = timelineHtml + `<div class="muted-small">No se detectaron interacciones críticas de Turno 1.</div>`;
+    list.innerHTML =
+      timelineHtml +
+      `<div class="muted-small">No se detectaron interacciones críticas de Turno 1.</div>`;
   } else {
-    list.innerHTML = timelineHtml + insights
-      .map(
-        (htmlStr) => `
+    list.innerHTML =
+      timelineHtml +
+      insights
+        .map(
+          (htmlStr) => `
           <div style="padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.02); margin-bottom: 6px;">
             <div class="formula-row">${htmlStr}</div>
           </div>
         `,
-      )
-      .join("");
+        )
+        .join("");
   }
 }
 
