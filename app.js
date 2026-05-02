@@ -2765,10 +2765,16 @@ function renderTurn1Simulator() {
 
   const insights = [];
 
+  // Funciones de normalización para asegurar coincidencias seguras
+  const normStr = (str) => String(str || "").toLowerCase().trim();
+  const normArray = (arr) => (arr || []).map(normStr);
+
   // 1. Fake Out
-  const fakeOutUsers = leads.filter((x) =>
-    (x.mon.set?.moves || []).includes("Fake Out"),
-  );
+  const fakeOutUsers = leads.filter((x) => {
+    const moves = normArray(x.mon.set?.moves);
+    return moves.includes("fake out") || moves.includes("sorpresa");
+  });
+  
   if (fakeOutUsers.length > 0) {
     if (fakeOutUsers.length === 1) {
       insights.push({
@@ -2784,9 +2790,11 @@ function renderTurn1Simulator() {
   }
 
   // 2. Intimidate
-  const intimidators = leads.filter(
-    (x) => (x.mon.set?.ability || "") === "Intimidate",
-  );
+  const intimidators = leads.filter((x) => {
+    const ab = normStr(x.mon.set?.ability);
+    return ab === "intimidate" || ab === "intimidación" || ab === "intimidacion";
+  });
+  
   intimidators.forEach((intim) => {
     const targets = leads.filter(
       (x) => x.side !== intim.side && isPhysicalAttacker(x.mon),
@@ -2807,33 +2815,142 @@ function renderTurn1Simulator() {
 
   // 3. Weather
   const WEATHER_MAP = {
-    Drizzle: "Lluvia 🌧️",
-    Drought: "Sol ☀️",
-    "Sand Stream": "Arena 🪨",
-    "Snow Warning": "Nieve ❄️",
+    "drizzle": "Lluvia 🌧️",
+    "llovizna": "Lluvia 🌧️",
+    "drought": "Sol ☀️",
+    "sequía": "Sol ☀️",
+    "sequia": "Sol ☀️",
+    "sand stream": "Arena 🪨",
+    "chorro arena": "Arena 🪨",
+    "snow warning": "Nieve ❄️",
+    "nevada": "Nieve ❄️",
   };
   const weatherSetters = leads.filter(
-    (x) => WEATHER_MAP[x.mon.set?.ability || ""],
+    (x) => WEATHER_MAP[normStr(x.mon.set?.ability)]
   );
+  
   if (weatherSetters.length > 0) {
     if (weatherSetters.length === 1) {
       insights.push({
         icon: "🌤️",
-        text: `<strong style="color:${weatherSetters[0].side === "self" ? "var(--blue)" : "var(--red)"}">${weatherSetters[0].mon.displayName}</strong> establece ${WEATHER_MAP[weatherSetters[0].mon.set.ability]}.`,
+        text: `<strong style="color:${weatherSetters[0].side === "self" ? "var(--blue)" : "var(--red)"}">${weatherSetters[0].mon.displayName}</strong> establece ${WEATHER_MAP[normStr(weatherSetters[0].mon.set?.ability)]}.`,
       });
     } else {
       const slowest = weatherSetters[weatherSetters.length - 1]; // Slowest goes last, overwriting
       insights.push({
         icon: "🌤️",
-        text: `<strong style="color:${slowest.side === "self" ? "var(--blue)" : "var(--red)"}">${slowest.mon.displayName}</strong> es más lento, por lo que prevalecerá ${WEATHER_MAP[slowest.mon.set.ability]}.`,
+        text: `<strong style="color:${slowest.side === "self" ? "var(--blue)" : "var(--red)"}">${slowest.mon.displayName}</strong> es más lento, por lo que prevalecerá ${WEATHER_MAP[normStr(slowest.mon.set?.ability)]}.`,
       });
     }
   }
 
+  // 4. Terrenos
+  const TERRAIN_MAP = {
+    "psychic surge": "Terreno Psíquico 🔮",
+    "psicogénesis": "Terreno Psíquico 🔮",
+    "psicogenesis": "Terreno Psíquico 🔮",
+    "grassy surge": "Campo de Hierba 🌿",
+    "herbogénesis": "Campo de Hierba 🌿",
+    "herbogenesis": "Campo de Hierba 🌿",
+    "electric surge": "Campo Eléctrico ⚡",
+    "electrogénesis": "Campo Eléctrico ⚡",
+    "electrogenesis": "Campo Eléctrico ⚡",
+    "misty surge": "Campo de Niebla 🧚",
+    "neblogénesis": "Campo de Niebla 🧚",
+    "neblogenesis": "Campo de Niebla 🧚",
+  };
+  const terrainSetters = leads.filter((x) => TERRAIN_MAP[normStr(x.mon.set?.ability)]);
+  
+  if (terrainSetters.length > 0) {
+    if (terrainSetters.length === 1) {
+      insights.push({
+        icon: "✨",
+        text: `<strong style="color:${terrainSetters[0].side === "self" ? "var(--blue)" : "var(--red)"}">${terrainSetters[0].mon.displayName}</strong> establece ${TERRAIN_MAP[normStr(terrainSetters[0].mon.set?.ability)]}.`,
+      });
+    } else {
+      const slowest = terrainSetters[terrainSetters.length - 1];
+      insights.push({
+        icon: "✨",
+        text: `<strong style="color:${slowest.side === "self" ? "var(--blue)" : "var(--red)"}">${slowest.mon.displayName}</strong> es más lento, prevaleciendo ${TERRAIN_MAP[normStr(slowest.mon.set?.ability)]}.`,
+      });
+    }
+  }
+
+  // 5. Tailwind
+  const tailwindUsers = leads.filter((x) => {
+    const moves = normArray(x.mon.set?.moves);
+    return moves.includes("tailwind") || moves.includes("viento afín") || moves.includes("viento afin");
+  });
+  tailwindUsers.forEach((tw) => {
+    insights.push({
+      icon: "💨",
+      text: `<strong style="color:${tw.side === "self" ? "var(--blue)" : "var(--red)"}">${tw.mon.displayName}</strong> puede intentar establecer control de velocidad en Turno 1 con Tailwind.`,
+    });
+  });
+
+  // 6. Redirección (Follow Me / Rage Powder)
+  const redirectionUsers = leads.filter((x) => {
+    const moves = normArray(x.mon.set?.moves);
+    return moves.includes("follow me") || moves.includes("señuelo") || moves.includes("rage powder") || moves.includes("polvo ira");
+  });
+  redirectionUsers.forEach((red) => {
+    insights.push({
+      icon: "🛡️",
+      text: `<strong style="color:${red.side === "self" ? "var(--blue)" : "var(--red)"}">${red.mon.displayName}</strong> puede redirigir ataques en este turno.`,
+    });
+  });
+
+  // 7. Bloqueo (Taunt / Mofa)
+  const tauntUsers = leads.filter((x) => {
+    const moves = normArray(x.mon.set?.moves);
+    return moves.includes("taunt") || moves.includes("mofa");
+  });
+  tauntUsers.forEach((taunt) => {
+    insights.push({
+      icon: "🚫",
+      text: `<strong style="color:${taunt.side === "self" ? "var(--blue)" : "var(--red)"}">${taunt.mon.displayName}</strong> amenaza con Taunt para bloquear movimientos de estado.`,
+    });
+  });
+
+  // 8. Double Target
+  const selfLeads = leads.filter(x => x.side === "self").map(x => x.mon);
+  const enemyLeads = leads.filter(x => x.side === "enemy").map(x => x.mon);
+
+  if (selfLeads.length === 2 && enemyLeads.length === 2) {
+    selfLeads.forEach(myMon => {
+      if (bestAttack(enemyLeads[0], myMon).mult >= 2 && bestAttack(enemyLeads[1], myMon).mult >= 2) {
+        insights.push({
+          icon: "🎯",
+          text: `<strong>Riesgo de Double Target:</strong> Ambos leads rivales tienen presión muy eficaz (≥x2) sobre <strong style="color:var(--blue)">${myMon.displayName}</strong>.`,
+        });
+      }
+    });
+    enemyLeads.forEach(enemyMon => {
+      if (bestAttack(selfLeads[0], enemyMon).mult >= 2 && bestAttack(selfLeads[1], enemyMon).mult >= 2) {
+        insights.push({
+          icon: "🎯",
+          text: `<strong>Oportunidad de Foco:</strong> Ambos leads tuyos tienen presión muy eficaz (≥x2) sobre <strong style="color:var(--red)">${enemyMon.displayName}</strong>.`,
+        });
+      }
+    });
+  }
+
+  // UI: Línea de tiempo
+  const timelineHtml = `
+    <div style="display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 12px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 12px; overflow-x: auto;">
+      ${leads.map((lead, idx) => `
+        <div class="sprite-sm" style="border: 1px solid ${lead.side === "self" ? "var(--blue)" : "var(--red)"}; flex-shrink: 0;" title="${lead.mon.displayName} - Spe: ${Math.abs(lead.spe)}">
+          <img src="${lead.mon.sprite}" alt="${lead.mon.displayName}" loading="lazy">
+        </div>
+        ${idx < leads.length - 1 ? `<span style="color: var(--muted); font-size: 0.8rem; flex-shrink: 0;" aria-hidden="true">➔</span>` : ""}
+      `).join("")}
+    </div>
+  `;
+
   if (!insights.length) {
-    list.innerHTML = `<div class="muted-small">No se detectaron interacciones críticas de Turno 1 (Fake Out, Clima o Intimidate) entre estos leads.</div>`;
+    list.innerHTML = timelineHtml + `<div class="muted-small">No se detectaron interacciones críticas de Turno 1.</div>`;
   } else {
-    list.innerHTML = insights
+    list.innerHTML = timelineHtml + insights
       .map(
         (i) => `
           <div class="strategy-row" style="padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,0.02);">
