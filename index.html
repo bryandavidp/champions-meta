@@ -175,7 +175,7 @@
       width: min(1180px, calc(100vw - 10px));
       margin: 6px auto calc(128px + env(safe-area-inset-bottom, 0px));
       display: grid;
-      gap: 8px;
+      gap: 16px; /* FIX: Mayor espacio entre paneles para que la app respire */
     }
 
     .panel {
@@ -639,8 +639,9 @@
     }
 
     .field-pill.on {
-      border-color: rgba(50, 173, 230, 0.45);
-      background: rgba(50, 173, 230, 0.14);
+      border-color: rgba(50, 173, 230, 0.6);
+      background: rgba(50, 173, 230, 0.25);
+      box-shadow: 0 0 8px rgba(50, 173, 230, 0.3); /* FIX: Brillo añadido para saber qué clima está activo */
     }
 
     .field-pill.field-pill--mode.on {
@@ -1205,20 +1206,12 @@
     }
 
     .dock-alert-float {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 100%;
-      padding: 0 8px 6px;
+      /* FIX: Removido position absolute para evitar solapamiento con la matriz */
       display: flex;
       justify-content: center;
       flex-wrap: wrap;
       gap: 6px;
-      pointer-events: none;
-    }
-
-    .dock-alert-float > * {
-      pointer-events: auto;
+      margin-top: 12px;
     }
 
     .dock-shell {
@@ -2063,6 +2056,11 @@
       z-index: 10;
       box-shadow: 0 4px 12px rgba(0, 0, 0, .4);
     }
+
+    /* FIX: Clase hidden para ocultar el placeholder de la matriz correctamente */
+    .hidden {
+      display: none !important;
+    }
   </style>
 </head>
 
@@ -2214,6 +2212,9 @@
           <div id="matrixContainer" class="hidden"></div>
         </div>
       </div>
+
+      <!-- FIX: Alertas movidas al flujo normal debajo de la matriz -->
+      <div id="defensiveAlertFloat" class="dock-alert-float" aria-live="polite"></div>
     </section>
 
     <section class="insight-grid">
@@ -2285,7 +2286,6 @@
   </div>
 
   <aside class="picker-dock">
-    <div id="defensiveAlertFloat" class="dock-alert-float" aria-live="polite"></div>
     <div class="dock-shell">
       <div class="dock-row">
         <div class="dock-label dock-label--mini">
@@ -2800,7 +2800,8 @@
       if (mult === 1) return '×1';
       if (mult === 2) return '×2';
       if (mult === 4) return '×4';
-      return `×${mult}`;
+      // FIX: Formateo seguro para modificadores de clima/terreno
+      return `×${Number(mult.toFixed(2))}`;
     }
 
     function effClass(mult) {
@@ -2917,7 +2918,7 @@
       if (power <= 0 || dmgClass === 'status') return { damage: 0, blocked: false };
 
       if (field.terrain === 'psychic' && PRIORITY_MOVES.has(cand.move)) {
-        return { damage: 0, blocked: true };
+        return { damage: 0, blocked: true, wMul: 1, terrMul: 1 }; // FIX: Retornar modificadores
       }
 
       const natA = attacker.set?.nature || '';
@@ -2953,7 +2954,7 @@
       const stab = (attacker.types || []).includes(cand.type) ? 1.5 : 1;
       const defSafe = Math.max(1, defS);
       const raw = ((22 * power * atkS) / defSafe / 50 + 2) * stab * eff * wMul * terrMul;
-      return { damage: Math.floor(raw), blocked: false };
+      return { damage: Math.floor(raw), blocked: false, wMul, terrMul }; // FIX: Retornar wMul y terrMul
     }
 
     function serializeSetSummary(set) {
@@ -3346,8 +3347,14 @@
 
       const defHP = calcMonHP(defender);
       const scored = candidates.map(c => {
-        const mult = effectiveness(c.type, defender?.types || []);
-        const { damage } = estimateMoveDamage(attacker, defender, c, field);
+        // FIX: Extraer modificadores de clima/terreno para ajustar el multiplicador visual
+        const { damage, blocked, wMul = 1, terrMul = 1 } = estimateMoveDamage(attacker, defender, c, field);
+        let mult = effectiveness(c.type, defender?.types || []);
+        if (blocked) {
+          mult = 0;
+        } else {
+          mult = mult * wMul * terrMul;
+        }
         const ohko = damage >= defHP && damage > 0;
         return {
           type: c.type,
@@ -4129,12 +4136,15 @@
         if (bestAttack(mon, enemyMon).mult >= 2) {
           offensiveCount++;
         }
-        if (bestAttack(enemyMon, mon).mult >= 2) {
+        
+        // FIX: Invertir roles correctamente y verificar si el enemigo tiene amenaza real
+        const enemyAttack = bestAttack(enemyMon, mon);
+        if (enemyAttack.mult >= 2) {
           isDefensiveWall = false;
         }
       }
 
-      if (offensiveCount >= 3) score += 10;
+      if (offensiveCount >= 2) score += 10; // FIX: Flexibilizado a 2 presiones fuertes para detectar más MVPs
       if (isDefensiveWall) score += 15;
       return score;
     }
@@ -4206,11 +4216,18 @@
         mvpBanner = document.createElement('div');
         mvpBanner.id = 'mvpBanner';
         mvpBanner.className = 'tiny-chip';
-        // Estilo cian holográfico como solicitado
-        mvpBanner.style = 'background: linear-gradient(135deg, rgba(50, 173, 230, 0.25), rgba(50, 173, 230, 0.08)); border-color: #32ADE6; color: #d4f0ff; margin-bottom: 8px;';
-        quickPreviewPanel.insertBefore(mvpBanner, quickPreviewPanel.firstChild.nextSibling); // Insertar después de section-head
+        // FIX: Ajuste de flex y white-space para prevenir overflow
+        mvpBanner.style = 'background: linear-gradient(135deg, rgba(50, 173, 230, 0.25), rgba(50, 173, 230, 0.08)); border-color: rgba(50, 173, 230, 0.45); color: #d4f0ff; margin-bottom: 12px; display: inline-flex; align-items: center; white-space: normal; line-height: 1.4; padding: 8px 12px; text-align: left;';
+        
+        // FIX: Inyección segura en el DOM sin sobrescribir elementos adyacentes
+        const sectionHead = quickPreviewPanel.querySelector('.section-head');
+        if (sectionHead) {
+          sectionHead.insertAdjacentElement('afterend', mvpBanner);
+        } else {
+          quickPreviewPanel.prepend(mvpBanner);
+        }
       }
-      mvpBanner.innerHTML = `💡 Win Condition: Mantén a tu <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width:20px;height:20px;vertical-align:middle;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));"> <strong>${mvp.displayName}</strong> vivo, el rival no tiene respuestas eficaces.`;
+      mvpBanner.innerHTML = `💡 Win Condition: Mantén a tu <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width:20px;height:20px;vertical-align:middle;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5)); margin: 0 4px;"> <strong>${mvp.displayName}</strong> vivo, el rival no tiene respuestas eficaces.`;
     }
 
     function renderMyBestFour(bestFour) {
