@@ -580,6 +580,74 @@
       background: #3d255f;
     }
 
+    .eff-def-safe {
+      background: rgba(48, 209, 88, 0.22);
+    }
+
+    .eff-def-neutral {
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .eff-def-danger {
+      background: rgba(255, 59, 48, 0.26);
+    }
+
+    .cell--ohko {
+      box-shadow: inset 0 0 10px rgba(255, 59, 48, 0.7);
+    }
+
+    .cell-ohko-mark {
+      position: absolute;
+      bottom: 1px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: .62rem;
+      line-height: 1;
+      z-index: 2;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+    }
+
+    .matrix-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, .06);
+      background: linear-gradient(180deg, rgba(255, 255, 255, .02), transparent);
+    }
+
+    .field-pill {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .04);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: .58rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      line-height: 1;
+    }
+
+    .field-pill .lucide {
+      width: 12px;
+      height: 12px;
+      opacity: .85;
+    }
+
+    .field-pill.on {
+      border-color: rgba(50, 173, 230, 0.45);
+      background: rgba(50, 173, 230, 0.14);
+    }
+
+    .field-pill.field-pill--mode.on {
+      border-color: rgba(255, 179, 77, 0.45);
+      background: rgba(255, 179, 77, 0.12);
+    }
+
     .mult {
       font: 700 .85rem/1 var(--poke-stat-font);
       color: #fff;
@@ -2115,17 +2183,30 @@
     <section class="panel section-pad">
       <div class="section-head">
         <div>
-          <h2 class="section-title">Matriz ofensiva</h2>
-          <p class="section-subtitle">Usa tipos de movimientos del set por defecto cuando estén disponibles; si no, cae
+          <h2 class="section-title" id="matrixSectionTitle">Matriz ofensiva</h2>
+          <p class="section-subtitle" id="matrixSectionSub">Usa tipos de movimientos del set por defecto cuando estén disponibles; si no, cae
             al tipado base.</p>
         </div>
       </div>
 
       <div class="matrix-shell">
+        <div class="matrix-controls" id="matrixControls">
+          <button type="button" class="field-pill field-pill--mode" id="matrixModeToggle" title="Alternar matriz ofensiva / defensiva">
+            <i data-lucide="swords"></i><span id="matrixModeLabel">Ofensiva</span>
+          </button>
+          <button type="button" class="field-pill" data-weather="sun" title="Sol"><i data-lucide="sun"></i></button>
+          <button type="button" class="field-pill" data-weather="rain" title="Lluvia"><i data-lucide="cloud-rain"></i></button>
+          <button type="button" class="field-pill" data-weather="sand" title="Arena"><i data-lucide="wind"></i></button>
+          <button type="button" class="field-pill" data-weather="snow" title="Nieve"><i data-lucide="snowflake"></i></button>
+          <button type="button" class="field-pill" data-terrain="electric" title="Campo eléctrico"><i data-lucide="zap"></i></button>
+          <button type="button" class="field-pill" data-terrain="grassy" title="Campo de hierba"><i data-lucide="leaf"></i></button>
+          <button type="button" class="field-pill" data-terrain="psychic" title="Campo psíquico"><i data-lucide="orbit"></i></button>
+          <button type="button" class="field-pill" data-terrain="misty" title="Campo de niebla"><i data-lucide="sparkles"></i></button>
+        </div>
         <div class="matrix-toolbar">
           <span class="tiny-chip" id="matrixStatus">0 cruces</span>
           <span class="tiny-chip" id="matrixSourceChip">Smogon 2026-04 · corte 1760</span>
-          <span class="tiny-chip poke-stat-num">×4 / ×2 = presión fuerte</span>
+          <span class="tiny-chip poke-stat-num" id="matrixLegendChip">×4 / ×2 = presión fuerte</span>
         </div>
 
         <div class="matrix-grid">
@@ -2479,8 +2560,11 @@
       field: {
         tailwindSelf: false,
         tailwindEnemy: false,
-        trickRoom: false
+        trickRoom: false,
+        weather: null,
+        terrain: null
       },
+      matrixMode: 'offensive',
       leads: { self: [], enemy: [] }
     };
 
@@ -2779,8 +2863,97 @@
       if (side === 'enemy' && field.tailwindEnemy) modifier *= 2;
       // Other modifiers like Choice Scarf can go here
       
+      const ab = mon.set?.ability || '';
+      if (field.weather === 'rain' && ab === 'Swift Swim') modifier *= 2;
+      if (field.weather === 'sun' && ab === 'Chlorophyll') modifier *= 2;
+      if (field.weather === 'sand' && ab === 'Sand Rush') modifier *= 2;
+
       let finalSpe = Math.floor(spe * modifier);
       return field.trickRoom ? -finalSpe : finalSpe;
+    }
+
+    const NATURE_PAIR = {
+      Adamant: ['atk', 'spa'], Bold: ['def', 'atk'], Brave: ['atk', 'spe'], Calm: ['spd', 'atk'],
+      Careful: ['spd', 'spa'], Hasty: ['spe', 'def'], Impish: ['def', 'spa'], Jolly: ['spe', 'spa'],
+      Lonely: ['atk', 'def'], Mild: ['spa', 'def'], Modest: ['spa', 'atk'], Naive: ['spe', 'spd'],
+      Naughty: ['atk', 'spd'], Quiet: ['spa', 'spe'], Rash: ['spa', 'spd'], Relaxed: ['def', 'spe'],
+      Sassy: ['spd', 'spe'], Timid: ['spe', 'atk'], Gentle: ['spd', 'def'], Lax: ['def', 'spd']
+    };
+
+    function natureMod(nature, stat) {
+      const p = NATURE_PAIR[nature];
+      if (!p) return 1;
+      if (p[0] === stat) return 1.1;
+      if (p[1] === stat) return 0.9;
+      return 1;
+    }
+
+    function getBaseStatRaw(mon, apiName) {
+      return mon?.raw?.stats?.find(s => s.stat.name === apiName)?.base_stat || 0;
+    }
+
+    function calcMonHP(mon) {
+      const b = getBaseStatRaw(mon, 'hp');
+      const ev = mon.set?.evs?.hp || 0;
+      return Math.floor(((2 * b + 31 + Math.floor(ev / 4)) * 50) / 100) + 60;
+    }
+
+    function calcOtherStatLv50(base, ev, natureMultiplier) {
+      const inner = Math.floor(((2 * base + 31 + Math.floor((ev || 0) / 4)) * 50) / 100) + 5;
+      return Math.floor(inner * natureMultiplier);
+    }
+
+    const PRIORITY_MOVES = new Set([
+      'Fake Out', 'Extreme Speed', 'Quick Attack', 'Mach Punch', 'Bullet Punch', 'Aqua Jet', 'Ice Shard',
+      'Shadow Sneak', 'Sucker Punch', 'Vacuum Wave', 'Upper Hand', 'Jet Punch', 'Accelerock', 'Water Shuriken',
+      'Feint', 'Follow Me', 'Rage Powder', 'Wide Guard', 'Quick Guard', 'Protect', 'Detect',
+      'Helping Hand'
+    ]);
+
+    function estimateMoveDamage(attacker, defender, cand, field) {
+      const power = cand.power || 0;
+      const info = state.moveTypeCache[cand.move];
+      const dmgClass = cand.damageClass || info?.damageClass || 'physical';
+      if (power <= 0 || dmgClass === 'status') return { damage: 0, blocked: false };
+
+      if (field.terrain === 'psychic' && PRIORITY_MOVES.has(cand.move)) {
+        return { damage: 0, blocked: true };
+      }
+
+      const natA = attacker.set?.nature || '';
+      const natD = defender.set?.nature || '';
+      const evA = attacker.set?.evs || {};
+      const evD = defender.set?.evs || {};
+
+      let atkS;
+      let defS;
+      if (dmgClass === 'physical') {
+        atkS = calcOtherStatLv50(getBaseStatRaw(attacker, 'attack'), evA.atk, natureMod(natA, 'atk'));
+        defS = calcOtherStatLv50(getBaseStatRaw(defender, 'defense'), evD.def, natureMod(natD, 'def'));
+      } else {
+        atkS = calcOtherStatLv50(getBaseStatRaw(attacker, 'special-attack'), evA.spa, natureMod(natA, 'spa'));
+        defS = calcOtherStatLv50(getBaseStatRaw(defender, 'special-defense'), evD.spd, natureMod(natD, 'spd'));
+      }
+
+      const eff = effectiveness(cand.type, defender.types || []);
+      let wMul = 1;
+      const w = field.weather;
+      if (w === 'sun') {
+        if (cand.type === 'fire') wMul *= 1.5;
+        if (cand.type === 'water') wMul *= 0.5;
+      } else if (w === 'rain') {
+        if (cand.type === 'water') wMul *= 1.5;
+        if (cand.type === 'fire') wMul *= 0.5;
+      }
+
+      let terrMul = 1;
+      if (field.terrain === 'electric' && cand.type === 'electric') terrMul *= 1.3;
+      if (field.terrain === 'grassy' && cand.move === 'Earthquake') terrMul *= 0.5;
+
+      const stab = (attacker.types || []).includes(cand.type) ? 1.5 : 1;
+      const defSafe = Math.max(1, defS);
+      const raw = ((22 * power * atkS) / defSafe / 50 + 2) * stab * eff * wMul * terrMul;
+      return { damage: Math.floor(raw), blocked: false };
     }
 
     function serializeSetSummary(set) {
@@ -3141,7 +3314,7 @@
         const info = state.moveTypeCache[move];
         if (!info || !info.type) return null;
         if (info.damageClass === 'status') return null;
-        return { move, type: info.type, power: info.power || 0 };
+        return { move, type: info.type, power: info.power || 0, damageClass: info.damageClass || 'physical' };
       }).filter(Boolean);
 
       if (resolved.length) return resolved;
@@ -3150,26 +3323,49 @@
         .map(move => {
           const type = MOVE_TYPE_FALLBACK[move];
           if (!type || SUPPORT_MOVES.has(move)) return null;
-          return { move, type, power: 0 };
+          return { move, type, power: 0, damageClass: 'physical' };
         })
         .filter(Boolean);
 
       if (fallbackMoves.length) return fallbackMoves;
 
-      return (mon?.types || []).map(type => ({ move: TYPE_META[type]?.name || type, type, power: 0 }));
+      return (mon?.types || []).map(type => ({
+        move: TYPE_META[type]?.name || type,
+        type,
+        power: 0,
+        damageClass: 'special'
+      }));
     }
 
     function bestAttack(attacker, defender) {
+      const field = state.field;
       const candidates = getMoveCandidates(attacker);
-      let best = { type: candidates[0]?.type || 'normal', mult: 1, move: candidates[0]?.move || '' };
-
-      for (const c of candidates) {
-        const mult = effectiveness(c.type, defender?.types || []);
-        if (mult > best.mult || (mult === best.mult && (c.power || 0) > 0)) {
-          best = { type: c.type, mult, move: c.move || TYPE_META[c.type]?.name || c.type };
-        }
+      if (!candidates.length) {
+        return { type: 'normal', mult: 1, move: '', power: 0, damage: 0, ohko: false };
       }
-      return best;
+
+      const defHP = calcMonHP(defender);
+      const scored = candidates.map(c => {
+        const mult = effectiveness(c.type, defender?.types || []);
+        const { damage } = estimateMoveDamage(attacker, defender, c, field);
+        const ohko = damage >= defHP && damage > 0;
+        return {
+          type: c.type,
+          mult,
+          move: c.move || TYPE_META[c.type]?.name || c.type,
+          power: c.power || 0,
+          damage,
+          ohko
+        };
+      });
+
+      scored.sort((a, b) => {
+        if (b.damage !== a.damage) return b.damage - a.damage;
+        if (b.mult !== a.mult) return b.mult - a.mult;
+        return (b.power || 0) - (a.power || 0);
+      });
+
+      return scored[0];
     }
 
     function getRows() {
@@ -3177,13 +3373,32 @@
       const enemy = state.enemy.filter(Boolean);
       if (!self.length || !enemy.length) return [];
 
+      if (state.matrixMode === 'defensive') {
+        return enemy.map(attacker => ({
+          attacker,
+          cells: self.map(defender => {
+            const best = bestAttack(attacker, defender);
+            return { attacker, defender, type: best.type, mult: best.mult, move: best.move, damage: best.damage, ohko: best.ohko };
+          })
+        }));
+      }
+
       return self.map(attacker => ({
         attacker,
         cells: enemy.map(defender => {
           const best = bestAttack(attacker, defender);
-          return { attacker, defender, type: best.type, mult: best.mult, move: best.move };
+          return { attacker, defender, type: best.type, mult: best.mult, move: best.move, damage: best.damage, ohko: best.ohko };
         })
       }));
+    }
+
+    function matrixCellClass(cell) {
+      if (state.matrixMode === 'defensive') {
+        if (cell.mult <= 0.5) return 'eff-def-safe';
+        if (cell.mult >= 2) return 'eff-def-danger';
+        return 'eff-def-neutral';
+      }
+      return effClass(cell.mult);
     }
 
     function renderDock(side) {
@@ -3210,19 +3425,58 @@
       }).join('');
     }
 
+    function updateMatrixFieldUI() {
+      const modeBtn = document.getElementById('matrixModeToggle');
+      const modeLabel = document.getElementById('matrixModeLabel');
+      const title = document.getElementById('matrixSectionTitle');
+      const sub = document.getElementById('matrixSectionSub');
+      const legend = document.getElementById('matrixLegendChip');
+      if (modeLabel) modeLabel.textContent = state.matrixMode === 'defensive' ? 'Defensiva' : 'Ofensiva';
+      if (modeBtn) modeBtn.classList.toggle('on', state.matrixMode === 'defensive');
+      if (title) title.textContent = state.matrixMode === 'defensive' ? 'Matriz defensiva' : 'Matriz ofensiva';
+      if (sub) {
+        sub.textContent = state.matrixMode === 'defensive'
+          ? 'Daño entrante a tu equipo por rival. Verde = resistido (≤×0.5), rojo = muy eficaz (≥×2).'
+          : 'Daño aprox. a Lv.50 con EVs/naturaleza, clima y terreno. 💀 = OHKO estimado.';
+      }
+      if (legend) {
+        legend.textContent = state.matrixMode === 'defensive'
+          ? 'Verde ≤×0.5 · Rojo ≥×2'
+          : '×4 / ×2 · 💀 OHKO';
+      }
+
+      document.querySelectorAll('#matrixControls [data-weather]').forEach(el => {
+        el.classList.toggle('on', state.field.weather === el.dataset.weather);
+      });
+      document.querySelectorAll('#matrixControls [data-terrain]').forEach(el => {
+        el.classList.toggle('on', state.field.terrain === el.dataset.terrain);
+      });
+    }
+
     function renderMatrix(rows) {
+      updateMatrixFieldUI();
+
       if (!rows.length) {
         matrixPlaceholder.classList.remove('hidden');
         matrixContainer.classList.add('hidden');
         matrixStatus.textContent = '0 cruces';
-        document.getElementById('metricCross').textContent = '0';
-        document.getElementById('metricStrong').textContent = '0';
-        document.getElementById('metricPeak').textContent = '×0';
-        document.getElementById('metricAvg').textContent = '0.00';
+        const mc = document.getElementById('metricCross');
+        if (mc) mc.textContent = '0';
+        const ms = document.getElementById('metricStrong');
+        if (ms) ms.textContent = '0';
+        const mp = document.getElementById('metricPeak');
+        if (mp) mp.textContent = '×0';
+        const ma = document.getElementById('metricAvg');
+        if (ma) ma.textContent = '0.00';
         return;
       }
 
+      const self = state.self.filter(Boolean);
       const enemy = state.enemy.filter(Boolean);
+      const offensive = state.matrixMode !== 'defensive';
+      const colMons = offensive ? enemy : self;
+      const cornerIcon = offensive ? 'swords' : 'shield';
+
       const flat = rows.flatMap(r => r.cells);
       const cross = flat.length;
       const strong = flat.filter(x => x.mult >= 2).length;
@@ -3239,9 +3493,9 @@
         <thead>
           <tr>
             <th class="corner">
-              <div class="corner-mark"><i data-lucide="swords" style="width:16px;height:16px;"></i></div>
+              <div class="corner-mark"><i data-lucide="${cornerIcon}" style="width:16px;height:16px;"></i></div>
             </th>
-            ${enemy.map(mon => `
+            ${colMons.map(mon => `
               <th>
                 <div class="head-mon" title="${mon.displayName}">
                   <div class="sprite">
@@ -3266,14 +3520,20 @@
                 </div>
               </th>
 
-              ${row.cells.map(cell => `
+              ${row.cells.map(cell => {
+                const vClass = matrixCellClass(cell);
+                const ohkoExtra = offensive && cell.ohko ? ' cell--ohko' : '';
+                const dmgHint = typeof cell.damage === 'number' ? ` · ~${cell.damage}` : '';
+                const ohkoMark = offensive && cell.ohko ? '<div class="cell-ohko-mark" aria-hidden="true">💀</div>' : '';
+                return `
                 <td>
-                  <div class="cell ${effClass(cell.mult)}" title="${row.attacker.displayName} → ${cell.defender.displayName} · ${t(cell.move, 'move')} · ${fmtMult(cell.mult)}">
+                  <div class="cell ${vClass}${ohkoExtra}" title="${row.attacker.displayName} → ${cell.defender.displayName} · ${t(cell.move, 'move')} · ${fmtMult(cell.mult)}${dmgHint}">
                     ${cell.mult !== 1 ? `<div class="mult">${fmtMult(cell.mult)}</div>` : ''}
                     ${cell.mult !== 1 ? typeDot(cell.type) : '<div class="dot-neutral"></div>'}
+                    ${ohkoMark}
                   </div>
-                </td>
-              `).join('')}
+                </td>`;
+              }).join('')}
             </tr>
           `).join('')}
         </tbody>
@@ -3282,6 +3542,7 @@
       matrixContainer.innerHTML = `<table>${thead}${tbody}</table>`;
       matrixPlaceholder.classList.add('hidden');
       matrixContainer.classList.remove('hidden');
+      updateIcons();
     }
 
     function scoreThreat(enemyMon) {
@@ -3378,6 +3639,11 @@
     }
 
     function renderOpportunities(rows) {
+      if (state.matrixMode === 'defensive') {
+        opportunityList.innerHTML = `<div class="muted-small">Las oportunidades ofensivas solo aplican en vista ofensiva.</div>`;
+        return;
+      }
+
       const top = rows
         .flatMap(r => r.cells)
         .filter(x => x.mult >= 2)
@@ -4247,6 +4513,34 @@
       state.field.trickRoom = !state.field.trickRoom;
       renderSpeedTiers();
     });
+
+    const matrixModeToggleEl = document.getElementById('matrixModeToggle');
+    if (matrixModeToggleEl) {
+      matrixModeToggleEl.addEventListener('click', () => {
+        state.matrixMode = state.matrixMode === 'offensive' ? 'defensive' : 'offensive';
+        renderAll();
+      });
+    }
+
+    const matrixControlsEl = document.getElementById('matrixControls');
+    if (matrixControlsEl) {
+      matrixControlsEl.addEventListener('click', (e) => {
+        const w = e.target.closest('[data-weather]');
+        if (w && w.dataset.weather) {
+          const v = w.dataset.weather;
+          state.field.weather = state.field.weather === v ? null : v;
+          renderAll();
+          return;
+        }
+        const t = e.target.closest('[data-terrain]');
+        if (t && t.dataset.terrain) {
+          const v = t.dataset.terrain;
+          state.field.terrain = state.field.terrain === v ? null : v;
+          renderAll();
+          return;
+        }
+      });
+    }
 
     document.getElementById('turn1PickZone').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-t1-slot]');
