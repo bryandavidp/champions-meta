@@ -2789,6 +2789,13 @@
       if (set.ability) lines.push(`Hab: ${set.ability}`);
       if (set.item) lines.push(`Obj: ${set.item}`);
       if (set.nature) lines.push(`Nat: ${set.nature}`);
+      if (set.evs && typeof set.evs === 'object') {
+        const evOrder = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
+        const activeEVs = evOrder
+          .filter(k => Number(set.evs[k]) > 0)
+          .map(k => `${set.evs[k]} ${k.toUpperCase()}`);
+        if (activeEVs.length) lines.push(activeEVs.join(' / '));
+      }
       return lines;
     }
 
@@ -3342,6 +3349,9 @@
         const ptype = mon.types[0] || 'normal';
         const tcol = TYPE_META[ptype]?.color || '#8aa2c6';
         const bgLayers = `linear-gradient(135deg, ${hexToRgba(tcol, 0.1)} 0%, transparent 55%), linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.04))`;
+        const spreadLines = serializeSetSummary(mon.set || {}).filter(
+          line => line.startsWith('Nat:') || /^\d/.test(String(line).trim())
+        );
         return `
         <div class="enemy-row threat-card" style="background:${bgLayers}; border-color:${hexToRgba(tcol, 0.2)};">
           <div class="threat-portrait">
@@ -3351,6 +3361,7 @@
           <div class="threat-body">
             <div class="row-title">${mon.displayName}</div>
             <div class="row-sub threat-reasons">${threat.reasons.join(' · ')}</div>
+            ${spreadLines.length ? `<div class="row-sub threat-spread">${spreadLines.join(' · ')}</div>` : ''}
             <div class="set-stack threat-set-stack">
               ${mon.set?.ability ? `<span class="set-chip">${t(mon.set.ability, 'ability')}</span>` : ''}
               ${mon.set?.item ? `<span class="set-chip">${t(mon.set.item, 'item')}</span>` : ''}
@@ -4423,11 +4434,30 @@
       setEditorSubtitle.textContent = 'Despliega para cambiar o usa las sugerencias rápidas.';
 
       const typeChips = (mon.types || []).map(typeChip).join('');
-      const summaryLines = [
-        set.ability ? `Hab: ${set.ability}` : null,
-        set.item ? `Obj: ${set.item}` : null,
-        set.nature ? `Nat: ${set.nature}` : null
-      ].filter(Boolean);
+      const summaryLines = serializeSetSummary(set);
+
+      const editorNatureChoices = [
+        'Jolly', 'Adamant', 'Timid', 'Modest', 'Bold', 'Impish', 'Careful', 'Calm',
+        'Brave', 'Relaxed', 'Quiet', 'Sassy', 'Naive', 'Hasty', 'Lonely', 'Naughty',
+        'Rash', 'Mild', 'Gentle', 'Lax', 'Hardy', 'Docile', 'Serious', 'Bashful', 'Quirky'
+      ];
+      const curNature = set.nature || '';
+      const natureList = curNature && !editorNatureChoices.includes(curNature)
+        ? [curNature, ...editorNatureChoices]
+        : editorNatureChoices;
+
+      const evs = set.evs && typeof set.evs === 'object'
+        ? set.evs
+        : { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+      const evStatMeta = [
+        { key: 'hp', label: 'HP' },
+        { key: 'atk', label: 'Atk' },
+        { key: 'def', label: 'Def' },
+        { key: 'spa', label: 'SpA' },
+        { key: 'spd', label: 'SpD' },
+        { key: 'spe', label: 'Spe' }
+      ];
+      const evInputStyle = 'box-sizing:border-box;margin-top:4px;background:#15233a;border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:8px;padding:6px;width:100%;font:inherit;';
 
       setEditorBody.innerHTML = `
         <section class="editor-hero">
@@ -4498,6 +4528,32 @@
             </div>
           </article>
         </section>
+
+        <article class="editor-section">
+          <div class="editor-section-head">
+            <div>
+              <strong>Naturaleza y EVs</strong>
+            </div>
+          </div>
+
+          <div style="position:relative;">
+            <select class="editor-main-btn" data-action="inline-nature" style="appearance:none; width:100%;">
+              <option value="">Sin naturaleza</option>
+              ${natureList.map(n => `
+                <option value="${n}" ${n === curNature ? 'selected' : ''}>${n}</option>
+              `).join('')}
+            </select>
+            <i data-lucide="chevron-down" style="position:absolute; right:12px; top:15px; color:var(--muted); pointer-events:none; width:16px; height:16px;"></i>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px;">
+            ${evStatMeta.map(({ key, label }) => `
+              <label style="display:block;font-size:.55rem;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">${label}
+                <input type="number" min="0" max="252" step="1" data-action="inline-ev" data-stat="${key}" value="${Number(evs[key]) || 0}" style="${evInputStyle}">
+              </label>
+            `).join('')}
+          </div>
+        </article>
 
         <article class="editor-section">
           <div class="editor-section-head">
@@ -4709,6 +4765,23 @@
     }
 
     setEditorBody.addEventListener('change', (e) => {
+      const input = e.target.closest('input[data-action="inline-ev"]');
+      if (input) {
+        const mon = getEditorMon();
+        if (!mon) return;
+        const set = ensureEditableSet(mon);
+        if (!set.evs) set.evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+        let v = Number(input.value);
+        if (!Number.isFinite(v)) v = 0;
+        v = Math.max(0, Math.min(252, Math.round(v)));
+        set.evs[input.dataset.stat] = v;
+        input.value = String(v);
+        if (typeof scheduleMoveWarmup === 'function') scheduleMoveWarmup();
+        if (typeof renderAll === 'function') renderAll();
+        renderSetEditor();
+        return;
+      }
+
       const select = e.target.closest('select[data-action]');
       if (!select) return;
 
@@ -4735,6 +4808,8 @@
         const idx = Number(select.dataset.index);
         while (set.moves.length < 4) set.moves.push('');
         set.moves[idx] = val;
+      } else if (select.dataset.action === 'inline-nature') {
+        set.nature = val;
       }
 
       if (typeof scheduleMoveWarmup === 'function') scheduleMoveWarmup();
