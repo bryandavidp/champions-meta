@@ -530,6 +530,16 @@ const PAPI_MAP = {
   heatwave: "heat-wave",
   trickroom: "trick-room",
   auroraveil: "aurora-veil",
+  shadowsneak: "shadow-sneak",
+  darkpulse: "dark-pulse",
+  flashcannon: "flash-cannon",
+  dragonpulse: "dragon-pulse",
+  heavyslam: "heavy-slam",
+  bodypress: "body-press",
+  terablast: "tera-blast",
+  surgingstrikes: "surging-strikes",
+  ivycudgel: "ivy-cudgel",
+  wickedblow: "wicked-blow",
 };
 
 const CUSTOM_TERMS = new Set([
@@ -563,6 +573,10 @@ function getPapiSlug(name, category = "move") {
     if (n === "sitrusberry") return "sitrus-berry";
     if (n === "boosterenergy") return "booster-energy";
     if (n === "safetygoggles") return "safety-goggles";
+    if (n === "dragonfang") return "dragon-fang";
+    if (n === "expertbelt") return "expert-belt";
+    if (n === "blackglasses") return "black-glasses";
+    if (n === "loadeddice") return "loaded-dice";
   }
   if (category === "ability") {
     if (n === "speedboost") return "speed-boost";
@@ -581,6 +595,15 @@ function getPapiSlug(name, category = "move") {
     if (n === "wellbakedbody") return "well-baked-body";
     if (n === "purifyingsalt") return "purifying-salt";
     if (n === "goodasgold") return "good-as-gold";
+    if (n === "stancechange") return "stance-change";
+    if (n === "hugepower") return "huge-power";
+    if (n === "purepower") return "pure-power";
+    if (n === "magicguard") return "magic-guard";
+    if (n === "swiftswim") return "swift-swim";
+    if (n === "sandrush") return "sand-rush";
+    if (n === "slushrush") return "slush-rush";
+    if (n === "innerfocus") return "inner-focus";
+    if (n === "clearbody") return "clear-body";
   }
   return n;
 }
@@ -2791,6 +2814,7 @@ function renderTurn1Simulator() {
   const INTIMIDATE = new Set(['intimidate', 'intimidacion']);
   const INTIMIDATE_IMMUNE = new Set(['clearbody', 'cuerpopuro', 'innerfocus', 'focointerno', 'guarddog', 'perroguardian', 'oblivious', 'despiste', 'owntempo', 'ritmopropio', 'scrappy', 'intrepido']);
   const INTIMIDATE_PUNISH = new Set(['defiant', 'competitivo', 'competitive', 'tenacidad', 'contrary', 'respondon', 'respondón']);
+  const ANTI_PRIORITY = new Set(['armortail', 'colaarmadura', 'dazzling', 'cuerpovivido', 'queenlymajesty', 'regiamajestad']);
 
   // Procesamiento previo por Lead
   const fakeOutUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => FAKE_OUT.has(m)));
@@ -2800,18 +2824,30 @@ function renderTurn1Simulator() {
   const intimidators = leads.filter((x) => INTIMIDATE.has(safeNorm(x.mon.set?.ability)));
   const tailwindUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => TAILWIND.has(m)));
   const tauntUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => TAUNT.has(m)));
+  const antiPriorityUsers = leads.filter((x) => ANTI_PRIORITY.has(safeNorm(x.mon.set?.ability)));
+
+  // Anti-Priority general insight
+  antiPriorityUsers.forEach((ap) => {
+    const apColor = ap.side === "self" ? "var(--blue)" : "var(--red)";
+    insights.push({
+      icon: "🛡️",
+      text: `<strong style="color:${apColor}">${ap.mon.displayName}</strong> bloquea los ataques de prioridad rivales (ej. Fake Out) gracias a su habilidad.`,
+    });
+  });
 
   // 4. Lógica Avanzada: Prioridad Fake Out vs Redirección
-  if (fakeOutUsers.length > 0) {
-    if (fakeOutUsers.length === 1) {
+  const effectiveFakeOuts = fakeOutUsers.filter(fo => !antiPriorityUsers.some(ap => ap.side !== fo.side));
+
+  if (effectiveFakeOuts.length > 0) {
+    if (effectiveFakeOuts.length === 1) {
       insights.push({
         icon: "✋",
-        text: `<strong style="color:${fakeOutUsers[0].side === "self" ? "var(--blue)" : "var(--red)"}">${fakeOutUsers[0].mon.displayName}</strong> tiene presión gratuita de Fake Out.`,
+        text: `<strong style="color:${effectiveFakeOuts[0].side === "self" ? "var(--blue)" : "var(--red)"}">${effectiveFakeOuts[0].mon.displayName}</strong> tiene presión gratuita de Fake Out.`,
       });
     } else {
       insights.push({
         icon: "✋",
-        text: `<strong style="color:${fakeOutUsers[0].side === "self" ? "var(--blue)" : "var(--red)"}">${fakeOutUsers[0].mon.displayName}</strong> es el usuario de Fake Out más rápido.`,
+        text: `<strong style="color:${effectiveFakeOuts[0].side === "self" ? "var(--blue)" : "var(--red)"}">${effectiveFakeOuts[0].mon.displayName}</strong> es el usuario de Fake Out más rápido.`,
       });
     }
     
@@ -2821,6 +2857,12 @@ function renderTurn1Simulator() {
         text: `El Fake Out (+3) tiene prioridad e impactará antes que la redirección (+2).`,
       });
     }
+  } else if (fakeOutUsers.length > 0) {
+    const blockedNames = fakeOutUsers.map(fo => `<strong style="color:${fo.side === 'self' ? 'var(--blue)' : 'var(--red)'}">${fo.mon.displayName}</strong>`).join(" y ");
+    insights.push({
+      icon: "❌",
+      text: `El Fake Out de ${blockedNames} será inútil debido a la inmunidad a prioridad del rival.`,
+    });
   }
 
   // 3. Lógica Avanzada: Inmunidades y Castigos a Intimidación
