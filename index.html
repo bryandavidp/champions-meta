@@ -4118,6 +4118,27 @@
       return score;
     }
 
+    function calculateMvpScore(mon, selfTeam, enemyTeam) {
+      let score = 0;
+      let offensiveCount = 0;
+      let isDefensiveWall = true;
+
+      for (const enemyMon of enemyTeam) {
+        if (!enemyMon) continue;
+        
+        if (bestAttack(mon, enemyMon).mult >= 2) {
+          offensiveCount++;
+        }
+        if (bestAttack(enemyMon, mon).mult >= 2) {
+          isDefensiveWall = false;
+        }
+      }
+
+      if (offensiveCount >= 3) score += 10;
+      if (isDefensiveWall) score += 15;
+      return score;
+    }
+
     // --- PREVIEW UI ---
     function computeQuickPreview(rows) {
       const selfTeam = state.self.filter(Boolean);
@@ -4129,7 +4150,8 @@
       
       const scoredSelf = selfTeam.map(mon => ({
         mon,
-        score: scorePokemonForQuickPick(mon, enemyTeam)
+        score: scorePokemonForQuickPick(mon, enemyTeam), // Puntuación existente para quick pick
+        mvpScore: calculateMvpScore(mon, selfTeam, enemyTeam) // Nueva puntuación MVP
       })).sort((a, b) => b.score - a.score);
       
       const bestFour = scoredSelf.slice(0, 4).map(x => x.mon);
@@ -4152,12 +4174,43 @@
         leadPair = bestFour.slice(0, 2);
       }
       
+      // --- Detección de MVP ---
+      let mvp = null;
+      for (const scoredMon of scoredSelf) {
+        if (scoredMon.mvpScore >= 20) {
+          mvp = scoredMon.mon;
+          break; // Encontramos el primer MVP, asumimos que solo uno es necesario para el banner
+        }
+      }
+
       return {
-        enemyPlan: inferStrategies(enemyTeam),
+        mvp, // Pasamos el MVP a la función de renderizado
+        enemyPlan: inferStrategies(enemyTeam), // Estrategias existentes
         bestFour,
         leadPair,
         noBring
       };
+    }
+
+    // --- Actualización de UI para MVP ---
+    function renderMvpBanner(mvp) {
+      const quickPreviewPanel = document.getElementById('quickPreviewPanel');
+      let mvpBanner = document.getElementById('mvpBanner');
+
+      if (!mvp) {
+        if (mvpBanner) mvpBanner.remove();
+        return;
+      }
+
+      if (!mvpBanner) {
+        mvpBanner = document.createElement('div');
+        mvpBanner.id = 'mvpBanner';
+        mvpBanner.className = 'tiny-chip';
+        // Estilo cian holográfico como solicitado
+        mvpBanner.style = 'background: linear-gradient(135deg, rgba(50, 173, 230, 0.25), rgba(50, 173, 230, 0.08)); border-color: #32ADE6; color: #d4f0ff; margin-bottom: 8px;';
+        quickPreviewPanel.insertBefore(mvpBanner, quickPreviewPanel.firstChild.nextSibling); // Insertar después de section-head
+      }
+      mvpBanner.innerHTML = `💡 Win Condition: Mantén a tu <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width:20px;height:20px;vertical-align:middle;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));"> <strong>${mvp.displayName}</strong> vivo, el rival no tiene respuestas eficaces.`;
     }
 
     function renderMyBestFour(bestFour) {
@@ -4215,6 +4268,7 @@
       }
       
       panel.style.display = 'block';
+      renderMvpBanner(preview.mvp); // Renderizar el banner MVP
       
       const planList = document.getElementById('planRivalList');
       if (preview.enemyPlan.length) {
