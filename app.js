@@ -2765,16 +2765,43 @@ function renderTurn1Simulator() {
 
   const insights = [];
 
-  // Funciones de normalización para asegurar coincidencias seguras
-  const normStr = (str) => String(str || "").toLowerCase().trim();
-  const normArray = (arr) => (arr || []).map(normStr);
+  // 1. Sistema de Detección Inmune a Formatos (Smogon / Traducciones PokeAPI)
+  const safeNorm = (str) => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const safeNormArray = (arr) => (arr || []).map(safeNorm);
 
-  // 1. Fake Out
-  const fakeOutUsers = leads.filter((x) => {
-    const moves = normArray(x.mon.set?.moves);
-    return moves.includes("fake out") || moves.includes("sorpresa");
-  });
-  
+  const FAKE_OUT = new Set(['fakeout', 'sorpresa']);
+  const REDIRECTION = new Set(['followme', 'ragepowder', 'seuelo', 'polvoira']);
+  const TAUNT = new Set(['taunt', 'mofa']);
+  const TAILWIND = new Set(['tailwind', 'vientoafin', 'vientoafn']);
+
+  const WEATHER_SETTERS = {
+    'drizzle': 'Lluvia 🌧️', 'llovizna': 'Lluvia 🌧️',
+    'drought': 'Sol ☀️', 'sequia': 'Sol ☀️', 'sequía': 'Sol ☀️',
+    'sandstream': 'Arena 🪨', 'chorroarena': 'Arena 🪨',
+    'snowwarning': 'Nieve ❄️', 'nevada': 'Nieve ❄️'
+  };
+
+  const TERRAIN_SETTERS = {
+    'psychicsurge': 'Terreno Psíquico 🔮', 'psicogenesis': 'Terreno Psíquico 🔮',
+    'grassysurge': 'Campo de Hierba 🌿', 'herbogenesis': 'Campo de Hierba 🌿',
+    'electricsurge': 'Campo Eléctrico ⚡', 'electrogenesis': 'Campo Eléctrico ⚡',
+    'mistysurge': 'Campo de Niebla 🧚', 'neblogenesis': 'Campo de Niebla 🧚', 'hadagenesis': 'Campo de Niebla 🧚'
+  };
+
+  const INTIMIDATE = new Set(['intimidate', 'intimidacion']);
+  const INTIMIDATE_IMMUNE = new Set(['clearbody', 'cuerpopuro', 'innerfocus', 'focointerno', 'guarddog', 'perroguardian', 'oblivious', 'despiste', 'owntempo', 'ritmopropio', 'scrappy', 'intrepido']);
+  const INTIMIDATE_PUNISH = new Set(['defiant', 'competitivo', 'competitive', 'tenacidad', 'contrary', 'respondon', 'respondón']);
+
+  // Procesamiento previo por Lead
+  const fakeOutUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => FAKE_OUT.has(m)));
+  const redirectionUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => REDIRECTION.has(m)));
+  const weatherSetters = leads.filter((x) => WEATHER_SETTERS[safeNorm(x.mon.set?.ability)]);
+  const terrainSetters = leads.filter((x) => TERRAIN_SETTERS[safeNorm(x.mon.set?.ability)]);
+  const intimidators = leads.filter((x) => INTIMIDATE.has(safeNorm(x.mon.set?.ability)));
+  const tailwindUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => TAILWIND.has(m)));
+  const tauntUsers = leads.filter((x) => safeNormArray(x.mon.set?.moves).some((m) => TAUNT.has(m)));
+
+  // 4. Lógica Avanzada: Prioridad Fake Out vs Redirección
   if (fakeOutUsers.length > 0) {
     if (fakeOutUsers.length === 1) {
       insights.push({
@@ -2787,100 +2814,86 @@ function renderTurn1Simulator() {
         text: `<strong style="color:${fakeOutUsers[0].side === "self" ? "var(--blue)" : "var(--red)"}">${fakeOutUsers[0].mon.displayName}</strong> es el usuario de Fake Out más rápido.`,
       });
     }
+    
+    if (redirectionUsers.length > 0) {
+      insights.push({
+        icon: "ℹ️",
+        text: `El Fake Out (+3) tiene prioridad e impactará antes que la redirección (+2).`,
+      });
+    }
   }
 
-  // 2. Intimidate
-  const intimidators = leads.filter((x) => {
-    const ab = normStr(x.mon.set?.ability);
-    return ab === "intimidate" || ab === "intimidación" || ab === "intimidacion";
-  });
-  
+  // 3. Lógica Avanzada: Inmunidades y Castigos a Intimidación
   intimidators.forEach((intim) => {
-    const targets = leads.filter(
-      (x) => x.side !== intim.side && isPhysicalAttacker(x.mon),
-    );
-    const color = intim.side === "self" ? "var(--blue)" : "var(--red)";
-    if (targets.length) {
-      insights.push({
-        icon: "🦁",
-        text: `<strong style="color:${color}">${intim.mon.displayName}</strong> aplica Intimidate, afectando a ${targets.map((t) => `<strong style="color:${t.side === "self" ? "var(--blue)" : "var(--red)"}">${t.mon.displayName}</strong>`).join(" y ")}.`,
+    const intimColor = intim.side === "self" ? "var(--blue)" : "var(--red)";
+    const opponents = leads.filter((x) => x.side !== intim.side && isPhysicalAttacker(x.mon));
+    
+    const affected = [];
+    const punished = [];
+    
+    opponents.forEach((opp) => {
+      const ab = safeNorm(opp.mon.set?.ability);
+      if (INTIMIDATE_PUNISH.has(ab)) punished.push(opp);
+      else if (!INTIMIDATE_IMMUNE.has(ab)) affected.push(opp);
+    });
+
+    if (punished.length > 0) {
+      punished.forEach((p) => {
+        const pColor = p.side === "self" ? "var(--blue)" : "var(--red)";
+        insights.push({
+          icon: "⚠️",
+          text: `¡Cuidado! <strong style="color:${pColor}">${p.mon.displayName}</strong> tiene una habilidad que castiga estadísticas, y se potenciará por la Intimidación de <strong style="color:${intimColor}">${intim.mon.displayName}</strong>.`,
+        });
       });
-    } else {
+    }
+
+    if (affected.length > 0) {
       insights.push({
         icon: "🦁",
-        text: `<strong style="color:${color}">${intim.mon.displayName}</strong> aplica Intimidate, pero no hay atacantes físicos relevantes en frente.`,
+        text: `<strong style="color:${intimColor}">${intim.mon.displayName}</strong> aplica Intimidate, afectando a ${affected.map((t) => `<strong style="color:${t.side === "self" ? "var(--blue)" : "var(--red)"}">${t.mon.displayName}</strong>`).join(" y ")}.`,
+      });
+    } else if (punished.length === 0) {
+      insights.push({
+        icon: "🦁",
+        text: `<strong style="color:${intimColor}">${intim.mon.displayName}</strong> aplica Intimidate, pero no hay atacantes físicos vulnerables en frente.`,
       });
     }
   });
 
-  // 3. Weather
-  const WEATHER_MAP = {
-    "drizzle": "Lluvia 🌧️",
-    "llovizna": "Lluvia 🌧️",
-    "drought": "Sol ☀️",
-    "sequía": "Sol ☀️",
-    "sequia": "Sol ☀️",
-    "sand stream": "Arena 🪨",
-    "chorro arena": "Arena 🪨",
-    "snow warning": "Nieve ❄️",
-    "nevada": "Nieve ❄️",
-  };
-  const weatherSetters = leads.filter(
-    (x) => WEATHER_MAP[normStr(x.mon.set?.ability)]
-  );
-  
+  // 2. Lógica Avanzada: Guerras de Clima y Terreno
   if (weatherSetters.length > 0) {
     if (weatherSetters.length === 1) {
       insights.push({
         icon: "🌤️",
-        text: `<strong style="color:${weatherSetters[0].side === "self" ? "var(--blue)" : "var(--red)"}">${weatherSetters[0].mon.displayName}</strong> establece ${WEATHER_MAP[normStr(weatherSetters[0].mon.set?.ability)]}.`,
+        text: `<strong style="color:${weatherSetters[0].side === "self" ? "var(--blue)" : "var(--red)"}">${weatherSetters[0].mon.displayName}</strong> establece ${WEATHER_SETTERS[safeNorm(weatherSetters[0].mon.set?.ability)]}.`,
       });
     } else {
-      const slowest = weatherSetters[weatherSetters.length - 1]; // Slowest goes last, overwriting
+      const fastest = weatherSetters[0];
+      const slowest = weatherSetters[weatherSetters.length - 1]; // Al estar ordenado por Speed, el último es el más lento.
       insights.push({
         icon: "🌤️",
-        text: `<strong style="color:${slowest.side === "self" ? "var(--blue)" : "var(--red)"}">${slowest.mon.displayName}</strong> es más lento, por lo que prevalecerá ${WEATHER_MAP[normStr(slowest.mon.set?.ability)]}.`,
+        text: `<strong style="color:${slowest.side === "self" ? "var(--blue)" : "var(--red)"}">${slowest.mon.displayName}</strong> es más lento que <strong style="color:${fastest.side === "self" ? "var(--blue)" : "var(--red)"}">${fastest.mon.displayName}</strong>, por lo que su clima prevalecerá en Turno 1 (${WEATHER_SETTERS[safeNorm(slowest.mon.set?.ability)]}).`,
       });
     }
   }
 
-  // 4. Terrenos
-  const TERRAIN_MAP = {
-    "psychic surge": "Terreno Psíquico 🔮",
-    "psicogénesis": "Terreno Psíquico 🔮",
-    "psicogenesis": "Terreno Psíquico 🔮",
-    "grassy surge": "Campo de Hierba 🌿",
-    "herbogénesis": "Campo de Hierba 🌿",
-    "herbogenesis": "Campo de Hierba 🌿",
-    "electric surge": "Campo Eléctrico ⚡",
-    "electrogénesis": "Campo Eléctrico ⚡",
-    "electrogenesis": "Campo Eléctrico ⚡",
-    "misty surge": "Campo de Niebla 🧚",
-    "neblogénesis": "Campo de Niebla 🧚",
-    "neblogenesis": "Campo de Niebla 🧚",
-  };
-  const terrainSetters = leads.filter((x) => TERRAIN_MAP[normStr(x.mon.set?.ability)]);
-  
   if (terrainSetters.length > 0) {
     if (terrainSetters.length === 1) {
       insights.push({
         icon: "✨",
-        text: `<strong style="color:${terrainSetters[0].side === "self" ? "var(--blue)" : "var(--red)"}">${terrainSetters[0].mon.displayName}</strong> establece ${TERRAIN_MAP[normStr(terrainSetters[0].mon.set?.ability)]}.`,
+        text: `<strong style="color:${terrainSetters[0].side === "self" ? "var(--blue)" : "var(--red)"}">${terrainSetters[0].mon.displayName}</strong> establece ${TERRAIN_SETTERS[safeNorm(terrainSetters[0].mon.set?.ability)]}.`,
       });
     } else {
+      const fastest = terrainSetters[0];
       const slowest = terrainSetters[terrainSetters.length - 1];
       insights.push({
         icon: "✨",
-        text: `<strong style="color:${slowest.side === "self" ? "var(--blue)" : "var(--red)"}">${slowest.mon.displayName}</strong> es más lento, prevaleciendo ${TERRAIN_MAP[normStr(slowest.mon.set?.ability)]}.`,
+        text: `<strong style="color:${slowest.side === "self" ? "var(--blue)" : "var(--red)"}">${slowest.mon.displayName}</strong> es más lento que <strong style="color:${fastest.side === "self" ? "var(--blue)" : "var(--red)"}">${fastest.mon.displayName}</strong>, prevaleciendo su terreno (${TERRAIN_SETTERS[safeNorm(slowest.mon.set?.ability)]}).`,
       });
     }
   }
 
-  // 5. Tailwind
-  const tailwindUsers = leads.filter((x) => {
-    const moves = normArray(x.mon.set?.moves);
-    return moves.includes("tailwind") || moves.includes("viento afín") || moves.includes("viento afin");
-  });
+  // Otras Utilidades (Tailwind y Taunt)
   tailwindUsers.forEach((tw) => {
     insights.push({
       icon: "💨",
@@ -2888,11 +2901,6 @@ function renderTurn1Simulator() {
     });
   });
 
-  // 6. Redirección (Follow Me / Rage Powder)
-  const redirectionUsers = leads.filter((x) => {
-    const moves = normArray(x.mon.set?.moves);
-    return moves.includes("follow me") || moves.includes("señuelo") || moves.includes("rage powder") || moves.includes("polvo ira");
-  });
   redirectionUsers.forEach((red) => {
     insights.push({
       icon: "🛡️",
@@ -2900,11 +2908,6 @@ function renderTurn1Simulator() {
     });
   });
 
-  // 7. Bloqueo (Taunt / Mofa)
-  const tauntUsers = leads.filter((x) => {
-    const moves = normArray(x.mon.set?.moves);
-    return moves.includes("taunt") || moves.includes("mofa");
-  });
   tauntUsers.forEach((taunt) => {
     insights.push({
       icon: "🚫",
