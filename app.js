@@ -2787,6 +2787,7 @@ function renderTurn1Simulator() {
     .sort((a, b) => b.spe - a.spe);
 
   const insights = [];
+  const micro = (mon) => `<img src="${mon.sprite}" class="sprite-micro" title="${mon.displayName}">`;
 
   // 1. Sistema de Detección Inmune a Formatos (Smogon / Traducciones PokeAPI)
   const safeNorm = (str) => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -2828,11 +2829,7 @@ function renderTurn1Simulator() {
 
   // Anti-Priority general insight
   antiPriorityUsers.forEach((ap) => {
-    const apColor = ap.side === "self" ? "var(--blue)" : "var(--red)";
-    insights.push({
-      icon: "🛡️",
-      text: `<strong style="color:${apColor}">${ap.mon.displayName}</strong> bloquea los ataques de prioridad rivales (ej. Fake Out) gracias a su habilidad.`,
-    });
+    insights.push(`<span class="tag-pill tag-pill--info">🛡️ Bloqueo</span> ${micro(ap.mon)} anula prioridad (ej. Sorpresa).`);
   });
 
   // 4. Lógica Avanzada: Prioridad Fake Out vs Redirección
@@ -2840,36 +2837,21 @@ function renderTurn1Simulator() {
 
   if (effectiveFakeOuts.length > 0) {
     if (effectiveFakeOuts.length === 1) {
-      insights.push({
-        icon: "✋",
-        text: `<strong style="color:${effectiveFakeOuts[0].side === "self" ? "var(--blue)" : "var(--red)"}">${effectiveFakeOuts[0].mon.displayName}</strong> tiene presión gratuita de Fake Out.`,
-      });
+      insights.push(`<span class="tag-pill tag-pill--warning">✋ Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} amenaza con Sorpresa.`);
     } else {
-      insights.push({
-        icon: "✋",
-        text: `<strong style="color:${effectiveFakeOuts[0].side === "self" ? "var(--blue)" : "var(--red)"}">${effectiveFakeOuts[0].mon.displayName}</strong> es el usuario de Fake Out más rápido.`,
-      });
+      insights.push(`<span class="tag-pill tag-pill--warning">✋ Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} es el Sorpresa más rápido.`);
     }
     
     if (redirectionUsers.length > 0) {
-      insights.push({
-        icon: "ℹ️",
-        text: `El Fake Out (+3) tiene prioridad e impactará antes que la redirección (+2).`,
-      });
+      insights.push(`<span class="tag-pill tag-pill--info">ℹ️ Prioridad</span> Sorpresa impactará antes que la redirección.`);
     }
   } else if (fakeOutUsers.length > 0) {
-    const blockedNames = fakeOutUsers.map(fo => `<strong style="color:${fo.side === 'self' ? 'var(--blue)' : 'var(--red)'}">${fo.mon.displayName}</strong>`).join(" y ");
-    insights.push({
-      icon: "❌",
-      text: `El Fake Out de ${blockedNames} será inútil debido a la inmunidad a prioridad del rival.`,
-    });
+    insights.push(`<span class="tag-pill tag-pill--danger">❌ Bloqueo</span> Sorpresa de ${fakeOutUsers.map(fo => micro(fo.mon)).join('')} inútil ante inmunidad.`);
   }
 
   // 3. Lógica Avanzada: Inmunidades y Castigos a Intimidación
   intimidators.forEach((intim) => {
-    const intimColor = intim.side === "self" ? "var(--blue)" : "var(--red)";
     const opponents = leads.filter((x) => x.side !== intim.side && isPhysicalAttacker(x.mon));
-    
     const affected = [];
     const punished = [];
     
@@ -2881,80 +2863,49 @@ function renderTurn1Simulator() {
 
     if (punished.length > 0) {
       punished.forEach((p) => {
-        const pColor = p.side === "self" ? "var(--blue)" : "var(--red)";
-        insights.push({
-          icon: "⚠️",
-          text: `¡Cuidado! <strong style="color:${pColor}">${p.mon.displayName}</strong> tiene una habilidad que castiga estadísticas, y se potenciará por la Intimidación de <strong style="color:${intimColor}">${intim.mon.displayName}</strong>.`,
-        });
+        insights.push(`<span class="tag-pill tag-pill--danger">⚠️ Peligro</span> ${micro(intim.mon)} ➔ 📈 +2 Atk ➔ ${micro(p.mon)}`);
       });
     }
 
     if (affected.length > 0) {
-      insights.push({
-        icon: "🦁",
-        text: `<strong style="color:${intimColor}">${intim.mon.displayName}</strong> aplica Intimidate, afectando a ${affected.map((t) => `<strong style="color:${t.side === "self" ? "var(--blue)" : "var(--red)"}">${t.mon.displayName}</strong>`).join(" y ")}.`,
-      });
+      insights.push(`<span class="tag-pill tag-pill--info">🦁 Intimidación</span> ${micro(intim.mon)} ➔ ⬇️ Atk ➔ ${affected.map(t => micro(t.mon)).join(' ')}`);
     } else if (punished.length === 0) {
-      insights.push({
-        icon: "🦁",
-        text: `<strong style="color:${intimColor}">${intim.mon.displayName}</strong> aplica Intimidate, pero no hay atacantes físicos vulnerables en frente.`,
-      });
+      insights.push(`<span class="tag-pill tag-pill--info">🦁 Intimidación</span> ${micro(intim.mon)} ➔ 🤷 Sin objetivos físicos.`);
     }
   });
 
   // 2. Lógica Avanzada: Guerras de Clima y Terreno
   if (weatherSetters.length > 0) {
     if (weatherSetters.length === 1) {
-      insights.push({
-        icon: "🌤️",
-        text: `<strong style="color:${weatherSetters[0].side === "self" ? "var(--blue)" : "var(--red)"}">${weatherSetters[0].mon.displayName}</strong> establece ${WEATHER_SETTERS[safeNorm(weatherSetters[0].mon.set?.ability)]}.`,
-      });
+      insights.push(`<span class="tag-pill tag-pill--success">🌤️ Clima</span> ${micro(weatherSetters[0].mon)} establece ${WEATHER_SETTERS[safeNorm(weatherSetters[0].mon.set?.ability)]}.`);
     } else {
       const fastest = weatherSetters[0];
       const slowest = weatherSetters[weatherSetters.length - 1]; // Al estar ordenado por Speed, el último es el más lento.
-      insights.push({
-        icon: "🌤️",
-        text: `<strong style="color:${slowest.side === "self" ? "var(--blue)" : "var(--red)"}">${slowest.mon.displayName}</strong> es más lento que <strong style="color:${fastest.side === "self" ? "var(--blue)" : "var(--red)"}">${fastest.mon.displayName}</strong>, por lo que su clima prevalecerá en Turno 1 (${WEATHER_SETTERS[safeNorm(slowest.mon.set?.ability)]}).`,
-      });
+      insights.push(`<span class="tag-pill tag-pill--success">🌪️ Clima</span> ${micro(slowest.mon)} gana a ${micro(fastest.mon)} por ser más lento.`);
     }
   }
 
   if (terrainSetters.length > 0) {
     if (terrainSetters.length === 1) {
-      insights.push({
-        icon: "✨",
-        text: `<strong style="color:${terrainSetters[0].side === "self" ? "var(--blue)" : "var(--red)"}">${terrainSetters[0].mon.displayName}</strong> establece ${TERRAIN_SETTERS[safeNorm(terrainSetters[0].mon.set?.ability)]}.`,
-      });
+      insights.push(`<span class="tag-pill tag-pill--success">✨ Terreno</span> ${micro(terrainSetters[0].mon)} establece ${TERRAIN_SETTERS[safeNorm(terrainSetters[0].mon.set?.ability)]}.`);
     } else {
       const fastest = terrainSetters[0];
       const slowest = terrainSetters[terrainSetters.length - 1];
-      insights.push({
-        icon: "✨",
-        text: `<strong style="color:${slowest.side === "self" ? "var(--blue)" : "var(--red)"}">${slowest.mon.displayName}</strong> es más lento que <strong style="color:${fastest.side === "self" ? "var(--blue)" : "var(--red)"}">${fastest.mon.displayName}</strong>, prevaleciendo su terreno (${TERRAIN_SETTERS[safeNorm(slowest.mon.set?.ability)]}).`,
-      });
+      insights.push(`<span class="tag-pill tag-pill--success">🌪️ Terreno</span> ${micro(slowest.mon)} gana a ${micro(fastest.mon)} por ser más lento.`);
     }
   }
 
   // Otras Utilidades (Tailwind y Taunt)
   tailwindUsers.forEach((tw) => {
-    insights.push({
-      icon: "💨",
-      text: `<strong style="color:${tw.side === "self" ? "var(--blue)" : "var(--red)"}">${tw.mon.displayName}</strong> puede intentar establecer control de velocidad en Turno 1 con Tailwind.`,
-    });
+    insights.push(`<span class="tag-pill tag-pill--info">💨 Viento Afín</span> ${micro(tw.mon)} amenaza control de velocidad.`);
   });
 
   redirectionUsers.forEach((red) => {
-    insights.push({
-      icon: "🛡️",
-      text: `<strong style="color:${red.side === "self" ? "var(--blue)" : "var(--red)"}">${red.mon.displayName}</strong> puede redirigir ataques en este turno.`,
-    });
+    insights.push(`<span class="tag-pill tag-pill--info">🛡️ Redirección</span> ${micro(red.mon)} atraerá los ataques.`);
   });
 
   tauntUsers.forEach((taunt) => {
-    insights.push({
-      icon: "🚫",
-      text: `<strong style="color:${taunt.side === "self" ? "var(--blue)" : "var(--red)"}">${taunt.mon.displayName}</strong> amenaza con Taunt para bloquear movimientos de estado.`,
-    });
+    insights.push(`<span class="tag-pill tag-pill--warning">🚫 Mofa</span> ${micro(taunt.mon)} amenaza movimientos de estado.`);
   });
 
   // 8. Double Target
@@ -2964,18 +2915,12 @@ function renderTurn1Simulator() {
   if (selfLeads.length === 2 && enemyLeads.length === 2) {
     selfLeads.forEach(myMon => {
       if (bestAttack(enemyLeads[0], myMon).mult >= 2 && bestAttack(enemyLeads[1], myMon).mult >= 2) {
-        insights.push({
-          icon: "🎯",
-          text: `<strong>Riesgo de Double Target:</strong> Ambos leads rivales tienen presión muy eficaz (≥x2) sobre <strong style="color:var(--blue)">${myMon.displayName}</strong>.`,
-        });
+        insights.push(`<span class="tag-pill tag-pill--danger">🎯 Double Target</span> ${micro(enemyLeads[0])} + ${micro(enemyLeads[1])} ➔ 💥 Presión ➔ ${micro(myMon)}`);
       }
     });
     enemyLeads.forEach(enemyMon => {
       if (bestAttack(selfLeads[0], enemyMon).mult >= 2 && bestAttack(selfLeads[1], enemyMon).mult >= 2) {
-        insights.push({
-          icon: "🎯",
-          text: `<strong>Oportunidad de Foco:</strong> Ambos leads tuyos tienen presión muy eficaz (≥x2) sobre <strong style="color:var(--red)">${enemyMon.displayName}</strong>.`,
-        });
+        insights.push(`<span class="tag-pill tag-pill--success">🎯 Foco</span> ${micro(selfLeads[0])} + ${micro(selfLeads[1])} ➔ 💥 Presión ➔ ${micro(enemyMon)}`);
       }
     });
   }
@@ -2997,10 +2942,9 @@ function renderTurn1Simulator() {
   } else {
     list.innerHTML = timelineHtml + insights
       .map(
-        (i) => `
-          <div class="strategy-row" style="padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,0.02);">
-            <div style="font-size:1.1rem;">${i.icon}</div>
-            <div style="font-size:0.75rem; line-height:1.3; color:#eef4ff;">${i.text}</div>
+        (htmlStr) => `
+          <div style="padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.02); margin-bottom: 6px;">
+            <div class="formula-row">${htmlStr}</div>
           </div>
         `,
       )
