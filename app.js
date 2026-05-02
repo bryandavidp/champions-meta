@@ -1652,7 +1652,7 @@ function renderMatrix(rows) {
                       `;
                     } else if (cell.mult === 0) {
                       cellClasses.push("cell--immune");
-                      content = `<i data-lucide="ban" style="width:18px;height:18px;opacity:0.5;"></i>`;
+                      content = `<i data-lucide="ban" style="width:16px;height:16px;opacity:0.6;"></i>`;
                     } else if (cell.mult < 1) {
                       cellClasses.push("cell--resist");
                       content = `<i data-lucide="chevron-down" style="width:16px;height:16px;opacity:0.6;"></i>`;
@@ -2831,27 +2831,27 @@ function renderTurn1Simulator() {
   const TAILWIND = new Set(["tailwind", "vientoafin", "vientoafn"]);
 
   const WEATHER_SETTERS = {
-    drizzle: "Lluvia 🌧️",
-    llovizna: "Lluvia 🌧️",
-    drought: "Sol ☀️",
-    sequia: "Sol ☀️",
-    sequía: "Sol ☀️",
-    sandstream: "Arena 🪨",
-    chorroarena: "Arena 🪨",
-    snowwarning: "Nieve ❄️",
-    nevada: "Nieve ❄️",
+    drizzle: { text: "Lluvia", icon: "cloud-rain" },
+    llovizna: { text: "Lluvia", icon: "cloud-rain" },
+    drought: { text: "Sol", icon: "sun" },
+    sequia: { text: "Sol", icon: "sun" },
+    sequía: { text: "Sol", icon: "sun" },
+    sandstream: { text: "Arena", icon: "wind" },
+    chorroarena: { text: "Arena", icon: "wind" },
+    snowwarning: { text: "Nieve", icon: "snowflake" },
+    nevada: { text: "Nieve", icon: "snowflake" },
   };
 
   const TERRAIN_SETTERS = {
-    psychicsurge: "Terreno Psíquico 🔮",
-    psicogenesis: "Terreno Psíquico 🔮",
-    grassysurge: "Campo de Hierba 🌿",
-    herbogenesis: "Campo de Hierba 🌿",
-    electricsurge: "Campo Eléctrico ⚡",
-    electrogenesis: "Campo Eléctrico ⚡",
-    mistysurge: "Campo de Niebla 🧚",
-    neblogenesis: "Campo de Niebla 🧚",
-    hadagenesis: "Campo de Niebla 🧚",
+    psychicsurge: { text: "Terreno Psíquico", icon: "orbit" },
+    psicogenesis: { text: "Terreno Psíquico", icon: "orbit" },
+    grassysurge: { text: "Campo de Hierba", icon: "leaf" },
+    herbogenesis: { text: "Campo de Hierba", icon: "leaf" },
+    electricsurge: { text: "Campo Eléctrico", icon: "zap" },
+    electrogenesis: { text: "Campo Eléctrico", icon: "zap" },
+    mistysurge: { text: "Campo de Niebla", icon: "sparkles" },
+    neblogenesis: { text: "Campo de Niebla", icon: "sparkles" },
+    hadagenesis: { text: "Campo de Niebla", icon: "sparkles" },
   };
 
   const INTIMIDATE = new Set(["intimidate", "intimidacion"]);
@@ -2916,7 +2916,7 @@ function renderTurn1Simulator() {
   // Anti-Priority general insight
   antiPriorityUsers.forEach((ap) => {
     insights.push(
-      `<span class="tag-pill tag-pill--info">🛡️ Bloqueo</span> ${micro(ap.mon)} anula prioridad (ej. Sorpresa).`,
+      `<span class="tag-pill tag-pill--info"><i data-lucide="shield"></i> Bloqueo</span> ${micro(ap.mon)} anula prioridad (ej. Sorpresa).`,
     );
   });
 
@@ -2928,22 +2928,22 @@ function renderTurn1Simulator() {
   if (effectiveFakeOuts.length > 0) {
     if (effectiveFakeOuts.length === 1) {
       insights.push(
-        `<span class="tag-pill tag-pill--warning">✋ Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} amenaza con Sorpresa.`,
+        `<span class="tag-pill tag-pill--warning"><i data-lucide="hand"></i> Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} amenaza con Sorpresa.`,
       );
     } else {
       insights.push(
-        `<span class="tag-pill tag-pill--warning">✋ Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} es el Sorpresa más rápido.`,
+        `<span class="tag-pill tag-pill--warning"><i data-lucide="hand"></i> Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} es el Sorpresa más rápido.`,
       );
     }
 
     if (redirectionUsers.length > 0) {
       insights.push(
-        `<span class="tag-pill tag-pill--info">ℹ️ Prioridad</span> Sorpresa impactará antes que la redirección.`,
+        `<span class="tag-pill tag-pill--info"><i data-lucide="info"></i> Prioridad</span> Sorpresa impactará antes que la redirección.`,
       );
     }
   } else if (fakeOutUsers.length > 0) {
     insights.push(
-      `<span class="tag-pill tag-pill--danger">❌ Bloqueo</span> Sorpresa de ${fakeOutUsers.map((fo) => micro(fo.mon)).join("")} inútil ante inmunidad.`,
+      `<span class="tag-pill tag-pill--danger"><i data-lucide="ban"></i> Bloqueo</span> Sorpresa de ${fakeOutUsers.map((fo) => micro(fo.mon)).join("")} inútil ante inmunidad.`,
     );
   }
 
@@ -2964,47 +2964,51 @@ function renderTurn1Simulator() {
     if (punished.length > 0) {
       punished.forEach((p) => {
         insights.push(
-          `<span class="tag-pill tag-pill--danger">⚠️ Peligro</span> ${micro(intim.mon)} ➔ 📈 +2 Atk ➔ ${micro(p.mon)}`,
+          `<span class="tag-pill tag-pill--danger"><i data-lucide="alert-triangle"></i> Peligro</span> ${micro(intim.mon)} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="trending-up" style="color: var(--green);"></i> +2 Atk <i data-lucide="arrow-right" class="formula-arrow"></i> ${micro(p.mon)}`,
         );
       });
     }
 
     if (affected.length > 0) {
       insights.push(
-        `<span class="tag-pill tag-pill--info">🦁 Intimidación</span> ${micro(intim.mon)} ➔ ⬇️ Atk ➔ ${affected.map((t) => micro(t.mon)).join(" ")}`,
+        `<span class="tag-pill tag-pill--info"><i data-lucide="eye"></i> Intimidación</span> ${micro(intim.mon)} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="trending-down" style="color: var(--red);"></i> Atk <i data-lucide="arrow-right" class="formula-arrow"></i> ${affected.map((t) => micro(t.mon)).join(" ")}`,
       );
     } else if (punished.length === 0) {
       insights.push(
-        `<span class="tag-pill tag-pill--info">🦁 Intimidación</span> ${micro(intim.mon)} ➔ 🤷 Sin objetivos físicos.`,
+        `<span class="tag-pill tag-pill--info"><i data-lucide="eye"></i> Intimidación</span> ${micro(intim.mon)} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="help-circle"></i> Sin objetivos físicos.`,
       );
     }
   });
 
   // 2. Lógica Avanzada: Guerras de Clima y Terreno
   if (weatherSetters.length > 0) {
+    const fastestW = weatherSetters[0];
+    const slowestW = weatherSetters[weatherSetters.length - 1];
     if (weatherSetters.length === 1) {
+      const wData = WEATHER_SETTERS[safeNorm(fastestW.mon.set?.ability)];
       insights.push(
-        `<span class="tag-pill tag-pill--success">🌤️ Clima</span> ${micro(weatherSetters[0].mon)} establece ${WEATHER_SETTERS[safeNorm(weatherSetters[0].mon.set?.ability)]}.`,
+        `<span class="tag-pill tag-pill--success"><i data-lucide="${wData.icon}"></i> Clima</span> ${micro(fastestW.mon)} establece ${wData.text}.`,
       );
     } else {
-      const fastest = weatherSetters[0];
-      const slowest = weatherSetters[weatherSetters.length - 1]; // Al estar ordenado por Speed, el último es el más lento.
+      const wDataSlow = WEATHER_SETTERS[safeNorm(slowestW.mon.set?.ability)];
       insights.push(
-        `<span class="tag-pill tag-pill--success">🌪️ Clima</span> ${micro(slowest.mon)} gana a ${micro(fastest.mon)} por ser más lento.`,
+        `<span class="tag-pill tag-pill--success"><i data-lucide="${wDataSlow.icon}"></i> Clima</span> ${micro(slowestW.mon)} gana a ${micro(fastestW.mon)} por ser más lento.`,
       );
     }
   }
 
   if (terrainSetters.length > 0) {
+    const fastestT = terrainSetters[0];
+    const slowestT = terrainSetters[terrainSetters.length - 1];
     if (terrainSetters.length === 1) {
+      const tData = TERRAIN_SETTERS[safeNorm(fastestT.mon.set?.ability)];
       insights.push(
-        `<span class="tag-pill tag-pill--success">✨ Terreno</span> ${micro(terrainSetters[0].mon)} establece ${TERRAIN_SETTERS[safeNorm(terrainSetters[0].mon.set?.ability)]}.`,
+        `<span class="tag-pill tag-pill--success"><i data-lucide="${tData.icon}"></i> Terreno</span> ${micro(fastestT.mon)} establece ${tData.text}.`,
       );
     } else {
-      const fastest = terrainSetters[0];
-      const slowest = terrainSetters[terrainSetters.length - 1];
+      const tDataSlow = TERRAIN_SETTERS[safeNorm(slowestT.mon.set?.ability)];
       insights.push(
-        `<span class="tag-pill tag-pill--success">🌪️ Terreno</span> ${micro(slowest.mon)} gana a ${micro(fastest.mon)} por ser más lento.`,
+        `<span class="tag-pill tag-pill--success"><i data-lucide="${tDataSlow.icon}"></i> Terreno</span> ${micro(slowestT.mon)} gana a ${micro(fastestT.mon)} por ser más lento.`,
       );
     }
   }
@@ -3012,19 +3016,19 @@ function renderTurn1Simulator() {
   // Otras Utilidades (Tailwind y Taunt)
   tailwindUsers.forEach((tw) => {
     insights.push(
-      `<span class="tag-pill tag-pill--info">💨 Viento Afín</span> ${micro(tw.mon)} amenaza control de velocidad.`,
+      `<span class="tag-pill tag-pill--info"><i data-lucide="wind"></i> Viento Afín</span> ${micro(tw.mon)} amenaza control de velocidad.`,
     );
   });
 
   redirectionUsers.forEach((red) => {
     insights.push(
-      `<span class="tag-pill tag-pill--info">🛡️ Redirección</span> ${micro(red.mon)} atraerá los ataques.`,
+      `<span class="tag-pill tag-pill--info"><i data-lucide="shield"></i> Redirección</span> ${micro(red.mon)} atraerá los ataques.`,
     );
   });
 
   tauntUsers.forEach((taunt) => {
     insights.push(
-      `<span class="tag-pill tag-pill--warning">🚫 Mofa</span> ${micro(taunt.mon)} amenaza movimientos de estado.`,
+      `<span class="tag-pill tag-pill--warning"><i data-lucide="ban"></i> Mofa</span> ${micro(taunt.mon)} amenaza movimientos de estado.`,
     );
   });
 
@@ -3039,7 +3043,7 @@ function renderTurn1Simulator() {
         bestAttack(enemyLeads[1], myMon).mult >= 2
       ) {
         insights.push(
-          `<span class="tag-pill tag-pill--danger">🎯 Double Target</span> ${micro(enemyLeads[0])} + ${micro(enemyLeads[1])} ➔ 💥 Presión ➔ ${micro(myMon)}`,
+          `<span class="tag-pill tag-pill--danger"><i data-lucide="crosshair"></i> Double Target</span> ${micro(enemyLeads[0])} + ${micro(enemyLeads[1])} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="swords"></i> Presión <i data-lucide="arrow-right" class="formula-arrow"></i> ${micro(myMon)}`,
         );
       }
     });
@@ -3049,7 +3053,7 @@ function renderTurn1Simulator() {
         bestAttack(selfLeads[1], enemyMon).mult >= 2
       ) {
         insights.push(
-          `<span class="tag-pill tag-pill--success">🎯 Foco</span> ${micro(selfLeads[0])} + ${micro(selfLeads[1])} ➔ 💥 Presión ➔ ${micro(enemyMon)}`,
+          `<span class="tag-pill tag-pill--success"><i data-lucide="crosshair"></i> Foco</span> ${micro(selfLeads[0])} + ${micro(selfLeads[1])} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="swords"></i> Presión <i data-lucide="arrow-right" class="formula-arrow"></i> ${micro(enemyMon)}`,
         );
       }
     });
@@ -3064,7 +3068,7 @@ function renderTurn1Simulator() {
         <div class="sprite-sm" style="border: 1px solid ${lead.side === "self" ? "var(--blue)" : "var(--red)"}; flex-shrink: 0;" title="${lead.mon.displayName} - Spe: ${Math.abs(lead.spe)}">
           <img src="${lead.mon.sprite}" alt="${lead.mon.displayName}" loading="lazy">
         </div>
-        ${idx < leads.length - 1 ? `<span style="color: var(--muted); font-size: 0.8rem; flex-shrink: 0;" aria-hidden="true">➔</span>` : ""}
+        ${idx < leads.length - 1 ? `<i data-lucide="arrow-right" class="formula-arrow" style="flex-shrink: 0;"></i>` : ""}
       `,
         )
         .join("")}
@@ -3088,6 +3092,7 @@ function renderTurn1Simulator() {
         )
         .join("");
   }
+  updateIcons();
 }
 
 function updateIcons() {

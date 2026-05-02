@@ -2186,6 +2186,13 @@ tbody th {
   color: #eef4ff;
 }
 
+.formula-row .lucide {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+  stroke-width: 2.5;
+}
+
 .tag-pill {
   display: inline-flex;
   align-items: center;
@@ -2198,6 +2205,17 @@ tbody th {
   letter-spacing: 0.05em;
 }
 
+.tag-pill .lucide {
+  width: 12px;
+  height: 12px;
+  margin-right: 2px;
+}
+
+.formula-arrow {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
 .tag-pill--danger { background: rgba(255, 59, 48, 0.2); border: 1px solid rgba(255, 59, 48, 0.4); color: #ffc8c4; }
 .tag-pill--warning { background: rgba(255, 179, 77, 0.2); border: 1px solid rgba(255, 179, 77, 0.4); color: #ffe6c5; }
 .tag-pill--info { background: rgba(50, 173, 230, 0.2); border: 1px solid rgba(50, 173, 230, 0.4); color: #d4f0ff; }
@@ -2205,21 +2223,21 @@ tbody th {
 
 /* --- Jerarquía Visual de Letalidad (Matriz) --- */
 .cell--immune {
-  background: rgba(115, 87, 151, 0.2);
+  background: rgba(25, 25, 30, 0.5);
 }
 .cell--resist {
   background: rgba(50, 100, 170, 0.2);
 }
 .cell--ohko {
   background: rgba(255, 59, 48, 0.35);
-  box-shadow: inset 0 0 12px rgba(255, 59, 48, 0.8);
+  box-shadow: inset 0 0 14px rgba(255, 59, 48, 0.6);
 }
 .cell--ohko .lethality-icon {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   line-height: 1;
   text-shadow: 0 1px 3px #000;
 }
 .cell--se-no-ohko .type-dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
