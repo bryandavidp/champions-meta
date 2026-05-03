@@ -744,9 +744,26 @@ function hexToRgba(hex, alpha = 0.25) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function getContrastColor(hexcolor) {
+  if (!hexcolor) return 'white';
+  let hex = hexcolor.replace('#', '');
+  if (hex.length === 3) {
+      hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  }
+  const r = parseInt(hex.substr(0,2), 16);
+  const g = parseInt(hex.substr(2,2), 16);
+  const b = parseInt(hex.substr(4,2), 16);
+  const yiq = ((r*299)+(g*587)+(b*114))/1000;
+  return (yiq >= 128) ? 'black' : 'white';
+}
+
 function typeDot(type) {
   const meta = TYPE_META[type] || { color: "#8aa2c6", name: type };
-  return `<div class="type-dot" style="background:${meta.color};" title="Tipo: ${meta.name}"></div>`;
+  const iconUrl = `https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${type.toLowerCase()}.svg`;
+  const iconColor = getContrastColor(meta.color);
+  return `<div class="type-icon-circle" style="background-color: ${meta.color};" title="Tipo: ${meta.name}">
+            <div class="type-svg-mask" style="mask-image: url('${iconUrl}'); -webkit-mask-image: url('${iconUrl}'); background-color: ${iconColor};"></div>
+          </div>`;
 }
 
 function typeChip(type) {
@@ -1432,13 +1449,26 @@ function bestAttack(attacker, defender) {
     } else {
       mult = mult * wMul * terrMul;
     }
-    const ohko = damage >= defHP && damage > 0;
+    
+    const maxDamage = damage;
+    const minDamage = Math.floor(damage * 0.85);
+    const maxPct = Math.min(100, Math.floor((maxDamage / defHP) * 100));
+    const minPct = Math.min(100, Math.floor((minDamage / defHP) * 100));
+    
+    let ohkoProb = 0;
+    if (maxDamage >= defHP) {
+        if (minDamage >= defHP) ohkoProb = 100;
+        else ohkoProb = Math.floor(((maxDamage - defHP) / (maxDamage - minDamage)) * 100);
+    }
+    const ohko = ohkoProb > 0;
+
     return {
       type: c.type,
       mult,
       move: c.move || TYPE_META[c.type]?.name || c.type,
       power: c.power || 0,
-      damage,
+      damage: maxDamage,
+      minPct, maxPct, ohkoProb,
       ohko,
     };
   });
@@ -1469,6 +1499,9 @@ function getRows() {
           mult: best.mult,
           move: best.move,
           damage: best.damage,
+          minPct: best.minPct,
+          maxPct: best.maxPct,
+          ohkoProb: best.ohkoProb,
           ohko: best.ohko,
         };
       }),
@@ -1486,6 +1519,9 @@ function getRows() {
         mult: best.mult,
         move: best.move,
         damage: best.damage,
+        minPct: best.minPct,
+        maxPct: best.maxPct,
+        ohkoProb: best.ohkoProb,
         ohko: best.ohko,
       };
     }),
@@ -1520,7 +1556,7 @@ function renderDock(side) {
             ${mon.name.includes("-mega") ? '<div class="mega-icon"></div>' : ""}
             <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
             ${side === "self" ? `<span class="slot-edit-badge">SET</span>` : ""}
-            <span class="slot-remove" data-action="remove" data-side="${side}" data-index="${idx}"><i data-lucide="x" style="width:10px;height:10px;"></i></span>
+            <span class="slot-remove" data-action="remove" data-side="${side}" data-index="${idx}"><i data-lucide="x" style="width:12px;height:12px;"></i></span>
           </button>
         `;
     })
@@ -1596,16 +1632,25 @@ function renderMatrix(rows) {
   document.getElementById("metricAvg").textContent = avg.toFixed(2);
   matrixStatus.textContent = `${cross} cruces · ${strong} fuertes`;
 
+  const colTag = offensive ? "RIVAL" : "TÚ";
+  const colColor = offensive ? "var(--red)" : "var(--blue)";
+  const rowTag = offensive ? "TÚ" : "RIVAL";
+  const rowColor = offensive ? "var(--blue)" : "var(--red)";
+
+  const theadBorder = offensive ? "rgba(255, 59, 48, 0.4)" : "rgba(50, 173, 230, 0.4)";
+  const tbodyBorder = offensive ? "rgba(50, 173, 230, 0.4)" : "rgba(255, 59, 48, 0.4)";
+
   const thead = `
         <thead>
           <tr>
-            <th class="corner">
-              <div class="corner-mark"><i data-lucide="${cornerIcon}" style="width:16px;height:16px;"></i></div>
+            <th class="corner" style="background: linear-gradient(to bottom right, transparent 49%, var(--line) 50%, transparent 51%); position: sticky; top: 0; left: 0; z-index: 3;">
+              <span style="position: absolute; top: 4px; right: 4px; font-size: 0.55rem; font-weight: 900; color: ${colColor};">${colTag}</span>
+              <span style="position: absolute; bottom: 4px; left: 4px; font-size: 0.55rem; font-weight: 900; color: ${rowColor};">${rowTag}</span>
             </th>
             ${colMons
               .map(
                 (mon) => `
-              <th>
+              <th style="border-bottom: 2px solid ${theadBorder};">
                 <div class="head-mon" title="${mon.displayName}">
                   <div class="sprite">
                     <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
@@ -1625,7 +1670,7 @@ function renderMatrix(rows) {
             .map(
               (row) => `
             <tr>
-              <th>
+              <th style="border-right: 2px solid ${tbodyBorder};">
                 <div class="row-mon" title="${row.attacker.displayName}">
                   <div class="sprite">
                     <img src="${row.attacker.sprite}" alt="${row.attacker.displayName}" loading="lazy">
@@ -1643,40 +1688,59 @@ function renderMatrix(rows) {
                     let content = "";
                     let cellClasses = ["cell"];
 
-                    if (cell.ohko) {
-                      cellClasses.push("cell--ohko");
+                    if (cell.ohko || cell.ohkoProb >= 100) {
+                      cellClasses.push("cell--ohko", "clickable-cell");
                       content = `
-                        <div class="lethality-icon">💀</div>
+                        <i data-lucide="crosshair" class="lethality-icon"></i>
                         ${typeDot(cell.type)}
                       `;
                     } else if (cell.mult === 0) {
                       cellClasses.push("cell--immune");
-                      content = `<i data-lucide="ban" style="width:16px;height:16px;opacity:0.6;"></i>`;
+                      content = `<i data-lucide="shield-off" style="width:20px;height:20px;color:#4a4a4a;"></i>`;
                     } else if (cell.mult < 1) {
                       cellClasses.push("cell--resist");
-                      content = `<i data-lucide="chevron-down" style="width:16px;height:16px;opacity:0.6;"></i>`;
+                      content = `<i data-lucide="chevrons-down" style="width:20px;height:20px;color:#a0c4ff;"></i>`;
                     } else if (cell.mult >= 2) {
-                      cellClasses.push("cell--se-no-ohko", effClass(cell.mult));
+                      cellClasses.push("cell--se-no-ohko", effClass(cell.mult), "clickable-cell");
                       content = `
                         <div class="mult">${fmtMult(cell.mult)}</div>
                         ${typeDot(cell.type)}
                       `;
                     } else {
-                      // mult === 1
-                      cellClasses.push(effClass(cell.mult)); // eff-1
-                      content = '<div class="dot-neutral"></div>';
+                      cellClasses.push(effClass(cell.mult));
+                      content = '';
                     }
 
-                    return `<td><div class="${cellClasses.join(" ")}" title="${title}">${content}</div></td>`;
+                    const tooltipAttr = (cell.mult >= 2 || cell.ohko) ? `data-tooltip="${encodeURIComponent(JSON.stringify({
+                        attacker: row.attacker.displayName, defender: cell.defender.displayName, 
+                        move: t(cell.move, "move"), type: cell.type, 
+                        minPct: cell.minPct, maxPct: cell.maxPct, ohkoProb: cell.ohkoProb
+                    }))}"` : "";
+
+                    return `<td><div class="${cellClasses.join(" ")}" title="${title}" ${tooltipAttr}>${content}</div></td>`;
                   }
 
                   // Defensive mode
                   const vClass = matrixCellClass(cell);
+                  const isDanger = cell.mult >= 2 || cell.ohko;
+                  const cClasses = ["cell", vClass];
+                  if (isDanger) cClasses.push("clickable-cell");
+                  
+                  const tooltipAttrDef = isDanger ? `data-tooltip="${encodeURIComponent(JSON.stringify({
+                        attacker: row.attacker.displayName, defender: cell.defender.displayName, 
+                        move: t(cell.move, "move"), type: cell.type, 
+                        minPct: cell.minPct, maxPct: cell.maxPct, ohkoProb: cell.ohkoProb
+                    }))}"` : "";
+                  
+                  let defContent = "";
+                  if (cell.mult === 0) defContent = `<i data-lucide="shield-off" style="width:20px;height:20px;color:#4a4a4a;"></i>`;
+                  else if (cell.mult < 1) defContent = `<i data-lucide="chevrons-down" style="width:20px;height:20px;color:#a0c4ff;"></i>`;
+                  else if (cell.mult !== 1) defContent = `<div class="mult">${fmtMult(cell.mult)}</div>${typeDot(cell.type)}`;
+
                   return `
                     <td>
-                      <div class="cell ${vClass}" title="${title}">
-                        ${cell.mult !== 1 ? `<div class="mult">${fmtMult(cell.mult)}</div>` : ""}
-                        ${cell.mult !== 1 ? typeDot(cell.type) : '<div class="dot-neutral"></div>'}
+                      <div class="${cClasses.join(" ")}" title="${title}" ${tooltipAttrDef}>
+                        ${defContent}
                       </div>
                     </td>`;
                 })
@@ -2701,8 +2765,11 @@ function renderDefensiveAlerts() {
       else if (mult < 1) resist++;
     }
 
-    if (weak >= 3 && immune === 0 && resist <= 1) {
-      alerts.push({ type: t, name: TYPE_META[t].name });
+    const score = resist + immune - weak;
+    if (score <= -2) {
+      alerts.push({ type: t, name: TYPE_META[t].name, score });
+    } else if (score >= 2) {
+      alerts.push({ type: t, name: TYPE_META[t].name, score });
     }
   }
 
@@ -2712,13 +2779,27 @@ function renderDefensiveAlerts() {
   }
 
   alertList.innerHTML = alerts
+    .sort((a, b) => a.score - b.score)
     .map(
-      (a) => `
-        <div class="tiny-chip" style="background: rgba(255, 59, 48, 0.16); border-color: rgba(255, 59, 48, 0.32); color: #ffb3ad;">
-          ⚠️ Extrema debilidad a ${a.name}. Sin inmunidades.
+      (a) => {
+        const isWeak = a.score < 0;
+        const iconUrl = `https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${a.type.toLowerCase()}.svg`;
+        const typeColor = TYPE_META[a.type]?.color || '#fff';
+        const iconContrast = getContrastColor(typeColor);
+        const bgCol = isWeak ? 'rgba(255, 59, 48, 0.2)' : 'rgba(48, 209, 88, 0.2)';
+        const borderCol = isWeak ? 'rgba(255, 59, 48, 0.4)' : 'rgba(48, 209, 88, 0.4)';
+        const textCol = isWeak ? '#ffc8c4' : '#d4ffe3';
+        const sign = a.score > 0 ? '+' : '';
+
+        return `
+        <div class="tiny-chip" style="background: ${bgCol}; border-color: ${borderCol}; color: ${textCol}; font-size: 0.75rem; padding: 4px 8px; gap: 8px;">
+          <div class="type-icon-circle" style="position: static; background-color: ${typeColor}; width: 18px; height: 18px; box-shadow: none;">
+            <div class="type-svg-mask" style="mask-image: url('${iconUrl}'); -webkit-mask-image: url('${iconUrl}'); background-color: ${iconContrast}; width: 10px; height: 10px;"></div>
+          </div>
+          <strong style="font-family: var(--poke-stat-font);">${sign}${a.score}</strong>
         </div>
-      `,
-    )
+      `;
+    })
     .join("");
 }
 
@@ -3961,3 +4042,45 @@ async function initApp() {
 }
 
 initApp();
+
+const damageTooltipContainer = document.createElement("div");
+damageTooltipContainer.id = "damageTooltip";
+document.body.appendChild(damageTooltipContainer);
+
+matrixContainer.addEventListener("click", (e) => {
+  const cell = e.target.closest('.clickable-cell[data-tooltip]');
+  if (!cell) return;
+  const data = JSON.parse(decodeURIComponent(cell.dataset.tooltip));
+
+  const typeIcon = `https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${data.type.toLowerCase()}.svg`;
+  const typeColor = TYPE_META[data.type]?.color || '#fff';
+  const iconContrast = getContrastColor(typeColor);
+
+  /* damageTooltipContainer.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <div class="type-icon-circle" style="position: static; background-color: ${typeColor}; width: 20px; height: 20px; box-shadow: none;">
+            <div class="type-svg-mask" style="mask-image: url('${typeIcon}'); -webkit-mask-image: url('${typeIcon}'); background-color: ${iconContrast}; width: 12px; height: 12px;"></div>
+        </div>
+        <strong style="font-size: 0.85rem; color: #fff;">${data.move} vs ${data.defender}</strong>
+    </div>
+    <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 2px;">Daño: <strong style="color: white;">${data.minPct}% - ${data.maxPct}%</strong></div>
+    <div style="font-size: 0.75rem; color: var(--muted);">Probabilidad de OHKO: <strong style="color: ${data.ohkoProb > 0 ? 'var(--red)' : 'white'};">${data.ohkoProb}%</strong></div>
+  `; */
+
+ /*  damageTooltipContainer.style.left = `\${e.clientX + 15}px\`;
+  damageTooltipContainer.style.top = `\${e.clientY + 15}px\`;
+  damageTooltipContainer.classList.add('show'); */
+
+  const rect = damageTooltipContainer.getBoundingClientRect();
+  if (rect.right > window.innerWidth) {
+      damageTooltipContainer.style.left = '${e.clientX - rect.width - 15}px';
+  }
+  if (rect.bottom > window.innerHeight) {
+      damageTooltipContainer.style.top = '${e.clientY - rect.height - 15}px';
+  }
+
+  clearTimeout(damageTooltipContainer.timeout);
+  damageTooltipContainer.timeout = setTimeout(() => {
+    damageTooltipContainer.classList.remove('show');
+  }, 3000);
+});

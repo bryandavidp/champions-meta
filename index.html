@@ -155,14 +155,15 @@
           </div>
 
           <!-- Fila 2: Climas y Terrenos Agrupados -->
-          <div class="field-group-wrapper" id="matrixFieldControls">
-            <div class="field-group">
+          <div class="field-group-wrapper" id="matrixFieldControls" style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 12px; border: 1px solid var(--line);">
+            <div class="field-group" style="display: flex; gap: 4px; background: transparent; border: none; padding: 0;">
               <button type="button" class="field-pill" data-weather="sun" title="Sol"><i data-lucide="sun"></i></button>
               <button type="button" class="field-pill" data-weather="rain" title="Lluvia"><i data-lucide="cloud-rain"></i></button>
               <button type="button" class="field-pill" data-weather="sand" title="Arena"><i data-lucide="wind"></i></button>
               <button type="button" class="field-pill" data-weather="snow" title="Nieve"><i data-lucide="snowflake"></i></button>
             </div>
-            <div class="field-group">
+            <div style="width: 1px; height: 16px; background: var(--line);"></div>
+            <div class="field-group" style="display: flex; gap: 4px; background: transparent; border: none; padding: 0;">
               <button type="button" class="field-pill" data-terrain="electric" title="Campo eléctrico"><i data-lucide="zap"></i></button>
               <button type="button" class="field-pill" data-terrain="grassy" title="Campo de hierba"><i data-lucide="leaf"></i></button>
               <button type="button" class="field-pill" data-terrain="psychic" title="Campo psíquico"><i data-lucide="orbit"></i></button>
