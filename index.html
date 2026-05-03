@@ -141,23 +141,34 @@
       </div>
 
       <div class="matrix-shell">
-        <div class="matrix-controls" id="matrixControls">
-          <button type="button" class="field-pill field-pill--mode" id="matrixModeToggle" title="Alternar matriz ofensiva / defensiva">
-            <i data-lucide="swords"></i><span id="matrixModeLabel">Ofensiva</span>
-          </button>
-          <button type="button" class="field-pill" data-weather="sun" title="Sol"><i data-lucide="sun"></i></button>
-          <button type="button" class="field-pill" data-weather="rain" title="Lluvia"><i data-lucide="cloud-rain"></i></button>
-          <button type="button" class="field-pill" data-weather="sand" title="Arena"><i data-lucide="wind"></i></button>
-          <button type="button" class="field-pill" data-weather="snow" title="Nieve"><i data-lucide="snowflake"></i></button>
-          <button type="button" class="field-pill" data-terrain="electric" title="Campo eléctrico"><i data-lucide="zap"></i></button>
-          <button type="button" class="field-pill" data-terrain="grassy" title="Campo de hierba"><i data-lucide="leaf"></i></button>
-          <button type="button" class="field-pill" data-terrain="psychic" title="Campo psíquico"><i data-lucide="orbit"></i></button>
-          <button type="button" class="field-pill" data-terrain="misty" title="Campo de niebla"><i data-lucide="sparkles"></i></button>
-        </div>
-        <div class="matrix-toolbar">
-          <span class="tiny-chip" id="matrixStatus">0 cruces</span>
-          <span class="tiny-chip" id="matrixSourceChip">Smogon 2026-04 · corte 1760</span>
-          <span class="tiny-chip poke-stat-num" id="matrixLegendChip">×4 / ×2 = presión fuerte</span>
+        <div class="matrix-controls-wrapper" style="padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, .05); display: grid; gap: 10px;">
+          <!-- Fila 1: Modo y Leyenda condensada -->
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div class="segmented-control" id="matrixModeToggleGroup">
+              <button class="segmented-btn active" data-mode="offensive"><i data-lucide="swords"></i> Ofensiva</button>
+              <button class="segmented-btn" data-mode="defensive"><i data-lucide="shield"></i> Defensiva</button>
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <span class="tiny-chip" id="matrixStatus">0 cruces</span>
+              <span class="tiny-chip poke-stat-num" id="matrixLegendChip">×4 / ×2 · 💀 OHKO</span>
+            </div>
+          </div>
+
+          <!-- Fila 2: Climas y Terrenos Agrupados -->
+          <div class="field-group-wrapper" id="matrixFieldControls">
+            <div class="field-group">
+              <button type="button" class="field-pill" data-weather="sun" title="Sol"><i data-lucide="sun"></i></button>
+              <button type="button" class="field-pill" data-weather="rain" title="Lluvia"><i data-lucide="cloud-rain"></i></button>
+              <button type="button" class="field-pill" data-weather="sand" title="Arena"><i data-lucide="wind"></i></button>
+              <button type="button" class="field-pill" data-weather="snow" title="Nieve"><i data-lucide="snowflake"></i></button>
+            </div>
+            <div class="field-group">
+              <button type="button" class="field-pill" data-terrain="electric" title="Campo eléctrico"><i data-lucide="zap"></i></button>
+              <button type="button" class="field-pill" data-terrain="grassy" title="Campo de hierba"><i data-lucide="leaf"></i></button>
+              <button type="button" class="field-pill" data-terrain="psychic" title="Campo psíquico"><i data-lucide="orbit"></i></button>
+              <button type="button" class="field-pill" data-terrain="misty" title="Campo de niebla"><i data-lucide="sparkles"></i></button>
+            </div>
+          </div>
         </div>
 
         <div class="matrix-grid">

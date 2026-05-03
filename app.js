@@ -1003,7 +1003,7 @@ async function loadSmogonMeta(rating = state.rating) {
   state.loadingMeta = true;
   metricMeta.textContent = "Cargando";
   metaStatusText.textContent = `Champions OU ${SMOGON_MONTH}`;
-  matrixSourceChip.textContent = `Local ${SMOGON_MONTH} · corte ${rating}`;
+  if (matrixSourceChip) matrixSourceChip.textContent = `Local ${SMOGON_MONTH} · corte ${rating}`;
 
   const file = SMOGON_FILES[rating] || SMOGON_FILES["1760"];
   const url = `${SMOGON_BASE}${file}`;
@@ -1021,7 +1021,7 @@ async function loadSmogonMeta(rating = state.rating) {
 
     metricMeta.textContent = `${state.metaRanked.length}`;
     metaStatusText.textContent = `Champions OU ${SMOGON_MONTH} · ${file}`;
-    matrixSourceChip.textContent = `Local ${SMOGON_MONTH} · corte ${rating}`;
+    if (matrixSourceChip) matrixSourceChip.textContent = `Local ${SMOGON_MONTH} · corte ${rating}`;
     searchHint.textContent = `${state.metaRanked.length} Pokémon meta disponibles`;
 
     await rehydrateCurrentTeamsSets();
@@ -1528,15 +1528,14 @@ function renderDock(side) {
 }
 
 function updateMatrixFieldUI() {
-  const modeBtn = document.getElementById("matrixModeToggle");
-  const modeLabel = document.getElementById("matrixModeLabel");
+  const modeBtns = document.querySelectorAll("#matrixModeToggleGroup .segmented-btn");
+  modeBtns.forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === state.matrixMode);
+  });
+
   const title = document.getElementById("matrixSectionTitle");
   const sub = document.getElementById("matrixSectionSub");
   const legend = document.getElementById("matrixLegendChip");
-  if (modeLabel)
-    modeLabel.textContent =
-      state.matrixMode === "defensive" ? "Defensiva" : "Ofensiva";
-  if (modeBtn) modeBtn.classList.toggle("on", state.matrixMode === "defensive");
   if (title)
     title.textContent =
       state.matrixMode === "defensive" ? "Matriz defensiva" : "Matriz ofensiva";
@@ -1553,10 +1552,10 @@ function updateMatrixFieldUI() {
         : "×4 / ×2 · 💀 OHKO";
   }
 
-  document.querySelectorAll("#matrixControls [data-weather]").forEach((el) => {
+  document.querySelectorAll("#matrixFieldControls [data-weather]").forEach((el) => {
     el.classList.toggle("on", state.field.weather === el.dataset.weather);
   });
-  document.querySelectorAll("#matrixControls [data-terrain]").forEach((el) => {
+  document.querySelectorAll("#matrixFieldControls [data-terrain]").forEach((el) => {
     el.classList.toggle("on", state.field.terrain === el.dataset.terrain);
   });
 }
@@ -1751,13 +1750,10 @@ function scoreThreat(enemyMon) {
     reasons.push("Redirección");
   if ((enemyMon.set?.ability || "") === "Intimidate")
     reasons.push("Intimidate");
-  if (maxEnemyPressure >= 2)
-    reasons.push(`Presión ${fmtMult(maxEnemyPressure)}`);
-  if (!reasons.length) reasons.push("Cobertura útil");
 
-  const bestAnswers = strongAnswers.slice(0, 2).map((x) => x.mon.displayName);
+  const bestAnswers = strongAnswers.slice(0, 2).map((x) => x.mon);
 
-  return { score, level, reasons: reasons.slice(0, 3), bestAnswers };
+  return { score, level, reasons: reasons.slice(0, 3), bestAnswers, maxEnemyPressure };
 }
 
 function renderThreats() {
@@ -1783,6 +1779,17 @@ function renderThreats() {
       const spreadLines = serializeSetSummary(mon.set || {}).filter(
         (line) => line.startsWith("Nat:") || /^\d/.test(String(line).trim()),
       );
+
+      const cleanSpreads = spreadLines.join(" · ").replace(/Nat:\s*/g, "");
+      let pressurePill = "";
+      if (threat.maxEnemyPressure >= 4) {
+        pressurePill = `<span class="tag-pill tag-pill--danger"><i data-lucide="zap"></i> Presión ${fmtMult(threat.maxEnemyPressure)}</span>`;
+      } else if (threat.maxEnemyPressure >= 2) {
+        pressurePill = `<span class="tag-pill tag-pill--warning"><i data-lucide="zap"></i> Presión ${fmtMult(threat.maxEnemyPressure)}</span>`;
+      } else {
+        pressurePill = `<span class="tag-pill tag-pill--info"><i data-lucide="zap"></i> Presión ${fmtMult(threat.maxEnemyPressure)}</span>`;
+      }
+
       return `
         <div class="enemy-row threat-card" style="background:${bgLayers}; border-color:${hexToRgba(tcol, 0.2)};">
           <div class="threat-portrait">
@@ -1790,20 +1797,20 @@ function renderThreats() {
           </div>
 
           <div class="threat-body">
-            <div class="row-title">${mon.displayName}</div>
-            <div class="row-sub threat-reasons">${threat.reasons.join(" · ")}</div>
-            ${spreadLines.length ? `<div class="row-sub threat-spread">${spreadLines.join(" · ")}</div>` : ""}
-            <div class="set-stack threat-set-stack">
-              ${mon.set?.ability ? `<span class="set-chip">${t(mon.set.ability, "ability")}</span>` : ""}
-              ${mon.set?.item ? `<span class="set-chip">${t(mon.set.item, "item")}</span>` : ""}
-              ${(mon.set?.moves || [])
-                .slice(0, 2)
-                .map(
-                  (move) => `<span class="set-chip">${t(move, "move")}</span>`,
-                )
-                .join("")}
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px; flex-wrap: wrap;">
+              <div class="row-title">${mon.displayName}</div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                ${pressurePill}
+                ${cleanSpreads ? `<span style="color:var(--muted); font-size:0.6rem; display:inline-flex; align-items:center; gap:4px;"><i data-lucide="activity" style="width:12px;height:12px;"></i> ${cleanSpreads}</span>` : ""}
+              </div>
             </div>
-            ${threat.bestAnswers.length ? `<div class="row-sub threat-answers">↩ ${threat.bestAnswers.join(", ")}</div>` : ""}
+            ${threat.reasons.length ? `<div class="row-sub threat-reasons" style="margin-top: 4px;">${threat.reasons.join(" · ")}</div>` : ""}
+            <div class="set-stack threat-set-stack" style="gap: 4px;">
+              ${mon.set?.ability ? `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.65rem; color:var(--muted); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;"><i data-lucide="dna" style="width:12px;height:12px;"></i> ${t(mon.set.ability, "ability")}</span>` : ""}
+              ${mon.set?.item ? `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.65rem; color:var(--muted); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;"><i data-lucide="package" style="width:12px;height:12px;"></i> ${t(mon.set.item, "item")}</span>` : ""}
+              ${(mon.set?.moves || []).slice(0, 2).map((move) => `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.65rem; color:var(--muted); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;"><i data-lucide="swords" style="width:12px;height:12px;"></i> ${t(move, "move")}</span>`).join("")}
+            </div>
+            ${threat.bestAnswers.length ? `<div class="formula-row" style="margin-top: 6px;"><span style="color: var(--muted);"><i data-lucide="shield-check" style="width:14px;height:14px;vertical-align:middle;"></i> Respuestas:</span> ${threat.bestAnswers.map(ans => `<img src="${ans.sprite}" class="sprite-micro" title="${ans.displayName}" alt="${ans.displayName}">`).join("")}</div>` : ""}
           </div>
 
           <span class="status-chip status-${threat.level}">
@@ -1812,6 +1819,8 @@ function renderThreats() {
         </div>`;
     })
     .join("");
+
+  updateIcons();
 }
 
 function renderOpportunities(rows) {
@@ -1834,17 +1843,22 @@ function renderOpportunities(rows) {
   opportunityList.innerHTML = top
     .map((item) => {
       const hot = item.mult >= 4;
+      const typeMeta = TYPE_META[item.type] || { color: '#8aa2c6', icon: '•' };
+      const typePill = `<span style="background:${hexToRgba(typeMeta.color, 0.18)}; border:1px solid ${hexToRgba(typeMeta.color, 0.36)}; color:#fff; font-size:0.65rem; padding:2px 6px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; font-weight: 700;">${typeMeta.icon} ${t(item.move, "move") || "—"}</span>`;
       return `
-        <div class="chance-row chance-row--compact">
-          <div class="sprite-sm"><img src="${item.attacker.sprite}" alt="" loading="lazy"></div>
-          <span class="chance-ico" aria-hidden="true">⚔️</span>
-          <span class="chance-move">${t(item.move, "move") || "—"}</span>
-          <span class="chance-arrow" aria-hidden="true">➔</span>
-          <div class="sprite-sm"><img src="${item.defender.sprite}" alt="" loading="lazy"></div>
-          <span class="mult-chip ${hot ? "mult-chip--hot" : ""}">${fmtMult(item.mult)}</span>
+        <div class="chance-row chance-row--compact" style="justify-content: space-between; padding: 6px 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="sprite-sm"><img src="${item.attacker.sprite}" alt="" loading="lazy"></div>
+            ${typePill}
+            <i data-lucide="arrow-right" class="formula-arrow" style="width: 14px; height: 14px; margin: 0 4px;"></i>
+            <div class="sprite-sm"><img src="${item.defender.sprite}" alt="" loading="lazy"></div>
+          </div>
+          <span class="mult-chip ${hot ? "mult-chip--hot" : ""}" style="font-size: 0.75rem;">${fmtMult(item.mult)}</span>
         </div>`;
     })
     .join("");
+
+  updateIcons();
 }
 
 function inferStrategies(team) {
@@ -1860,7 +1874,17 @@ function inferStrategies(team) {
   const hasAnyName = (arr) => arr.some((x) => names.has(x));
   const hasAnyMove = (arr) => arr.some((x) => moves.has(x));
   const hasAnyAbility = (arr) => arr.some((x) => abilities.has(x));
-  const teammatePairs = mons.flatMap((m) => m?.set?.teammates || []);
+
+  const getTriggers = (moveList, nameList, abilityList) => {
+    return mons.filter(m => {
+      const mvs = m?.set?.moves || [];
+      const ab = m?.set?.ability;
+      if (moveList && mvs.some(x => moveList.includes(x))) return true;
+      if (nameList && nameList.includes(m.name)) return true;
+      if (abilityList && abilityList.includes(ab)) return true;
+      return false;
+    });
+  };
 
   if (
     hasAnyMove(["Trick Room"]) ||
@@ -1875,7 +1899,7 @@ function inferStrategies(team) {
     strategies.push({
       icon: '<i data-lucide="orbit"></i>',
       title: "Trick Room",
-      text: "Hay señales de Trick Room o de un plan que quiere ganar turnos con piezas más lentas y pesadas.",
+      triggers: getTriggers(["Trick Room"], ["farigiraf", "indeedee-female", "indeedee-male", "bronzong", "heatran", "kingambit", "iron-hands", "azumarill"])
     });
   }
 
@@ -1892,7 +1916,7 @@ function inferStrategies(team) {
     strategies.push({
       icon: '<i data-lucide="wind"></i>',
       title: "Viento Afín",
-      text: "Puede intentar dominar el tempo con Tailwind, Icy Wind o presión temprana de velocidad.",
+      triggers: getTriggers(["Tailwind", "Icy Wind"], ["whimsicott", "tornadus-incarnate", "tornadus-therian", "pelipper", "talonflame"])
     });
   }
 
@@ -1905,7 +1929,7 @@ function inferStrategies(team) {
     strategies.push({
       icon: '<i data-lucide="cloud-rain"></i>',
       title: "Lluvia",
-      text: "La composición puede apoyarse en lluvia, daño de agua y compañeros que escalan con ese ritmo.",
+      triggers: getTriggers(null, ["pelipper", "politoed", "basculegion", "archaludon"], ["Drizzle"])
     });
   }
 
@@ -1917,7 +1941,7 @@ function inferStrategies(team) {
     strategies.push({
       icon: '<i data-lucide="sun"></i>',
       title: "Sol",
-      text: "Hay un núcleo claro de sol o de presión de fuego/planta alrededor del setter principal.",
+      triggers: getTriggers(null, ["charizard-mega-y", "torkoal", "venusaur", "lilligant"], ["Drought"])
     });
   }
 
@@ -1929,7 +1953,7 @@ function inferStrategies(team) {
     strategies.push({
       icon: '<i data-lucide="mountain"></i>',
       title: "Arena",
-      text: "Puede buscar chip constante, control de ritmo y sweepers que mejoran bajo arena.",
+      triggers: getTriggers(null, ["tyranitar", "tyranitar-mega", "excadrill", "garchomp"], ["Sand Stream"])
     });
   }
 
@@ -1941,7 +1965,7 @@ function inferStrategies(team) {
     strategies.push({
       icon: '<i data-lucide="refresh-cw"></i>',
       title: "Pivot",
-      text: "El rival probablemente jugará a colocarse bien, intercambiar y ganar posición desde el turno 1.",
+      triggers: getTriggers(["Fake Out", "Parting Shot", "Volt Switch", "U-turn"], ["incineroar", "landorus-therian", "iron-hands"], ["Intimidate"])
     });
   }
 
@@ -1949,7 +1973,7 @@ function inferStrategies(team) {
     strategies.push({
       icon: '<i data-lucide="shield"></i>',
       title: "Soporte",
-      text: "Tiene herramientas claras para proteger sweepers, redirigir o bloquear líneas comunes de dobles.",
+      triggers: getTriggers(["Follow Me", "Rage Powder", "Helping Hand", "Wide Guard"])
     });
   }
 
@@ -1957,11 +1981,12 @@ function inferStrategies(team) {
     strategies.push({
       icon: '<i data-lucide="music"></i>',
       title: "Disrupción",
-      text: "Puede apoyarse en planes incómodos de control, bloqueo o win condition no lineal.",
+      triggers: getTriggers(["Perish Song", "Disable"])
     });
   }
 
   if (!strategies.length) {
+    const teammatePairs = mons.flatMap((m) => m?.set?.teammates || []);
     const topTeammateHits = teammatePairs.reduce(
       (acc, t) => ((acc[t] = (acc[t] || 0) + 1), acc),
       {},
@@ -1970,9 +1995,7 @@ function inferStrategies(team) {
     strategies.push({
       icon: '<i data-lucide="puzzle"></i>',
       title: "Flexible",
-      text: paired
-        ? `No hay un arquetipo obvio; parece un equipo flexible con sinergias repartidas alrededor de ${displayFromSmogonName(paired)}.`
-        : "No hay un arquetipo obvio; parece un equipo flexible y de cobertura mixta.",
+      triggers: paired ? mons.filter(m => m.name === paired) : mons.slice(0, 3)
     });
   }
 
@@ -1988,19 +2011,25 @@ function renderStrategies() {
     return;
   }
 
+  strategyList.style.display = "grid";
+  strategyList.style.gridTemplateColumns = "repeat(auto-fit, minmax(140px, 1fr))";
+  strategyList.style.gap = "8px";
+
   strategyList.innerHTML = strategies
     .map(
       (item) => `
         <div class="strategy-row">
-          <div class="strategy-icon">${item.icon}</div>
-          <div style="min-width:0">
-            <div class="row-title">${item.title}</div>
-            <div class="row-sub">${item.text}</div>
+          <div style="font-size: 1.6rem; color: var(--blue); margin-bottom: 4px; display: grid; place-items: center;">${item.icon}</div>
+          <div class="row-title" style="font-size: 0.85rem;">${item.title}</div>
+          <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:2px; margin-top:6px;">
+            ${(item.triggers || []).map(t => `<img src="${t.sprite}" class="sprite-micro" title="${t.displayName}" alt="${t.displayName}">`).join('')}
           </div>
         </div>
       `,
     )
     .join("");
+
+  updateIcons();
 }
 
 function getSavedTeams() {
@@ -3124,22 +3153,35 @@ document.getElementById("toggleTrickRoomBtn").addEventListener("click", () => {
   renderSpeedTiers();
 });
 
-const matrixModeToggleEl = document.getElementById("matrixModeToggle");
-if (matrixModeToggleEl) {
-  matrixModeToggleEl.addEventListener("click", () => {
-    state.matrixMode =
-      state.matrixMode === "offensive" ? "defensive" : "offensive";
-    renderAll();
+function triggerMatrixFlash() {
+  const tbl = document.querySelector('.matrix-grid table');
+  if (tbl) {
+    tbl.classList.remove('matrix-flash');
+    void tbl.offsetWidth; // Force reflow
+    tbl.classList.add('matrix-flash');
+  }
+}
+
+const matrixModeToggleGroup = document.getElementById("matrixModeToggleGroup");
+if (matrixModeToggleGroup) {
+  matrixModeToggleGroup.addEventListener("click", (e) => {
+    const btn = e.target.closest(".segmented-btn");
+    if (btn && btn.dataset.mode) {
+      state.matrixMode = btn.dataset.mode;
+      triggerMatrixFlash();
+      renderAll();
+    }
   });
 }
 
-const matrixControlsEl = document.getElementById("matrixControls");
-if (matrixControlsEl) {
-  matrixControlsEl.addEventListener("click", (e) => {
+const matrixFieldControls = document.getElementById("matrixFieldControls");
+if (matrixFieldControls) {
+  matrixFieldControls.addEventListener("click", (e) => {
     const w = e.target.closest("[data-weather]");
     if (w && w.dataset.weather) {
       const v = w.dataset.weather;
       state.field.weather = state.field.weather === v ? null : v;
+      triggerMatrixFlash();
       renderAll();
       return;
     }
@@ -3147,6 +3189,7 @@ if (matrixControlsEl) {
     if (t && t.dataset.terrain) {
       const v = t.dataset.terrain;
       state.field.terrain = state.field.terrain === v ? null : v;
+      triggerMatrixFlash();
       renderAll();
       return;
     }
@@ -3332,6 +3375,20 @@ function getQuickOptions(mon, kind) {
     ]).slice(0, 18);
   }
 
+  if (kind === "nature") {
+    const editorNatureChoices = [
+      "Jolly", "Adamant", "Timid", "Modest", "Bold", "Impish", "Careful", "Calm", 
+      "Brave", "Relaxed", "Quiet", "Sassy", "Naive", "Hasty", "Lonely", "Naughty", 
+      "Rash", "Mild", "Gentle", "Lax", "Hardy", "Docile", "Serious", "Bashful", "Quirky"
+    ];
+    return uniqValues([
+      raw.nature || "",
+      entry.nature || "",
+      set.nature || "",
+      ...editorNatureChoices
+    ]);
+  }
+
   return [];
 }
 
@@ -3426,19 +3483,10 @@ function renderSetEditor() {
               </div>
             </div>
 
-            <div style="position:relative;">
-              <select class="editor-main-btn" data-action="inline-ability" style="appearance:none; width:100%;">
-                <option value="">Sin habilidad</option>
-                ${abilityOptions
-                  .map(
-                    (value) => `
-                  <option value="${value}" ${value === set.ability ? "selected" : ""}>${t(value, "ability")}</option>
-                `,
-                  )
-                  .join("")}
-              </select>
-              <i data-lucide="chevron-down" style="position:absolute; right:12px; top:15px; color:var(--muted); pointer-events:none; width:16px; height:16px;"></i>
-            </div>
+            <button type="button" class="edit-trigger-btn" data-action="edit-ability">
+              <span class="${set.ability ? 'val' : 'placeholder'}">${t(set.ability, 'ability') || 'Toca para asignar Habilidad'}</span>
+              <i data-lucide="chevron-right" style="width:16px;color:var(--muted);"></i>
+            </button>
 
             <div class="editor-pill-list" style="flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
               ${abilityOptions
@@ -3461,19 +3509,10 @@ function renderSetEditor() {
               </div>
             </div>
 
-            <div style="position:relative;">
-              <select class="editor-main-btn" data-action="inline-item" style="appearance:none; width:100%;" ${mon.name.includes("-mega") ? "disabled" : ""}>
-                <option value="">Sin objeto</option>
-                ${itemOptions
-                  .map(
-                    (value) => `
-                  <option value="${value}" ${value === set.item ? "selected" : ""}>${t(value, "item")}</option>
-                `,
-                  )
-                  .join("")}
-              </select>
-              <i data-lucide="chevron-down" style="position:absolute; right:12px; top:15px; color:var(--muted); pointer-events:none; width:16px; height:16px;"></i>
-            </div>
+            <button type="button" class="edit-trigger-btn" data-action="edit-item" ${mon.name.includes("-mega") ? "disabled" : ""}>
+              <span class="${set.item ? 'val' : 'placeholder'}">${t(set.item, 'item') || 'Toca para asignar Objeto'}</span>
+              <i data-lucide="chevron-right" style="width:16px;color:var(--muted);"></i>
+            </button>
 
             <div class="editor-pill-list" style="flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
               ${itemOptions
@@ -3497,27 +3536,19 @@ function renderSetEditor() {
             </div>
           </div>
 
-          <div style="position:relative;">
-            <select class="editor-main-btn" data-action="inline-nature" style="appearance:none; width:100%;">
-              <option value="">Sin naturaleza</option>
-              ${natureList
-                .map(
-                  (n) => `
-                <option value="${n}" ${n === curNature ? "selected" : ""}>${n}</option>
-              `,
-                )
-                .join("")}
-            </select>
-            <i data-lucide="chevron-down" style="position:absolute; right:12px; top:15px; color:var(--muted); pointer-events:none; width:16px; height:16px;"></i>
-          </div>
+          <button type="button" class="edit-trigger-btn" data-action="edit-nature">
+            <span class="${set.nature ? 'val' : 'placeholder'}">${set.nature || 'Toca para asignar Naturaleza'}</span>
+            <i data-lucide="chevron-right" style="width:16px;color:var(--muted);"></i>
+          </button>
 
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px;">
+          <div class="ev-compact-grid" style="margin-top: 8px;">
             ${evStatMeta
               .map(
                 ({ key, label }) => `
-              <label style="display:block;font-size:.55rem;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">${label}
-                <input type="number" min="0" max="252" step="1" data-action="inline-ev" data-stat="${key}" value="${Number(evs[key]) || 0}" style="${evInputStyle}">
-              </label>
+              <div class="ev-input-wrapper">
+                <span>${label}</span>
+                <input type="number" min="0" max="252" step="1" data-action="inline-ev" data-stat="${key}" value="${Number(evs[key]) || 0}">
+              </div>
             `,
               )
               .join("")}
@@ -3531,35 +3562,19 @@ function renderSetEditor() {
             </div>
           </div>
 
-          ${(set.moves || [])
-            .slice(0, 4)
-            .map(
-              (move, idx) => `
-            <div class="move-slot-card">
-              <div class="move-slot-top">
-                <div class="move-slot-label">Movimiento ${idx + 1}</div>
-                <div class="move-slot-actions">
-                  <button class="icon-mini-btn" data-action="clear-move" data-index="${idx}"><i data-lucide="x" style="width:16px;height:16px;"></i></button>
-                </div>
-              </div>
-
-              <div style="position:relative;">
-                <select class="editor-main-btn" data-action="inline-move" data-index="${idx}" style="appearance:none; width:100%;">
-                  <option value="">Sin movimiento</option>
-                  ${moveOptions
-                    .map(
-                      (value) => `
-                    <option value="${value}" ${value === move ? "selected" : ""}>${t(value, "move")}</option>
-                  `,
-                    )
-                    .join("")}
-                </select>
-                <i data-lucide="chevron-down" style="position:absolute; right:12px; top:15px; color:var(--muted); pointer-events:none; width:16px; height:16px;"></i>
-              </div>
-            </div>
-          `,
-            )
-            .join("")}
+          <div class="moves-2x2-grid">
+            ${(set.moves || [])
+              .slice(0, 4)
+              .map(
+                (move, idx) => `
+              <button type="button" class="move-btn ${move ? '' : 'empty'}" data-action="edit-move" data-index="${idx}">
+                <span class="val">${t(move, 'move') || '+ Añadir ataque'}</span>
+                ${move ? `<div class="move-btn-clear" data-action="clear-move" data-index="${idx}"><i data-lucide="x" style="width:14px;height:14px;"></i></div>` : ''}
+              </button>
+            `,
+              )
+              .join("")}
+          </div>
         </article>
       `;
 
@@ -3591,6 +3606,11 @@ function getChoiceStateLabel(kind, moveIndex = null) {
     return {
       title: "Elegir objeto",
       subtitle: "Selecciona un objeto sugerido o escribe uno personalizado.",
+    };
+  if (kind === "nature")
+    return {
+      title: "Elegir naturaleza",
+      subtitle: "Selecciona una naturaleza de la lista.",
     };
   return {
     title: `Elegir movimiento ${Number(moveIndex) + 1}`,
@@ -3842,6 +3862,7 @@ setEditorBody.addEventListener("click", (e) => {
     }
     openSetChoice("item");
   }
+  if (btn.dataset.action === "edit-nature") openSetChoice("nature");
   if (btn.dataset.action === "edit-move")
     openSetChoice("move", Number(btn.dataset.index));
 

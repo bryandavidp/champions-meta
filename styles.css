@@ -945,7 +945,12 @@ tbody th {
 }
 
 .strategy-row {
-  grid-template-columns: 36px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 12px 8px;
+  justify-content: center;
 }
 
 .saved-row {
@@ -2254,3 +2259,47 @@ tbody th {
 .preview-banned-sprite { position: relative; width: 40px; height: 40px; border-radius: 10px; border: 1px dashed rgba(255, 59, 48, 0.4); background: rgba(255, 59, 48, 0.05); display: grid; place-items: center; opacity: 0.6; filter: grayscale(80%); }
 .preview-banned-sprite img { width: 32px; height: 32px; object-fit: contain; }
 .preview-ban-mark { position: absolute; inset: 0; display: grid; place-items: center; color: var(--red); font-size: 1.5rem; opacity: 0.8; }
+
+/* Segmented Control */
+.segmented-control { display: inline-flex; background: rgba(255, 255, 255, 0.04); border-radius: 12px; padding: 4px; border: 1px solid var(--line); }
+.segmented-btn { padding: 6px 14px; font-size: 0.72rem; font-weight: 800; color: var(--muted); border-radius: 8px; border: none; background: transparent; display: flex; align-items: center; gap: 6px; transition: all 0.2s; cursor: pointer; }
+.segmented-btn.active { background: linear-gradient(180deg, var(--panel3), var(--panel2)); color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 1px solid var(--line2); }
+
+/* Agrupación de Campos */
+.field-group-wrapper { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.field-group { display: flex; background: rgba(255, 255, 255, 0.03); border-radius: 999px; border: 1px solid var(--line); padding: 2px; gap: 2px; }
+.field-group .field-pill { border: none; background: transparent; margin: 0; box-shadow: none; }
+
+/* Colores de Estado Activo para Climas/Terrenos */
+.field-pill.on[data-weather="sun"] { background: rgba(255, 179, 77, 0.2); color: #ffd966; }
+.field-pill.on[data-weather="rain"] { background: rgba(50, 173, 230, 0.2); color: #99ddff; }
+.field-pill.on[data-weather="sand"] { background: rgba(210, 180, 140, 0.2); color: #e6ccb3; }
+.field-pill.on[data-weather="snow"] { background: rgba(153, 221, 255, 0.2); color: #cceeff; }
+.field-pill.on[data-terrain="electric"] { background: rgba(255, 211, 90, 0.2); color: #ffe699; }
+.field-pill.on[data-terrain="grassy"] { background: rgba(48, 209, 88, 0.2); color: #b3ffcc; }
+.field-pill.on[data-terrain="psychic"] { background: rgba(167, 139, 250, 0.2); color: #d9ccff; }
+.field-pill.on[data-terrain="misty"] { background: rgba(255, 153, 204, 0.2); color: #ffccff; }
+
+/* Animación de recálculo */
+@keyframes flashMatrix { 0% { opacity: 0.6; filter: brightness(1.3); } 100% { opacity: 1; filter: brightness(1); } }
+.matrix-flash { animation: flashMatrix 0.3s ease-out; }
+
+/* Botones de acción limpia en lugar de selects */
+.edit-trigger-btn { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 12px; color: #fff; font-size: 0.8rem; font-weight: 800; transition: background 0.1s; cursor: pointer; }
+.edit-trigger-btn:active { background: rgba(255,255,255,0.08); transform: scale(0.98); }
+.edit-trigger-btn .val { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.edit-trigger-btn .placeholder { color: var(--muted); font-weight: 600; }
+
+/* Grid de movimientos 2x2 estilo consola */
+.moves-2x2-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.move-btn { position: relative; height: 54px; border-radius: 12px; border: 1px solid var(--line); background: linear-gradient(180deg, var(--panel3), var(--panel2)); color: #fff; font-size: 0.75rem; font-weight: 800; display: flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: transform 0.1s; padding: 4px 24px 4px 8px; }
+.move-btn:active { transform: scale(0.95); }
+.move-btn.empty { border: 1px dashed rgba(255,255,255,0.2); background: transparent; color: var(--muted); box-shadow: none; padding: 4px; }
+.move-btn-clear { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; display: grid; place-items: center; color: var(--muted); border-radius: 50%; }
+.move-btn-clear:active { background: rgba(255,59,48,0.2); color: var(--red); }
+
+/* EV Grid Compacto */
+.ev-compact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ev-input-wrapper { display: flex; flex-direction: column; gap: 2px; }
+.ev-input-wrapper span { font-size: 0.55rem; font-weight: 900; color: var(--muted); text-transform: uppercase; padding-left: 2px; }
+.ev-input-wrapper input { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--line); color: #fff; border-radius: 8px; padding: 6px 8px; font-weight: 700; font-family: var(--poke-stat-font); text-align: center; }
