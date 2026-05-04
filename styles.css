@@ -1307,13 +1307,56 @@ tbody th {
   gap: 12px;
 }
 
-.dock-row {
-  display: grid;
-  grid-template-columns: 36px 1fr auto;
-  gap: 6px;
-  align-items: center;
-  min-width: 0;
+/* Contenedor principal de cada fila del dock */
+.dock-row { 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  padding: 4px 6px 8px 12px; /* Más padding a la izquierda para el borde neón */
+  background: transparent; 
+  border: none; 
+  overflow-x: auto; 
+  scrollbar-width: none; 
+  position: relative;
+  border-radius: 12px;
 }
+.dock-row::-webkit-scrollbar { display: none; }
+
+/* Indicativos de Equipo (Neon Edge) */
+.dock-row--player {
+  border-left: 4px solid var(--blue);
+  background: linear-gradient(90deg, rgba(50, 173, 230, 0.12) 0%, transparent 40%);
+}
+.dock-row--enemy {
+  border-left: 4px solid var(--red);
+  background: linear-gradient(90deg, rgba(255, 59, 48, 0.12) 0%, transparent 40%);
+}
+
+/* Nuevo Botón Cajón de Configuración */
+.team-config-btn {
+  flex-shrink: 0;
+  width: clamp(36px, 10vw, 42px);
+  height: clamp(36px, 10vw, 42px);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto; /* Empuja el botón al final derecho */
+}
+.team-config-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+.team-config-btn:active {
+  transform: scale(0.95);
+}
+
+/* Colores del icono según el equipo */
+.dock-row--player .team-config-btn { color: var(--blue); box-shadow: 0 4px 12px rgba(50, 173, 230, 0.15); }
+.dock-row--enemy .team-config-btn { color: var(--red); box-shadow: 0 4px 12px rgba(255, 59, 48, 0.15); }
 
 .dock-label {
   display: grid;
@@ -2105,7 +2148,6 @@ tbody th {
   }
 
   .dock-row {
-    grid-template-columns: 40px 1fr auto;
     background:
       linear-gradient(
         180deg,
@@ -2115,7 +2157,7 @@ tbody th {
       linear-gradient(180deg, var(--panel2), var(--panel));
     border: 1px solid var(--line);
     border-radius: 18px;
-    padding: 10px;
+    padding: 10px 10px 10px 16px;
     box-shadow: var(--shadow);
   }
 

@@ -13,6 +13,12 @@ const SMOGON_FILES = {
 };
 const RATING_ORDER = ["1760", "1630", "1500", "0"];
 
+const TACTICAL_ROLES = {
+  weatherSetters: ['drizzle', 'drought', 'sand stream', 'snow warning', 'llovizna', 'sequía', 'chorro arena', 'nevada'],
+  terrainSetters: ['grassy surge', 'psychic surge', 'electric surge', 'misty surge', 'herbogénesis', 'psicogénesis', 'electrogénesis', 'nebulogénesis'],
+  speedControl: ['trick room', 'espacio raro', 'tailwind', 'viento afín']
+};
+
 const TYPE_META = {
   normal: { name: "Normal", short: "N", color: "#A8A77A", icon: "N" },
   fire: { name: "Fire", short: "F", color: "#EE8130", icon: "F" },
@@ -2508,12 +2514,41 @@ function computeQuickPreview(rows) {
     return { enemyPlan: [], bestFour: [], leadPair: [], noBring: [] };
   }
 
+  // Escaneo del Rival para Scoring Táctico Dinámico
+  const enemyAbilities = enemyTeam.map(e => e?.set?.ability?.toLowerCase()).filter(Boolean);
+  const enemyMoves = enemyTeam.flatMap(e => e?.set?.moves || []).map(m => m.toLowerCase()).filter(Boolean);
+
+  const enemyHasFieldControl = enemyAbilities.some(a => TACTICAL_ROLES.weatherSetters.includes(a) || TACTICAL_ROLES.terrainSetters.includes(a));
+  const enemyHasSpeedControl = enemyMoves.some(m => TACTICAL_ROLES.speedControl.includes(m));
+
   const scoredSelf = selfTeam
-    .map((mon) => ({
-      mon,
-      score: scorePokemonForQuickPick(mon, enemyTeam), // Puntuación existente para quick pick
-      mvpScore: calculateMvpScore(mon, selfTeam, enemyTeam), // Nueva puntuación MVP
-    }))
+    .map((mon) => {
+      let baseScore = scorePokemonForQuickPick(mon, enemyTeam);
+      mon.tacticalReason = null;
+
+      const myAbilities = [mon.set?.ability?.toLowerCase()].filter(Boolean);
+      const myMoves = (mon.set?.moves || []).map(m => m.toLowerCase());
+      const mySpeed = mon.raw?.stats?.find(s => s.stat.name === 'speed')?.base_stat || 0;
+
+      if (enemyHasFieldControl && myAbilities.some(a => TACTICAL_ROLES.weatherSetters.includes(a) || TACTICAL_ROLES.terrainSetters.includes(a))) {
+        const myControl = myAbilities.find(a => TACTICAL_ROLES.weatherSetters.includes(a) || TACTICAL_ROLES.terrainSetters.includes(a));
+        if (myControl && !enemyAbilities.includes(myControl)) {
+          baseScore += 500;
+          mon.tacticalReason = 'weather';
+        }
+      } else if (enemyHasSpeedControl) {
+        if (mySpeed < 50 || myMoves.some(m => ['taunt', 'mofa', 'imprison', 'cerca'].includes(m))) {
+          baseScore += 300;
+          mon.tacticalReason = 'speed';
+        }
+      }
+
+      return {
+        mon,
+        score: baseScore,
+        mvpScore: calculateMvpScore(mon, selfTeam, enemyTeam),
+      };
+    })
     .sort((a, b) => b.score - a.score);
 
   const bestFour = scoredSelf.slice(0, 4).map((x) => x.mon);
@@ -2587,6 +2622,26 @@ function renderWeaknessSummary() {
   // Future
 }
 
+function renderPreviewSprite(mon) {
+  return `
+    <div style="position: relative; display: inline-block; width: 100%; height: 100%;">
+      <img src="${mon.sprite}" alt="${mon.name || ''}" style="width: 100%; height: 100%; object-fit: contain;">
+      
+      ${mon.tacticalReason === 'weather' ? `
+        <div style="position:absolute; top:-4px; right:-4px; background:var(--blue); border-radius:50%; width:16px; height:16px; display:grid; place-items:center; border: 2px solid #181820;" title="Respuesta clave al Clima/Terreno rival">
+          <i data-lucide="cloud-lightning" style="width:10px; height:10px; color:#fff;"></i>
+        </div>
+      ` : ''}
+
+      ${mon.tacticalReason === 'speed' ? `
+        <div style="position:absolute; top:-4px; right:-4px; background:var(--purple); border-radius:50%; width:16px; height:16px; display:grid; place-items:center; border: 2px solid #181820;" title="Respuesta clave al Control de Velocidad rival">
+          <i data-lucide="timer" style="width:10px; height:10px; color:#fff;"></i>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
 function renderQuickPreview(preview) {
   const selfTeam = state.self.filter(Boolean);
   const enemyTeam = state.enemy.filter(Boolean);
@@ -2629,13 +2684,13 @@ function renderQuickPreview(preview) {
     <div class="preview-squad">
       <div class="preview-lead-row">
         ${preview.leadPair.length === 2 ? `
-          <div class="preview-lead-sprite" title="${preview.leadPair[0].displayName}"><img src="${preview.leadPair[0].sprite}"></div>
+          <div class="preview-lead-sprite" title="${preview.leadPair[0].displayName}">${renderPreviewSprite(preview.leadPair[0])}</div>
           <div class="preview-plus"><i data-lucide="plus"></i></div>
-          <div class="preview-lead-sprite" title="${preview.leadPair[1].displayName}"><img src="${preview.leadPair[1].sprite}"></div>
-        ` : preview.leadPair.map(m => `<div class="preview-lead-sprite" title="${m.displayName}"><img src="${m.sprite}"></div>`).join("")}
+          <div class="preview-lead-sprite" title="${preview.leadPair[1].displayName}">${renderPreviewSprite(preview.leadPair[1])}</div>
+        ` : preview.leadPair.map(m => `<div class="preview-lead-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join("")}
       </div>
       <div class="preview-bench-row">
-        ${backline.map(m => `<div class="preview-bench-sprite" title="${m.displayName}"><img src="${m.sprite}"></div>`).join('')}
+        ${backline.map(m => `<div class="preview-bench-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join('')}
       </div>
     </div>
   `;
@@ -2657,6 +2712,9 @@ function renderQuickPreview(preview) {
   `;
   
   updateIcons();
+  if (typeof lucide !== "undefined" && lucide.createIcons) {
+    lucide.createIcons();
+  }
 }
 
 function renderSpeedTiers() {
@@ -3370,10 +3428,10 @@ document
   .getElementById("saveTeamBtn")
   .addEventListener("click", saveCurrentTeam);
 document
-  .getElementById("fillMetaLeftBtn")
+  .querySelector('.team-config-btn[data-team="self"]')
   .addEventListener("click", () => fillMetaPreset("self"));
 document
-  .getElementById("fillMetaRightBtn")
+  .querySelector('.team-config-btn[data-team="enemy"]')
   .addEventListener("click", () => fillMetaPreset("enemy"));
 
 savedTeamsList.addEventListener("click", (e) => {

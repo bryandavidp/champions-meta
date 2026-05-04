@@ -252,28 +252,18 @@
 
   <aside class="picker-dock">
     <div class="dock-shell">
-      <div class="dock-row">
-        <div class="dock-label dock-label--mini">
-          <span class="dock-side-tag">Tú</span>
-        </div>
-
+      <div class="dock-row dock-row--player">
         <div class="dock-team" id="selfSlots"></div>
-
-        <div class="mini-actions">
-          <button class="mini-btn" id="fillMetaLeftBtn">Preset</button>
-        </div>
+        <button type="button" class="team-config-btn" data-team="self" title="Configurar Equipo">
+          <i data-lucide="sliders-horizontal" style="width: 18px; height: 18px;"></i>
+        </button>
       </div>
 
-      <div class="dock-row">
-        <div class="dock-label dock-label--mini">
-          <span class="dock-side-tag">Rival</span>
-        </div>
-
+      <div class="dock-row dock-row--enemy">
         <div class="dock-team" id="enemySlots"></div>
-
-        <div class="mini-actions">
-          <button class="mini-btn" id="fillMetaRightBtn">Preset</button>
-        </div>
+        <button type="button" class="team-config-btn" data-team="enemy" title="Configurar Rival">
+          <i data-lucide="sliders-horizontal" style="width: 18px; height: 18px;"></i>
+        </button>
       </div>
     </div>
   </aside>
