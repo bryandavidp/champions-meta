@@ -3429,10 +3429,10 @@ document
   .addEventListener("click", saveCurrentTeam);
 document
   .querySelector('.team-config-btn[data-team="self"]')
-  .addEventListener("click", () => fillMetaPreset("self"));
+  .addEventListener("click", () => renderTeamConfigDrawer("self"));
 document
   .querySelector('.team-config-btn[data-team="enemy"]')
-  .addEventListener("click", () => fillMetaPreset("enemy"));
+  .addEventListener("click", () => renderTeamConfigDrawer("enemy"));
 
 savedTeamsList.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-action]");
@@ -4142,3 +4142,105 @@ matrixContainer.addEventListener("click", (e) => {
     damageTooltipContainer.classList.remove('show');
   }, 3000);
 });
+
+// --- Team Config Drawer ---
+function renderTeamConfigDrawer(teamType) {
+  let modalContainer = document.getElementById("teamConfigModal");
+  if (!modalContainer) {
+    modalContainer = document.createElement("div");
+    modalContainer.id = "teamConfigModal";
+    document.body.appendChild(modalContainer);
+  }
+
+  modalContainer.innerHTML = `
+    <div class="premium-drawer-overlay" id="drawerOverlay" onclick="closeTeamDrawer(event)">
+      <div class="premium-drawer" onclick="event.stopPropagation()">
+        <div class="drawer-handle"></div>
+
+        <div class="drawer-header">
+          <div class="drawer-title">
+            <i data-lucide="${teamType === 'self' ? 'shield-half' : 'swords'}"></i>
+            <span>Configuración del ${teamType === 'self' ? 'Equipo' : 'Rival'}</span>
+          </div>
+          <button class="icon-btn" onclick="closeTeamDrawer()" style="background: rgba(255,255,255,0.05); border-radius: 50%; padding: 6px; border: none; cursor: pointer; color: #fff; display: grid; place-items: center;"><i data-lucide="x" style="width: 16px; height: 16px;"></i></button>
+        </div>
+
+        <div class="tools-grid">
+          <!-- Guardar / Cargar -->
+          <button class="tool-card primary" onclick="handleTeamAction('save', '${teamType}')">
+            <div class="icon-wrapper"><i data-lucide="save"></i></div>
+            <div>
+              <div class="tool-card-title">Guardar en Box</div>
+              <div class="tool-card-desc">Almacena el equipo en memoria.</div>
+            </div>
+          </button>
+
+          <button class="tool-card warning" onclick="handleTeamAction('load', '${teamType}')">
+            <div class="icon-wrapper"><i data-lucide="folder-open"></i></div>
+            <div>
+              <div class="tool-card-title">Cargar Box</div>
+              <div class="tool-card-desc">Restaura un equipo guardado.</div>
+            </div>
+          </button>
+
+          <!-- Importar Pokepaste -->
+          <button class="tool-card success" onclick="handleTeamAction('import', '${teamType}')" style="grid-column: span 2; flex-direction: row; align-items: center;">
+            <div class="icon-wrapper"><i data-lucide="clipboard-paste"></i></div>
+            <div style="flex: 1; text-align: left;">
+              <div class="tool-card-title">Importar Poképaste</div>
+              <div class="tool-card-desc">Pega un texto de Showdown para cargar instantáneamente.</div>
+            </div>
+            <i data-lucide="chevron-right" style="color: var(--muted);"></i>
+          </button>
+
+          <!-- Limpiar Equipo -->
+          <button class="tool-card danger" onclick="handleTeamAction('clear', '${teamType}')" style="grid-column: span 2; flex-direction: row; align-items: center; background: rgba(255,59,48,0.05);">
+            <div class="icon-wrapper"><i data-lucide="trash-2"></i></div>
+            <div style="flex: 1; text-align: left;">
+              <div class="tool-card-title" style="color: var(--red);">Reiniciar Slots</div>
+              <div class="tool-card-desc">Vacía todos los Pokémon de este lado.</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (typeof lucide !== "undefined" && lucide.createIcons) {
+    lucide.createIcons();
+  }
+
+  const overlay = document.getElementById("drawerOverlay");
+  void overlay.offsetWidth; // Forzamos un reflow para asegurar la animación
+  overlay.classList.add("open");
+}
+
+window.closeTeamDrawer = function(e) {
+  if (e && e.target !== e.currentTarget) return;
+  const overlay = document.getElementById("drawerOverlay");
+  if (overlay) {
+    overlay.classList.remove("open");
+  }
+};
+
+window.handleTeamAction = function(action, teamType) {
+  closeTeamDrawer();
+  
+  if (action === 'save') {
+    if (teamType === 'self') {
+      saveCurrentTeam();
+    } else {
+      alert("Solo puedes guardar tu propio equipo por ahora.");
+    }
+  } else if (action === 'load') {
+    document.querySelector('.save-bar').scrollIntoView({ behavior: 'smooth' });
+  } else if (action === 'import') {
+    const paste = prompt("Pega tu Poképaste de Showdown aquí:\n(En esta versión se carga el preset meta automáticamente)");
+    if (paste !== null) {
+      fillMetaPreset(teamType);
+    }
+  } else if (action === 'clear') {
+    state[teamType] = Array(6).fill(null);
+    renderAll();
+  }
+};
