@@ -1273,25 +1273,22 @@ tbody th {
   justify-content: flex-end;
 }
 
-/* 1. Isla Flotante: Contenedor Principal */
 .picker-dock {
   position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 24px);
-  max-width: 600px;
-  background: rgba(22, 22, 28, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  padding: 10px; /* Padding unificado y simétrico */
-  box-shadow: 0 16px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 70;
+  padding: 10px 8px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(
+    180deg,
+    rgba(18, 18, 24, 0.58),
+    rgba(12, 12, 18, 0.66)
+  );
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  gap: 8px; /* Espacio exacto entre la fila TÚ y RIVAL */
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.28);
 }
 
 .dock-alert-float {
@@ -1304,54 +1301,62 @@ tbody th {
 }
 
 .dock-shell {
-  display: contents;
+  width: min(1180px, calc(100vw - 4px));
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
 }
 
-/* 2. Filas de Equipo (Solución al borde neón y alineación) */
+/* Contenedor principal de cada fila del dock */
 .dock-row { 
   display: flex; 
   align-items: center; 
   gap: 8px; 
-  /* Padding superior/inferior para dar espacio a los badges absolutos sin recortarlos */
-  padding: 8px 10px 8px 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 16px;
+  padding: 4px 6px 8px 12px; /* Más padding a la izquierda para el borde neón */
+  background: transparent; 
+  border: none; 
   overflow-x: auto; 
-  overflow-y: hidden; /* Previene scroll vertical fantasma */
   scrollbar-width: none; 
   position: relative;
-  min-height: 64px; /* Altura mínima para asegurar simetría */
+  border-radius: 12px;
 }
 .dock-row::-webkit-scrollbar { display: none; }
 
-/* Borde Neón Integrado (Usando box-shadow inset para abrazar la curva) */
+/* Indicativos de Equipo (Neon Edge) */
 .dock-row--player {
-  box-shadow: inset 4px 0 0 0 var(--blue);
-  background: linear-gradient(90deg, rgba(50, 173, 230, 0.08) 0%, transparent 50%);
+  border-left: 4px solid var(--blue);
+  background: linear-gradient(90deg, rgba(50, 173, 230, 0.12) 0%, transparent 40%);
 }
 .dock-row--enemy {
-  box-shadow: inset 4px 0 0 0 var(--red);
-  background: linear-gradient(90deg, rgba(255, 59, 48, 0.08) 0%, transparent 50%);
+  border-left: 4px solid var(--red);
+  background: linear-gradient(90deg, rgba(255, 59, 48, 0.12) 0%, transparent 40%);
 }
 
-/* 5. Botón Cajón de Configuración (Alineación perfecta) */
+/* Nuevo Botón Cajón de Configuración */
 .team-config-btn {
   flex-shrink: 0;
-  width: 44px; /* Misma altura y anchura que el slot */
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: clamp(36px, 10vw, 42px);
+  height: clamp(36px, 10vw, 42px);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   display: grid;
   place-items: center;
   cursor: pointer;
   transition: all 0.2s ease;
   margin-left: auto; /* Empuja el botón al final derecho */
 }
-.team-config-btn:active { transform: scale(0.92); }
+.team-config-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+.team-config-btn:active {
+  transform: scale(0.95);
+}
 
-.dock-row--player .team-config-btn { color: var(--blue); }
-.dock-row--enemy .team-config-btn { color: var(--red); }
+/* Colores del icono según el equipo */
+.dock-row--player .team-config-btn { color: var(--blue); box-shadow: 0 4px 12px rgba(50, 173, 230, 0.15); }
+.dock-row--enemy .team-config-btn { color: var(--red); box-shadow: 0 4px 12px rgba(255, 59, 48, 0.15); }
 
 .dock-label {
   display: grid;
@@ -1398,19 +1403,16 @@ tbody th {
   min-width: 0;
 }
 
-/* 3. Slots de Pokémon (Dimensiones rígidas) */
 .mini-slot {
   position: relative;
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.08);
-  background: rgba(0,0,0,0.2);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: transform 0.2s;
+  min-width: 0;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--panel3), var(--panel2));
+  display: grid;
+  place-items: center;
+  padding: 0;
 }
 
 .mini-slot.empty {
@@ -1539,18 +1541,23 @@ tbody th {
 
 .slot-edit-badge {
   position: absolute;
-  bottom: -6px; /* Menos agresivo para evitar clipping */
+  bottom: -6px;
   left: 50%;
   transform: translateX(-50%);
-  width: auto;
   padding: 2px 6px;
   border-radius: 6px;
-  background: var(--blue);
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, var(--blue), #1e8bbd);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   color: #fff;
-  font-size: 0.5rem;
+  font-size: 0.45rem;
   font-weight: 900;
-  border: 2px solid #16161c;
-  z-index: 2;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  z-index: 4;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .editor-modal-card {
@@ -2123,6 +2130,44 @@ tbody th {
     width: 62px;
     min-width: 62px;
     max-width: 62px;
+  }
+
+  .picker-dock {
+    position: static;
+    padding: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .dock-shell {
+    width: auto;
+    gap: 12px;
+  }
+
+  .dock-row {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.035),
+        rgba(255, 255, 255, 0.012)
+      ),
+      linear-gradient(180deg, var(--panel2), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 10px 10px 10px 16px;
+    box-shadow: var(--shadow);
+  }
+
+  .mini-slot {
+    height: 56px;
+  }
+
+  .mini-slot img {
+    width: 44px;
+    height: 44px;
   }
 
   .mini-btn {
