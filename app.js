@@ -2591,24 +2591,31 @@ function computeQuickPreview(rows) {
 
 // --- Actualización de UI para MVP ---
 function renderMvpBanner(mvp) {
-  const container = document.getElementById("mvpBannerContainer");
-  if (!container) return;
+  const quickPreviewPanel = document.getElementById("quickPreviewPanel");
+  let mvpBanner = document.getElementById("mvpBanner");
 
   if (!mvp) {
-    container.innerHTML = "";
-    container.style.display = "none";
+    if (mvpBanner) mvpBanner.remove();
     return;
   }
 
-  container.style.display = "block";
-  container.innerHTML = `
-    <div class="mvp-banner">
-      <div class="mvp-icon"><i data-lucide="star"></i></div>
-      <div class="mvp-content">
-        <strong>Win Condition:</strong> Mantén a tu <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width:20px;height:20px;vertical-align:middle;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5)); margin: 0 4px;"> <strong>${mvp.displayName}</strong> vivo, el rival no tiene respuestas eficaces.
-      </div>
-    </div>
-  `;
+  if (!mvpBanner) {
+    mvpBanner = document.createElement("div");
+    mvpBanner.id = "mvpBanner";
+    mvpBanner.className = "tiny-chip";
+    // FIX: Ajuste de flex y white-space para prevenir overflow
+    mvpBanner.style =
+      "background: linear-gradient(135deg, rgba(50, 173, 230, 0.25), rgba(50, 173, 230, 0.08)); border-color: rgba(50, 173, 230, 0.45); color: #d4f0ff; margin-bottom: 12px; display: inline-flex; align-items: center; white-space: normal; line-height: 1.4; padding: 8px 12px; text-align: left;";
+
+    // FIX: Inyección segura en el DOM sin sobrescribir elementos adyacentes
+    const sectionHead = quickPreviewPanel.querySelector(".section-head");
+    if (sectionHead) {
+      sectionHead.insertAdjacentElement("afterend", mvpBanner);
+    } else {
+      quickPreviewPanel.prepend(mvpBanner);
+    }
+  }
+  mvpBanner.innerHTML = `💡 Win Condition: Mantén a tu <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width:20px;height:20px;vertical-align:middle;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5)); margin: 0 4px;"> <strong>${mvp.displayName}</strong> vivo, el rival no tiene respuestas eficaces.`;
 }
 
 function renderWeaknessSummary() {
@@ -2653,16 +2660,16 @@ function renderQuickPreview(preview) {
     planList.innerHTML = preview.enemyPlan
       .map(
         (item) => `
-          <div class="tiny-chip" style="background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); padding: 4px 10px;" title="${item.text}">
-            <span style="font-size:0.9rem; display:flex; align-items:center; color: var(--blue);">${item.icon}</span>
-            <span style="font-size:0.75rem; font-weight:800">${item.title}</span>
+          <div class="tiny-chip" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); padding: 4px 8px;" title="${item.text}">
+            <span style="font-size:0.9rem; display:flex; align-items:center;">${item.icon}</span>
+            <span style="font-size:0.7rem; font-weight:800">${item.title}</span>
           </div>
         `,
       )
       .join("");
   } else {
     planList.innerHTML =
-      '<div class="muted-small" style="padding: 6px 0;">Sin plan claro detectado.</div>';
+      '<div class="muted-small">Sin plan claro detectado.</div>';
   }
 
   const leadIds = new Set(preview.leadPair.map(m => m.name));
@@ -2670,47 +2677,37 @@ function renderQuickPreview(preview) {
 
   const bestFourCard = document.getElementById("bestFourCard");
   bestFourCard.innerHTML = `
-    <div class="premium-card-header">
-      <div>
-        <h3 class="premium-card-title">Tus 4 Elegidos</h3>
-        <p class="premium-card-subtitle">Mejor core para este matchup</p>
-      </div>
-      <span class="status-chip status-blue"><i data-lucide="check-circle" style="width:12px;height:12px;"></i> Pick</span>
+    <div class="insight-head">
+      <h3>Tus 4 Elegidos</h3>
+      <span class="tiny-chip status-blue">Pick</span>
     </div>
-    <div class="premium-card-body">
-      <div class="preview-squad">
-        <div class="preview-lead-row">
-          ${preview.leadPair.length === 2 ? `
-            <div class="preview-lead-sprite" title="${preview.leadPair[0].displayName}">${renderPreviewSprite(preview.leadPair[0])}</div>
-            <div class="preview-plus"><i data-lucide="plus"></i></div>
-            <div class="preview-lead-sprite" title="${preview.leadPair[1].displayName}">${renderPreviewSprite(preview.leadPair[1])}</div>
-          ` : preview.leadPair.map(m => `<div class="preview-lead-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join("")}
-        </div>
-        <div class="preview-bench-row">
-          ${backline.map(m => `<div class="preview-bench-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join('')}
-        </div>
+    <div class="preview-squad">
+      <div class="preview-lead-row">
+        ${preview.leadPair.length === 2 ? `
+          <div class="preview-lead-sprite" title="${preview.leadPair[0].displayName}">${renderPreviewSprite(preview.leadPair[0])}</div>
+          <div class="preview-plus"><i data-lucide="plus"></i></div>
+          <div class="preview-lead-sprite" title="${preview.leadPair[1].displayName}">${renderPreviewSprite(preview.leadPair[1])}</div>
+        ` : preview.leadPair.map(m => `<div class="preview-lead-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join("")}
+      </div>
+      <div class="preview-bench-row">
+        ${backline.map(m => `<div class="preview-bench-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join('')}
       </div>
     </div>
   `;
 
   const noBringCard = document.getElementById("noBringCard");
   noBringCard.innerHTML = `
-    <div class="premium-card-header">
-      <div>
-        <h3 class="premium-card-title">Banquillo Crítico</h3>
-        <p class="premium-card-subtitle">Débiles contra el equipo rival</p>
-      </div>
-      <span class="status-chip status-red"><i data-lucide="alert-triangle" style="width:12px;height:12px;"></i> Evitar</span>
+    <div class="insight-head">
+      <h3>Banquillo Crítico</h3>
+      <span class="tiny-chip status-red">Evitar</span>
     </div>
-    <div class="premium-card-body">
-      <div style="display:flex; gap:12px; justify-content:center; align-items:center; height:100%;">
-        ${preview.noBring.length > 0 ? preview.noBring.map(m => `
-          <div class="preview-banned-sprite" title="${m.displayName}">
-            <img src="${m.sprite}">
-            <div class="preview-ban-mark"><i data-lucide="ban"></i></div>
-          </div>
-        `).join('') : '<div class="muted-small">No hay bans claros.</div>'}
-      </div>
+    <div style="display:flex; gap:8px; justify-content:center; padding: 12px 0;">
+      ${preview.noBring.length > 0 ? preview.noBring.map(m => `
+        <div class="preview-banned-sprite" title="${m.displayName}">
+          <img src="${m.sprite}">
+          <div class="preview-ban-mark"><i data-lucide="ban"></i></div>
+        </div>
+      `).join('') : '<div class="muted-small">No hay bans claros.</div>'}
     </div>
   `;
   
