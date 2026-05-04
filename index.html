@@ -62,46 +62,30 @@
       </div>
     </section>
 
-    <section class="panel section-pad" id="quickPreviewPanel" style="display: none;">
-      <div class="section-head">
-        <div>
+    <section class="panel" id="quickPreviewPanel" style="display: none;">
+      <div class="premium-header">
+        <div class="premium-header-content">
           <h2 class="section-title">Análisis rápido</h2>
+          <p class="section-subtitle">Plan recomendado basado en matchups</p>
+        </div>
+        <div class="premium-badge">
+          <i data-lucide="zap" style="width: 14px; height: 14px;"></i> Autopilot
         </div>
       </div>
-      <div class="insight-grid" style="grid-template-columns: 1fr;">
-        <article class="insight-card" id="planRivalCard" style="margin-bottom: 8px;">
-          <div class="insight-head">
-            <div>
-              <h3>Plan Rival</h3>
-            </div>
-            <span class="tiny-chip">Scout</span>
-          </div>
-          <div class="list" id="planRivalList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-        </article>
+      
+      <div class="premium-body">
+        <div id="mvpBannerContainer" style="display: none;"></div>
+        
+        <div class="premium-scout-bar" id="planRivalCard">
+          <div class="scout-label"><i data-lucide="eye"></i> Scout Rival</div>
+          <div class="list scout-list" id="planRivalList"></div>
+        </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-          <article class="insight-card" id="bestFourCard" style="cursor: pointer; background: linear-gradient(180deg, rgba(50, 173, 230, 0.1), rgba(50, 173, 230, 0.02)); border-color: rgba(50, 173, 230, 0.28);">
-            <div class="insight-head">
-              <h3>Core & Lead</h3>
-              <span class="tiny-chip status-blue">Pick</span>
-            </div>
-            <div style="margin-bottom:8px;">
-              <div style="font-size:0.6rem; color:var(--muted); margin-bottom:4px; font-weight:bold; text-transform:uppercase;">Mis 4 mejores</div>
-              <div class="list" id="bestFourList"></div>
-            </div>
-            <div>
-              <div style="font-size:0.6rem; color:var(--muted); margin-bottom:4px; font-weight:bold; text-transform:uppercase;">Lead Sugerido</div>
-              <div class="list" id="leadList"></div>
-            </div>
+        <div class="premium-grid">
+          <article class="premium-card premium-card--blue" id="bestFourCard">
           </article>
 
-          <article class="insight-card" id="noBringCard" style="background: linear-gradient(180deg, rgba(255, 59, 48, 0.1), rgba(255, 59, 48, 0.02)); border-color: rgba(255, 59, 48, 0.28);">
-            <div class="insight-head">
-              <h3>Ban</h3>
-              <span class="tiny-chip status-red">Evitar</span>
-            </div>
-            <div style="font-size:0.6rem; color:var(--muted); margin-bottom:4px; font-weight:bold; text-transform:uppercase;">No llevar</div>
-            <div class="list" id="noBringList"></div>
+          <article class="premium-card premium-card--red" id="noBringCard">
           </article>
         </div>
       </div>
