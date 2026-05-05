@@ -1561,7 +1561,7 @@ function renderDock(side) {
           <button class="mini-slot" data-action="pick" data-side="${side}" data-index="${idx}" aria-label="${mon.displayName}">
             ${mon.name.includes("-mega") ? '<div class="mega-icon"></div>' : ""}
             <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
-            ${side === "self" ? `<span class="slot-edit-badge">SET</span>` : ""}
+            ${side === "self" ? `<span class="slot-edit-dot" title="Set configurado"></span>` : ""}
             <span class="slot-remove" data-action="remove" data-side="${side}" data-index="${idx}"><i data-lucide="x" style="width:12px;height:12px;"></i></span>
           </button>
         `;
@@ -1841,54 +1841,59 @@ function renderThreats() {
     })
     .sort((a, b) => b.threat.score - a.threat.score);
 
-  threatList.innerHTML = items
-    .map(({ mon, threat }) => {
-      const ptype = mon.types[0] || "normal";
-      const tcol = TYPE_META[ptype]?.color || "#8aa2c6";
-      const bgLayers = `linear-gradient(135deg, ${hexToRgba(tcol, 0.1)} 0%, transparent 55%), linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.04))`;
-      const spreadLines = serializeSetSummary(mon.set || {}).filter(
-        (line) => line.startsWith("Nat:") || /^\d/.test(String(line).trim()),
-      );
+  const reds = items.filter(i => i.threat.level === 'red');
+  const ambers = items.filter(i => i.threat.level === 'amber');
+  const greens = items.filter(i => i.threat.level === 'green');
 
-      const cleanSpreads = spreadLines.join(" · ").replace(/Nat:\s*/g, "");
-      let pressurePill = "";
-      if (threat.maxEnemyPressure >= 4) {
-        pressurePill = `<span class="tag-pill tag-pill--danger"><i data-lucide="zap"></i> Presión ${fmtMult(threat.maxEnemyPressure)}</span>`;
-      } else if (threat.maxEnemyPressure >= 2) {
-        pressurePill = `<span class="tag-pill tag-pill--warning"><i data-lucide="zap"></i> Presión ${fmtMult(threat.maxEnemyPressure)}</span>`;
-      } else {
-        pressurePill = `<span class="tag-pill tag-pill--info"><i data-lucide="zap"></i> Presión ${fmtMult(threat.maxEnemyPressure)}</span>`;
-      }
+  let html = '';
 
-      return `
-        <div class="enemy-row threat-card" style="background:${bgLayers}; border-color:${hexToRgba(tcol, 0.2)};">
-          <div class="threat-portrait">
-            <img src="${mon.sprite}" alt="" loading="lazy">
+  if (reds.length > 0) {
+    html += reds.map(({ mon, threat }) => `
+      <div class="threat-hero-card">
+        <div class="threat-hero-sprite">
+          <img src="${mon.sprite}" alt="${mon.displayName}">
+        </div>
+        <div>
+          <div style="font-weight: 900; font-size: 1.15rem; color: #fff;">${mon.displayName}</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+            ${threat.reasons.map(r => `<span class="tag-pill tag-pill--danger">${r}</span>`).join("")}
           </div>
-
-          <div class="threat-body">
-            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px; flex-wrap: wrap;">
-              <div class="row-title">${mon.displayName}</div>
-              <div style="display:flex; align-items:center; gap:6px;">
-                ${pressurePill}
-                ${cleanSpreads ? `<span style="color:var(--muted); font-size:0.6rem; display:inline-flex; align-items:center; gap:4px;"><i data-lucide="activity" style="width:12px;height:12px;"></i> ${cleanSpreads}</span>` : ""}
-              </div>
+          ${threat.bestAnswers.length ? `
+            <div class="threat-kill-chain">
+              <span style="color: var(--muted); font-size: 0.7rem; font-weight: 800; text-transform: uppercase;">Respuestas</span>
+              <i data-lucide="arrow-right" style="color: var(--red); width: 14px; height: 14px;"></i>
+              ${threat.bestAnswers.map(ans => `<img src="${ans.sprite}" class="sprite-micro" title="${ans.displayName}" style="width: 28px; height: 28px;">`).join("")}
             </div>
-            ${threat.reasons.length ? `<div class="row-sub threat-reasons" style="margin-top: 4px;">${threat.reasons.join(" · ")}</div>` : ""}
-            <div class="set-stack threat-set-stack" style="gap: 4px;">
-              ${mon.set?.ability ? `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.65rem; color:var(--muted); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;"><i data-lucide="dna" style="width:12px;height:12px;"></i> ${t(mon.set.ability, "ability")}</span>` : ""}
-              ${mon.set?.item ? `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.65rem; color:var(--muted); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;"><i data-lucide="package" style="width:12px;height:12px;"></i> ${t(mon.set.item, "item")}</span>` : ""}
-              ${(mon.set?.moves || []).slice(0, 2).map((move) => `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.65rem; color:var(--muted); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;"><i data-lucide="swords" style="width:12px;height:12px;"></i> ${t(move, "move")}</span>`).join("")}
-            </div>
-            ${threat.bestAnswers.length ? `<div class="formula-row" style="margin-top: 6px;"><span style="color: var(--muted);"><i data-lucide="shield-check" style="width:14px;height:14px;vertical-align:middle;"></i> Respuestas:</span> ${threat.bestAnswers.map(ans => `<img src="${ans.sprite}" class="sprite-micro" title="${ans.displayName}" alt="${ans.displayName}">`).join("")}</div>` : ""}
-          </div>
+          ` : ""}
+        </div>
+      </div>
+    `).join("");
+  }
 
-          <span class="status-chip status-${threat.level}">
-            ${threat.level === "red" ? "Alto" : threat.level === "amber" ? "Medio" : "Bajo"}
-          </span>
-        </div>`;
-    })
-    .join("");
+  if (ambers.length > 0) {
+    html += `<div class="threat-amber-grid">`;
+    html += ambers.map(({ mon, threat }) => `
+      <div class="threat-compact-card">
+        <img src="${mon.sprite}" style="width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" alt="${mon.displayName}">
+        <div style="font-weight: 900; font-size: 0.85rem; color: #fff;">${mon.displayName}</div>
+        ${threat.reasons.length ? `<div style="color: var(--orange); font-size: 0.65rem; line-height: 1.2;">${threat.reasons[0]}</div>` : ""}
+      </div>
+    `).join("");
+    html += `</div>`;
+  }
+
+  if (greens.length > 0) {
+    html += `<div class="threat-walled-zone">`;
+    html += greens.map(({ mon }) => `
+      <div class="threat-walled-sprite" title="${mon.displayName}">
+        <img src="${mon.sprite}" alt="${mon.displayName}">
+        <div class="threat-walled-check"><i data-lucide="shield-check"></i></div>
+      </div>
+    `).join("");
+    html += `</div>`;
+  }
+
+  threatList.innerHTML = html;
 
   updateIcons();
 }
@@ -2615,7 +2620,17 @@ function renderMvpBanner(mvp) {
       quickPreviewPanel.prepend(mvpBanner);
     }
   }
-  mvpBanner.innerHTML = `💡 Win Condition: Mantén a tu <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width:20px;height:20px;vertical-align:middle;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5)); margin: 0 4px;"> <strong>${mvp.displayName}</strong> vivo, el rival no tiene respuestas eficaces.`;
+  mvpBanner.innerHTML = `
+  <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 211, 90, 0.2); color: var(--gold); flex-shrink: 0;">
+    <i data-lucide="award" style="width: 24px; height: 24px;"></i>
+  </div>
+  <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+      <div style="color: var(--gold); font-size: 0.75rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;">Win Condition Detectada</div>
+      <div style="font-size: 0.95rem; color: #fff; line-height: 1.4;">
+        Mantén a tu <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width:28px;height:28px;vertical-align:middle; margin: 0 4px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));"> <strong>${mvp.displayName}</strong> vivo.
+      </div>
+  </div>`;
+  updateIcons();
 }
 
 function renderWeaknessSummary() {
@@ -2647,7 +2662,7 @@ function renderQuickPreview(preview) {
   const enemyTeam = state.enemy.filter(Boolean);
   const panel = document.getElementById("quickPreviewPanel");
 
-  if (selfTeam.length < 4 || enemyTeam.length === 0) {
+  if (selfTeam.length === 0 || enemyTeam.length === 0) {
     panel.style.display = "none";
     return;
   }
@@ -2676,24 +2691,34 @@ function renderQuickPreview(preview) {
   const backline = preview.bestFour.filter(m => !leadIds.has(m.name));
 
   const bestFourCard = document.getElementById("bestFourCard");
-  bestFourCard.innerHTML = `
-    <div class="insight-head">
-      <h3>Tus 4 Elegidos</h3>
-      <span class="tiny-chip status-blue">Pick</span>
-    </div>
-    <div class="preview-squad">
-      <div class="preview-lead-row">
-        ${preview.leadPair.length === 2 ? `
-          <div class="preview-lead-sprite" title="${preview.leadPair[0].displayName}">${renderPreviewSprite(preview.leadPair[0])}</div>
-          <div class="preview-plus"><i data-lucide="plus"></i></div>
-          <div class="preview-lead-sprite" title="${preview.leadPair[1].displayName}">${renderPreviewSprite(preview.leadPair[1])}</div>
-        ` : preview.leadPair.map(m => `<div class="preview-lead-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join("")}
+  if (preview.leadPair.length === 0 && backline.length === 0) {
+    bestFourCard.innerHTML = `
+      <div class="insight-head">
+        <h3>Tus 4 Elegidos</h3>
+        <span class="tiny-chip status-blue">Pick</span>
       </div>
-      <div class="preview-bench-row">
-        ${backline.map(m => `<div class="preview-bench-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join('')}
+      <div class="empty" style="margin-top: 12px;">Faltan Pokémon en el equipo</div>
+    `;
+  } else {
+    bestFourCard.innerHTML = `
+      <div class="insight-head">
+        <h3>Tus 4 Elegidos</h3>
+        <span class="tiny-chip status-blue">Pick</span>
       </div>
-    </div>
-  `;
+      <div class="preview-squad">
+        <div class="preview-lead-row">
+          ${preview.leadPair.length === 2 ? `
+            <div class="preview-lead-sprite" title="${preview.leadPair[0].displayName}">${renderPreviewSprite(preview.leadPair[0])}</div>
+            <div class="preview-plus"><i data-lucide="plus"></i></div>
+            <div class="preview-lead-sprite" title="${preview.leadPair[1].displayName}">${renderPreviewSprite(preview.leadPair[1])}</div>
+          ` : preview.leadPair.map(m => `<div class="preview-lead-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join("")}
+        </div>
+        <div class="preview-bench-row">
+          ${backline.map(m => `<div class="preview-bench-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join('')}
+        </div>
+      </div>
+    `;
+  }
 
   const noBringCard = document.getElementById("noBringCard");
   noBringCard.innerHTML = `
@@ -2703,11 +2728,13 @@ function renderQuickPreview(preview) {
     </div>
     <div style="display:flex; gap:8px; justify-content:center; padding: 12px 0;">
       ${preview.noBring.length > 0 ? preview.noBring.map(m => `
-        <div class="preview-banned-sprite" title="${m.displayName}">
-          <img src="${m.sprite}">
-          <div class="preview-ban-mark"><i data-lucide="ban"></i></div>
-        </div>
-      `).join('') : '<div class="muted-small">No hay bans claros.</div>'}
+  <div class="preview-banned-sprite" style="position: relative; width: 64px; height: 64px; background: rgba(255, 59, 48, 0.1); border: 1px solid rgba(255, 59, 48, 0.4); border-radius: 12px; display: flex; align-items: center; justify-content: center;" title="${m.displayName}">
+    <img src="${m.sprite}" style="width: 48px; height: 48px; opacity: 0.6;">
+    <div class="preview-ban-mark" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--red); font-size: 2.2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
+      <i data-lucide="ban"></i>
+    </div>
+  </div>
+`).join('') : '<div class="muted-small" style="font-size: 0.85rem;">No hay bans claros.</div>'}
     </div>
   `;
   

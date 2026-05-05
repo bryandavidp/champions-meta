@@ -817,55 +817,107 @@ tbody th {
   grid-template-columns: 42px minmax(0, 1fr) auto;
 }
 
-.threat-card {
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  align-items: start;
-  padding: 8px 10px;
+/* Contenedor Principal del Radar */
+#threatList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+/* --- ZONA ROJA --- */
+.threat-hero-card {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(255, 59, 48, 0.15) 0%, rgba(30, 30, 42, 0.5) 100%);
+  border: 1px solid rgba(255, 59, 48, 0.4);
+  border-radius: 16px;
+  padding: 16px;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+.threat-hero-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 4px; height: 100%;
+  background: var(--red);
+  box-shadow: 0 0 12px var(--red);
+}
+.threat-hero-sprite {
+  width: 80px; height: 80px;
+  display: grid; place-items: center;
+}
+.threat-hero-sprite img {
+  width: 100%; height: 100%; object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(255, 59, 48, 0.4));
+}
+.threat-kill-chain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 12px;
+}
+
+/* --- ZONA ÁMBAR --- */
+.threat-amber-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
 }
-
-.threat-portrait {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  background:
-    radial-gradient(
-      circle at 30% 30%,
-      rgba(255, 255, 255, 0.1),
-      transparent 42%
-    ),
-    linear-gradient(180deg, #2e3040, #1e202c);
-  border: 1px solid var(--line);
-  flex-shrink: 0;
+.threat-compact-card {
+  background: rgba(255, 179, 77, 0.05);
+  border: 1px solid rgba(255, 179, 77, 0.2);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
 }
 
-.threat-portrait img {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+/* --- ZONA VERDE --- */
+.threat-walled-zone {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(48, 209, 88, 0.05);
+  border: 1px dashed rgba(48, 209, 88, 0.2);
+  border-radius: 12px;
+  align-items: center;
 }
-
-.threat-body {
-  min-width: 0;
+.threat-walled-sprite {
+  position: relative;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.3);
+  display: grid; place-items: center;
 }
-
-.threat-reasons {
-  margin-top: 2px;
+.threat-walled-sprite img {
+  width: 32px; height: 32px;
+  filter: grayscale(80%) opacity(0.5);
+  transition: filter 0.2s;
+}
+.threat-walled-sprite:hover img {
+  filter: grayscale(0%) opacity(1);
+}
+.threat-walled-check {
+  position: absolute;
+  bottom: -4px; right: -4px;
+  background: var(--green);
+  color: #000;
+  border-radius: 50%;
+  width: 16px; height: 16px;
+  display: grid; place-items: center;
   font-size: 0.6rem;
-}
-
-.threat-set-stack {
-  margin-top: 5px;
-}
-
-.threat-answers {
-  margin-top: 4px;
-  font-size: 0.57rem;
-  opacity: 0.88;
 }
 
 .chance-row {
@@ -1187,7 +1239,7 @@ tbody th {
 .t1-slot {
   flex: 1;
   min-width: 0;
-  max-width: 56px;
+  max-width: 68px;
   margin: 0 auto;
   aspect-ratio: 1;
   border-radius: 12px;
@@ -1311,16 +1363,20 @@ tbody th {
 .dock-row { 
   display: flex; 
   align-items: center; 
-  gap: 8px; 
-  padding: 4px 6px 8px 12px; /* Más padding a la izquierda para el borde neón */
+  gap: 12px; /* Aumentamos ligeramente el gap para que respire al quitar el espacio sobrante */
+  padding: 8px 12px; /* Equilibramos el padding general */
   background: transparent; 
   border: none; 
   overflow-x: auto; 
   scrollbar-width: none; 
   position: relative;
-  border-radius: 12px;
-}
-.dock-row::-webkit-scrollbar { display: none; }
+  border-radius: 16px;
+
+  /* CORRECCIONES CRÍTICAS DE LAYOUT */
+  width: max-content; /* Hace que la caja abrace a los 6 slots y al botón */
+  max-width: 100%; /* Evita desbordamientos en móviles pequeños */
+  margin: 0 auto; /* Centra perfectamente las dos filas en el medio de la pantalla */
+}.dock-row::-webkit-scrollbar { display: none; }
 
 /* Indicativos de Equipo (Neon Edge) */
 .dock-row--player {
@@ -1405,8 +1461,8 @@ tbody th {
 
 .mini-slot {
   position: relative;
-  min-width: 0;
-  height: 48px;
+  width: clamp(44px, 12.5vw, 64px);
+  height: clamp(44px, 12.5vw, 64px);
   border-radius: 12px;
   border: 1px solid var(--line);
   background: linear-gradient(180deg, var(--panel3), var(--panel2));
@@ -1439,24 +1495,37 @@ tbody th {
   line-height: 1;
 }
 
+/* Nuevo indicador de Set configurado */
+.slot-edit-dot {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 0 6px var(--blue);
+  border: 1px solid #fff;
+  z-index: 4;
+}
+
+/* Reajuste del botón de eliminar */
 .slot-remove {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  width: 18px;
-  height: 18px;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(20, 20, 28, 0.95);
-  color: var(--muted);
-  font-size: 0.55rem;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  line-height: 1;
-  z-index: 5;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
-  transition: all 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  cursor: pointer;
 }
 .slot-remove:hover {
   background: var(--red);
@@ -1471,7 +1540,7 @@ tbody th {
 }
 
 .mini-btn {
-  height: 48px;
+  height: clamp(44px, 12.5vw, 64px);
   min-width: 40px;
   padding: 0 10px;
   border-radius: 13px;
@@ -2161,17 +2230,7 @@ tbody th {
     box-shadow: var(--shadow);
   }
 
-  .mini-slot {
-    height: 56px;
-  }
-
-  .mini-slot img {
-    width: 44px;
-    height: 44px;
-  }
-
   .mini-btn {
-    height: 56px;
     min-width: 50px;
   }
 
@@ -2622,6 +2681,14 @@ tbody th {
   line-height: 1.2;
 }
 .premium-card-body {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+emium-card-body {
   position: relative;
   z-index: 1;
   flex: 1;
