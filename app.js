@@ -1904,34 +1904,74 @@ function renderOpportunities(rows) {
     return;
   }
 
-  const top = rows
+  // Extraer todas las interacciones fuertes (mult >= 2)
+  const allStrongHits = rows
     .flatMap((r) => r.cells)
     .filter((x) => x.mult >= 2)
-    .sort((a, b) => b.mult - a.mult)
-    .slice(0, 6);
+    .sort((a, b) => b.mult - a.mult);
 
-  if (!top.length) {
+  if (!allStrongHits.length) {
     opportunityList.innerHTML = `<div class="empty">No hay ventanas de presión clara todavía.</div>`;
     return;
   }
 
-  opportunityList.innerHTML = top
-    .map((item) => {
-      const hot = item.mult >= 4;
-      const typeMeta = TYPE_META[item.type] || { color: '#8aa2c6', icon: '•' };
-      const typePill = `<span style="background:${hexToRgba(typeMeta.color, 0.18)}; border:1px solid ${hexToRgba(typeMeta.color, 0.36)}; color:#fff; font-size:0.65rem; padding:2px 6px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; font-weight: 700;">${typeMeta.icon} ${t(item.move, "move") || "—"}</span>`;
-      return `
-        <div class="chance-row chance-row--compact" style="justify-content: space-between; padding: 6px 10px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <div class="sprite-sm"><img src="${item.attacker.sprite}" alt="" loading="lazy"></div>
-            ${typePill}
-            <i data-lucide="arrow-right" class="formula-arrow" style="width: 14px; height: 14px; margin: 0 4px;"></i>
-            <div class="sprite-sm"><img src="${item.defender.sprite}" alt="" loading="lazy"></div>
-          </div>
-          <span class="mult-chip ${hot ? "mult-chip--hot" : ""}" style="font-size: 0.75rem;">${fmtMult(item.mult)}</span>
-        </div>`;
-    })
-    .join("");
+  // Agrupar por Defensor (El Pokémon rival vulnerable)
+  const targets = {};
+  allStrongHits.forEach(hit => {
+    const defName = hit.defender.name;
+    if (!targets[defName]) {
+      targets[defName] = {
+        defender: hit.defender,
+        highestMult: hit.mult,
+        ohkoRisk: hit.ohko || hit.ohkoProb >= 100,
+        executioners: []
+      };
+    }
+    // Añadir ejecutores (máximo 2 por target para no saturar la tarjeta)
+    if (targets[defName].executioners.length < 2) {
+      targets[defName].executioners.push(hit);
+    }
+    // Actualizar riesgo si alguien le hace OHKO
+    if (hit.ohko || hit.ohkoProb >= 100) targets[defName].ohkoRisk = true;
+  });
+
+  // Convertir a array, ordenar por riesgo (OHKO primero, luego multiplicador) y tomar top 4
+  const topTargets = Object.values(targets)
+    .sort((a, b) => (b.ohkoRisk === a.ohkoRisk ? b.highestMult - a.highestMult : b.ohkoRisk ? 1 : -1))
+    .slice(0, 4);
+
+  opportunityList.className = "target-lock-board";
+
+  opportunityList.innerHTML = topTargets.map(target => {
+    const isHot = target.ohkoRisk || target.highestMult >= 4;
+    const badgeText = target.ohkoRisk ? "💀 Riesgo OHKO" : `Peligro x${target.highestMult}`;
+    const badgeClass = isHot ? "target-lethality-badge target-lethality-badge--hot" : "target-lethality-badge";
+
+    return `
+      <div class="target-bounty-card">
+        <div class="${badgeClass}">${badgeText}</div>
+        
+        <div class="target-crosshair" title="${target.defender.displayName}">
+          <img src="${target.defender.sprite}" alt="${target.defender.displayName}" loading="lazy">
+        </div>
+
+        <div class="target-executioners">
+          ${target.executioners.map(hit => {
+             const typeMeta = TYPE_META[hit.type] || { color: '#8aa2c6' };
+             return `
+               <div class="target-execution-row">
+                 <img src="${hit.attacker.sprite}" class="sprite-micro" title="${hit.attacker.displayName}">
+                 <div style="display:flex; align-items:center; gap:4px;">
+                   <span class="target-move-name">${t(hit.move, "move") || hit.type}</span>
+                   <div class="type-icon-circle" style="position: static; width:14px; height:14px; background-color: ${typeMeta.color};"></div>
+                 </div>
+               </div>
+             `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
 
   updateIcons();
 }
@@ -2607,29 +2647,31 @@ function renderMvpBanner(mvp) {
   if (!mvpBanner) {
     mvpBanner = document.createElement("div");
     mvpBanner.id = "mvpBanner";
-    mvpBanner.className = "tiny-chip";
-    // FIX: Ajuste de flex y white-space para prevenir overflow
-    mvpBanner.style =
-      "background: linear-gradient(135deg, rgba(50, 173, 230, 0.25), rgba(50, 173, 230, 0.08)); border-color: rgba(50, 173, 230, 0.45); color: #d4f0ff; margin-bottom: 12px; display: inline-flex; align-items: center; white-space: normal; line-height: 1.4; padding: 8px 12px; text-align: left;";
+    mvpBanner.className = "mvp-directive";
 
-    // FIX: Inyección segura en el DOM sin sobrescribir elementos adyacentes
-    const sectionHead = quickPreviewPanel.querySelector(".section-head");
+    // Inyectar justo después del header del panel
+    const sectionHead = quickPreviewPanel.querySelector(".premium-header");
     if (sectionHead) {
       sectionHead.insertAdjacentElement("afterend", mvpBanner);
     } else {
       quickPreviewPanel.prepend(mvpBanner);
     }
   }
+  
   mvpBanner.innerHTML = `
-  <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 211, 90, 0.2); color: var(--gold); flex-shrink: 0;">
-    <i data-lucide="award" style="width: 24px; height: 24px;"></i>
-  </div>
-  <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-      <div style="color: var(--gold); font-size: 0.75rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;">Win Condition Detectada</div>
-      <div style="font-size: 0.95rem; color: #fff; line-height: 1.4;">
-        Mantén a tu <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width:28px;height:28px;vertical-align:middle; margin: 0 4px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));"> <strong>${mvp.displayName}</strong> vivo.
+    <div class="mvp-directive-icon">
+      <i data-lucide="crosshair" style="width: 24px; height: 24px;"></i>
+    </div>
+    <div class="mvp-directive-content">
+      <div class="mvp-directive-title">Directiva Principal</div>
+      <div class="mvp-directive-text">
+        <span>Mantén a tu</span>
+        <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width: 32px; height: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+        <strong>${mvp.displayName}</strong>
+        <span>vivo a toda costa.</span>
       </div>
-  </div>`;
+    </div>
+  `;
   updateIcons();
 }
 
@@ -2691,50 +2733,67 @@ function renderQuickPreview(preview) {
   const backline = preview.bestFour.filter(m => !leadIds.has(m.name));
 
   const bestFourCard = document.getElementById("bestFourCard");
+  
+  // Tablero de Despliegue (Leads + Reserva integrados)
+  bestFourCard.className = "deployment-zone";
   if (preview.leadPair.length === 0 && backline.length === 0) {
     bestFourCard.innerHTML = `
-      <div class="insight-head">
-        <h3>Tus 4 Elegidos</h3>
-        <span class="tiny-chip status-blue">Pick</span>
+      <div class="deployment-header">
+        <h3 style="margin: 0; font: 900 0.9rem/1 'Cabinet Grotesk', sans-serif; color: #fff;">Escuadrón Seleccionado</h3>
+        <span class="tiny-chip status-blue" style="border-color: rgba(50,173,230,0.4);">Autorizado</span>
       </div>
       <div class="empty" style="margin-top: 12px;">Faltan Pokémon en el equipo</div>
     `;
   } else {
     bestFourCard.innerHTML = `
-      <div class="insight-head">
-        <h3>Tus 4 Elegidos</h3>
-        <span class="tiny-chip status-blue">Pick</span>
+      <div class="deployment-header">
+        <h3 style="margin: 0; font: 900 0.9rem/1 'Cabinet Grotesk', sans-serif; color: #fff;">Escuadrón Seleccionado</h3>
+        <span class="tiny-chip status-blue" style="border-color: rgba(50,173,230,0.4);">Autorizado</span>
       </div>
-      <div class="preview-squad">
-        <div class="preview-lead-row">
-          ${preview.leadPair.length === 2 ? `
-            <div class="preview-lead-sprite" title="${preview.leadPair[0].displayName}">${renderPreviewSprite(preview.leadPair[0])}</div>
-            <div class="preview-plus"><i data-lucide="plus"></i></div>
-            <div class="preview-lead-sprite" title="${preview.leadPair[1].displayName}">${renderPreviewSprite(preview.leadPair[1])}</div>
-          ` : preview.leadPair.map(m => `<div class="preview-lead-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join("")}
+      
+      <div class="deployment-tier">
+        <span class="deployment-label">Vanguardia (Leads)</span>
+        <div class="deployment-sprites-row">
+          ${preview.leadPair.map(m => `
+            <div class="preview-lead-sprite" style="width: 64px; height: 64px; border: 2px solid var(--blue); border-radius: 12px; background: rgba(50, 173, 230, 0.1); display: grid; place-items: center; box-shadow: 0 0 10px rgba(50,173,230,0.2);" title="${m.displayName}">
+              ${renderPreviewSprite(m)}
+            </div>
+          `).join('<div style="color: var(--blue); font-weight: 900; font-size: 1.2rem;"><i data-lucide="plus"></i></div>')}
         </div>
-        <div class="preview-bench-row">
-          ${backline.map(m => `<div class="preview-bench-sprite" title="${m.displayName}">${renderPreviewSprite(m)}</div>`).join('')}
+      </div>
+
+      <div class="deployment-tier" style="margin-top: 8px;">
+        <span class="deployment-label" style="color: var(--muted);">Retaguardia (Reserva)</span>
+        <div class="deployment-sprites-row">
+          ${backline.map(m => `
+            <div class="preview-bench-sprite" style="width: 48px; height: 48px; border: 1px solid var(--line2); border-radius: 10px; background: rgba(255,255,255,0.05); display: grid; place-items: center;" title="${m.displayName}">
+              ${renderPreviewSprite(m)}
+            </div>
+          `).join('')}
         </div>
       </div>
     `;
   }
 
   const noBringCard = document.getElementById("noBringCard");
+  
+  // Zona de Peligro (Bans)
+  noBringCard.className = "hazard-zone";
   noBringCard.innerHTML = `
-    <div class="insight-head">
-      <h3>Banquillo Crítico</h3>
-      <span class="tiny-chip status-red">Evitar</span>
+    <div class="deployment-header" style="border-bottom-color: rgba(255,59,48,0.2);">
+      <h3 style="margin: 0; font: 900 0.9rem/1 'Cabinet Grotesk', sans-serif; color: #ffc8c4;">No Desplegar</h3>
+      <span class="tiny-chip status-red">Riesgo Extremo</span>
     </div>
-    <div style="display:flex; gap:8px; justify-content:center; padding: 12px 0;">
+    
+    <div class="deployment-sprites-row" style="margin-top: 16px;">
       ${preview.noBring.length > 0 ? preview.noBring.map(m => `
-  <div class="preview-banned-sprite" style="position: relative; width: 64px; height: 64px; background: rgba(255, 59, 48, 0.1); border: 1px solid rgba(255, 59, 48, 0.4); border-radius: 12px; display: flex; align-items: center; justify-content: center;" title="${m.displayName}">
-    <img src="${m.sprite}" style="width: 48px; height: 48px; opacity: 0.6;">
-    <div class="preview-ban-mark" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--red); font-size: 2.2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
-      <i data-lucide="ban"></i>
-    </div>
-  </div>
-`).join('') : '<div class="muted-small" style="font-size: 0.85rem;">No hay bans claros.</div>'}
+        <div style="position: relative; width: 56px; height: 56px; background: rgba(255, 59, 48, 0.1); border: 1px solid rgba(255, 59, 48, 0.4); border-radius: 12px; display: grid; place-items: center;" title="${m.displayName}">
+          <img src="${m.sprite}" style="width: 42px; height: 42px; opacity: 0.5; filter: grayscale(50%);">
+          <div style="position: absolute; inset: 0; display: grid; place-items: center; color: var(--red); font-size: 2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
+            <i data-lucide="ban"></i>
+          </div>
+        </div>
+      `).join('') : '<div class="muted-small">Todos los agentes autorizados.</div>'}
     </div>
   `;
   
@@ -2767,18 +2826,6 @@ function renderSpeedTiers() {
     })
     .sort((a, b) => b.spe - a.spe);
 
-  const speedRowHtml = (item) => `
-        <div class="speed-tier-row">
-          <div class="speed-team-flag speed-team-flag--${item.side === "self" ? "self" : "enemy"}" title="${item.side === "self" ? "Tu equipo" : "Rival"}"></div>
-          <div class="sprite-sm speed-tier-sprite">
-            <img src="${item.mon.sprite}" alt="" loading="lazy">
-          </div>
-          <div style="min-width:0; flex:1; display:flex; justify-content:space-between; align-items:center; gap:8px;">
-            <div class="row-title">${item.mon.displayName}</div>
-            <div class="poke-stat-num" style="font-size:1rem; color:${item.spe < 0 ? "var(--purple)" : "#fff"};">${Math.abs(item.spe)}</div>
-          </div>
-        </div>`;
-
   const blocks = [];
   for (let i = 0; i < tiers.length; ) {
     let j = i;
@@ -2787,17 +2834,42 @@ function renderSpeedTiers() {
     i = j + 1;
   }
 
-  speedTierList.innerHTML = blocks
-    .map((group) => {
-      if (group.length > 1) {
-        return `<div class="speed-tie-group">
-            <div class="speed-tie-badge" title="Misma velocidad efectiva: orden al azar"><span aria-hidden="true">⚠️</span> Speed tie</div>
-            ${group.map(speedRowHtml).join("")}
-          </div>`;
-      }
-      return speedRowHtml(group[0]);
-    })
-    .join("");
+  let html = `<div class="velocity-track">`;
+  
+  blocks.forEach((group, index) => {
+    if (group.length > 1) {
+      html += `
+        <div class="velocity-tie-column">
+          <div class="velocity-tie-badge"><i data-lucide="zap" style="width: 10px; height: 10px;"></i> Tie</div>
+          ${group.map(item => `
+            <div class="velocity-node" title="${item.mon.displayName}">
+              <div class="velocity-avatar velocity-avatar--${item.side}">
+                <img src="${item.mon.sprite}" alt="${item.mon.displayName}">
+              </div>
+              <div class="velocity-stat" style="${item.spe < 0 ? 'color: var(--purple);' : ''}">${Math.abs(item.spe)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      const item = group[0];
+      html += `
+        <div class="velocity-node" title="${item.mon.displayName}">
+          <div class="velocity-avatar velocity-avatar--${item.side}">
+            <img src="${item.mon.sprite}" alt="${item.mon.displayName}">
+          </div>
+          <div class="velocity-stat" style="${item.spe < 0 ? 'color: var(--purple);' : ''}">${Math.abs(item.spe)}</div>
+        </div>
+      `;
+    }
+    
+    if (index < blocks.length - 1) {
+      html += `<div class="velocity-connector"><i data-lucide="chevron-right"></i></div>`;
+    }
+  });
+
+  html += `</div>`;
+  speedTierList.innerHTML = html;
 
   document.getElementById("toggleTailwindSelfBtn").className =
     `btn small ${state.field.tailwindSelf ? "blue" : "ghost"}`;
@@ -2805,6 +2877,8 @@ function renderSpeedTiers() {
     `btn small ${state.field.tailwindEnemy ? "red" : "ghost"}`;
   document.getElementById("toggleTrickRoomBtn").className =
     `btn small ${state.field.trickRoom ? "gold" : "ghost"}`;
+
+  updateIcons();
 }
 
 function renderDefensiveAlerts() {
@@ -2959,6 +3033,10 @@ function renderTurn1PickRows() {
   };
   selfRow.innerHTML = build("self");
   enemyRow.innerHTML = build("enemy");
+  
+  // NUEVA LÓGICA: Añadir clase de bloqueo visual si hay 2 seleccionados
+  selfRow.classList.toggle('t1-roster--locked', state.leads.self.length >= 2);
+  enemyRow.classList.toggle('t1-roster--locked', state.leads.enemy.length >= 2);
 }
 
 function renderTurn1Simulator() {
@@ -3194,21 +3272,36 @@ function renderTurn1Simulator() {
 
   // Otras Utilidades (Tailwind y Taunt)
   tailwindUsers.forEach((tw) => {
-    insights.push(
-      `<span class="tag-pill tag-pill--info"><i data-lucide="wind"></i> Viento Afín</span> ${micro(tw.mon)} amenaza control de velocidad.`,
-    );
+    insights.push(`
+      <div class="t1-event-card t1-event-card--info">
+        <div class="t1-event-icon" style="color: var(--blue);"><i data-lucide="wind"></i></div>
+        <div class="t1-event-content">
+          <strong>Viento Afín:</strong> ${micro(tw.mon)} amenaza control de velocidad.
+        </div>
+      </div>
+    `);
   });
 
   redirectionUsers.forEach((red) => {
-    insights.push(
-      `<span class="tag-pill tag-pill--info"><i data-lucide="shield"></i> Redirección</span> ${micro(red.mon)} atraerá los ataques.`,
-    );
+    insights.push(`
+      <div class="t1-event-card t1-event-card--info">
+        <div class="t1-event-icon" style="color: var(--blue);"><i data-lucide="shield"></i></div>
+        <div class="t1-event-content">
+          <strong>Redirección:</strong> ${micro(red.mon)} atraerá los ataques.
+        </div>
+      </div>
+    `);
   });
 
   tauntUsers.forEach((taunt) => {
-    insights.push(
-      `<span class="tag-pill tag-pill--warning"><i data-lucide="ban"></i> Mofa</span> ${micro(taunt.mon)} amenaza movimientos de estado.`,
-    );
+    insights.push(`
+      <div class="t1-event-card t1-event-card--warning">
+        <div class="t1-event-icon" style="color: var(--orange);"><i data-lucide="ban"></i></div>
+        <div class="t1-event-content">
+          <strong>Mofa:</strong> ${micro(taunt.mon)} amenaza movimientos de estado.
+        </div>
+      </div>
+    `);
   });
 
   // 8. Double Target
@@ -3221,9 +3314,14 @@ function renderTurn1Simulator() {
         bestAttack(enemyLeads[0], myMon).mult >= 2 &&
         bestAttack(enemyLeads[1], myMon).mult >= 2
       ) {
-        insights.push(
-          `<span class="tag-pill tag-pill--danger"><i data-lucide="crosshair"></i> Double Target</span> ${micro(enemyLeads[0])} + ${micro(enemyLeads[1])} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="swords"></i> Presión <i data-lucide="arrow-right" class="formula-arrow"></i> ${micro(myMon)}`,
-        );
+        insights.push(`
+          <div class="t1-event-card t1-event-card--danger">
+            <div class="t1-event-icon" style="color: var(--red);"><i data-lucide="crosshair"></i></div>
+            <div class="t1-event-content">
+              <strong>Double Target:</strong> ${micro(enemyLeads[0])} + ${micro(enemyLeads[1])} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="swords"></i> Presión <i data-lucide="arrow-right" class="formula-arrow"></i> ${micro(myMon)}
+            </div>
+          </div>
+        `);
       }
     });
     enemyLeads.forEach((enemyMon) => {
@@ -3231,9 +3329,14 @@ function renderTurn1Simulator() {
         bestAttack(selfLeads[0], enemyMon).mult >= 2 &&
         bestAttack(selfLeads[1], enemyMon).mult >= 2
       ) {
-        insights.push(
-          `<span class="tag-pill tag-pill--success"><i data-lucide="crosshair"></i> Foco</span> ${micro(selfLeads[0])} + ${micro(selfLeads[1])} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="swords"></i> Presión <i data-lucide="arrow-right" class="formula-arrow"></i> ${micro(enemyMon)}`,
-        );
+        insights.push(`
+          <div class="t1-event-card t1-event-card--success">
+            <div class="t1-event-icon" style="color: var(--green);"><i data-lucide="crosshair"></i></div>
+            <div class="t1-event-content">
+              <strong>Foco:</strong> ${micro(selfLeads[0])} + ${micro(selfLeads[1])} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="swords"></i> Presión <i data-lucide="arrow-right" class="formula-arrow"></i> ${micro(enemyMon)}
+            </div>
+          </div>
+        `);
       }
     });
   }
