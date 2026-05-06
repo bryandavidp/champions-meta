@@ -13,6 +13,24 @@ const SMOGON_FILES = {
 };
 const RATING_ORDER = ["1760", "1630", "1500", "0"];
 
+const META_PRESETS = [
+  {
+    name: "Lluvia Ofensiva",
+    desc: "Presión rápida bajo clima de lluvia.",
+    mons: ["pelipper", "basculegion-male", "archaludon", "urshifu-rapid-strike", "amoonguss", "incineroar"]
+  },
+  {
+    name: "Hard Trick Room",
+    desc: "Control de velocidad absoluto.",
+    mons: ["farigiraf", "iron-hands", "ursaluna-bloodmoon", "torkoal", "kingambit", "hatterene"]
+  },
+  {
+    name: "Good Stuff Balance",
+    desc: "Core sólido y adaptable.",
+    mons: ["incineroar", "rillaboom", "urshifu-rapid-strike", "flutter-mane", "ogerpon-wellspring", "raging-bolt"]
+  }
+];
+
 const TACTICAL_ROLES = {
   weatherSetters: ['drizzle', 'drought', 'sand stream', 'snow warning', 'llovizna', 'sequía', 'chorro arena', 'nevada'],
   terrainSetters: ['grassy surge', 'psychic surge', 'electric surge', 'misty surge', 'herbogénesis', 'psicogénesis', 'electrogénesis', 'nebulogénesis'],
@@ -431,7 +449,6 @@ const matrixStatus = document.getElementById("matrixStatus");
 const threatList = document.getElementById("threatList");
 const opportunityList = document.getElementById("opportunityList");
 const strategyList = document.getElementById("strategyList");
-const savedTeamsList = document.getElementById("savedTeamsList");
 const pickerModal = document.getElementById("pickerModal");
 const searchInput = document.getElementById("searchInput");
 const resultList = document.getElementById("resultList");
@@ -2161,47 +2178,8 @@ function setSavedTeams(teams) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(teams));
 }
 
-function renderSavedTeams() {
-  const teams = getSavedTeams();
-
-  if (!teams.length) {
-    savedTeamsList.innerHTML = `<div class="empty">Todavía no has guardado ningún equipo.</div>`;
-    return;
-  }
-
-  savedTeamsList.innerHTML = teams
-    .map(
-      (team) => `
-        <div class="saved-row" style="margin-top:8px">
-          <div style="min-width:0">
-            <div class="row-title">${team.name}</div>
-            <div class="row-sub">${team.mons.length} slots guardados · corte ${team.rating || state.rating}</div>
-            <div class="saved-preview">
-              ${team.mons
-                .map(
-                  (mon) => `
-                <div class="sprite-sm" title="${mon.displayName}">
-                  <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
-                </div>
-              `,
-                )
-                .join("")}
-            </div>
-          </div>
-
-          <div class="saved-actions">
-            <button class="btn small" data-action="load-saved" data-id="${team.id}">Cargar</button>
-            <button class="btn small red" data-action="delete-saved" data-id="${team.id}">Borrar</button>
-          </div>
-        </div>
-      `,
-    )
-    .join("");
-}
-
-function saveCurrentTeam() {
-  const nameInput = document.getElementById("saveName");
-  const name = nameInput.value.trim();
+function saveCurrentTeam(teamName) {
+  const name = (teamName || "").trim();
   const mons = state.self.filter(Boolean);
 
   if (!mons.length) {
@@ -2225,11 +2203,9 @@ function saveCurrentTeam() {
 
   teams.unshift(entry);
   setSavedTeams(teams.slice(0, 20));
-  nameInput.value = "";
-  renderSavedTeams();
 }
 
-async function loadSavedTeam(id) {
+async function loadSavedTeam(id, side = "self") {
   const teams = getSavedTeams();
   const team = teams.find((t) => t.id === id);
   if (!team) return;
@@ -2248,8 +2224,8 @@ async function loadSavedTeam(id) {
     }),
   );
 
-  state.self = mons.slice(0, 6);
-  while (state.self.length < 6) state.self.push(null);
+  state[side] = mons.slice(0, 6);
+  while (state[side].length < 6) state[side].push(null);
   if (typeof scheduleMoveWarmup === "function") scheduleMoveWarmup();
   renderAll();
 }
@@ -2257,7 +2233,6 @@ async function loadSavedTeam(id) {
 function deleteSavedTeam(id) {
   const teams = getSavedTeams().filter((t) => t.id !== id);
   setSavedTeams(teams);
-  renderSavedTeams();
 }
 
 function ensurePokedex() {
@@ -2984,15 +2959,32 @@ function pruneInvalidTurn1Slots() {
 }
 
 function ensureTurn1LeadDefaults() {
-  for (const side of ["self", "enemy"]) {
-    const filled = [0, 1, 2, 3, 4, 5].filter((i) => state[side][i]);
-    if (filled.length < 2) {
-      state.leads[side] = [...filled];
-      continue;
+  const selfFilled = [0, 1, 2, 3, 4, 5].filter((i) => state.self[i]);
+  const enemyFilled = [0, 1, 2, 3, 4, 5].filter((i) => state.enemy[i]);
+
+  if (state.leads.self.length === 0 && selfFilled.length >= 2) {
+    const rows = getRows();
+    const preview = computeQuickPreview(rows);
+    const optimalNames = preview.leadPair.map(m => m.name);
+    const optimalIndices = selfFilled.filter(i => optimalNames.includes(state.self[i].name)).slice(0, 2);
+    if (optimalIndices.length === 2) {
+      state.leads.self = optimalIndices;
+    } else {
+      state.leads.self = selfFilled.slice(0, 2);
     }
-    if (state.leads[side].length === 0) {
-      state.leads[side] = filled.slice(0, 2);
-    }
+  } else if (state.leads.self.length === 0 && selfFilled.length > 0) {
+    state.leads.self = [...selfFilled];
+  }
+
+  if (state.leads.enemy.length === 0 && enemyFilled.length >= 2) {
+    const sortedEnemyIndices = [...enemyFilled].sort((a, b) => {
+      const rankA = state.enemy[a].metaRank || 999;
+      const rankB = state.enemy[b].metaRank || 999;
+      return rankA - rankB;
+    });
+    state.leads.enemy = sortedEnemyIndices.slice(0, 2);
+  } else if (state.leads.enemy.length === 0 && enemyFilled.length > 0) {
+    state.leads.enemy = [...enemyFilled];
   }
 }
 
@@ -3012,6 +3004,11 @@ function renderTurn1PickRows() {
   const selfRow = document.getElementById("t1SelfPickRow");
   const enemyRow = document.getElementById("t1EnemyPickRow");
   if (!selfRow || !enemyRow) return;
+
+  const rows = getRows();
+  const preview = computeQuickPreview(rows);
+  const optimalNames = preview.leadPair.map(m => m.name);
+
   const build = (side) => {
     const team = state[side];
     const picks = state.leads[side];
@@ -3023,8 +3020,12 @@ function renderTurn1PickRows() {
         if (!mon) cls.push("t1-slot--empty");
         if (mon && on)
           cls.push(side === "self" ? "t1-slot--on-self" : "t1-slot--on-enemy");
+        
+        const isOptimal = side === "self" && mon && optimalNames.includes(mon.name);
+        const badge = isOptimal ? `<div class="optimal-badge"><i data-lucide="star"></i> ÓPTIMO</div>` : '';
+        
         const inner = mon
-          ? `<img src="${mon.sprite}" alt="" loading="lazy">`
+          ? `<img src="${mon.sprite}" alt="" loading="lazy">${badge}`
           : '<span class="t1-slot-ph">—</span>';
         const dis = mon ? "" : " disabled";
         return `<button type="button" class="${cls.join(" ")}" data-t1-slot data-side="${side}" data-idx="${i}"${dis}>${inner}</button>`;
@@ -3074,6 +3075,90 @@ function renderTurn1Simulator() {
   const insights = [];
   const micro = (mon) =>
     `<img src="${mon.sprite}" class="sprite-micro" title="${mon.displayName}">`;
+
+  // --- LÓGICA DE INERCIA (MOMENTUM) Y FUEGO CRUZADO ---
+  const selfLeads = leads.filter(x => x.side === "self");
+  const enemyLeads = leads.filter(x => x.side === "enemy");
+
+  let momentum = 50;
+  let crossfireHtml = [];
+  let escapeRoute = false;
+  let selfThreats = 0;
+
+  for (const sObj of selfLeads) {
+    for (const eObj of enemyLeads) {
+      const s = sObj.mon;
+      const e = eObj.mon;
+      const speS = Math.abs(sObj.spe);
+      const speE = Math.abs(eObj.spe);
+      
+      const atkS = bestAttack(s, e);
+      const atkE = bestAttack(e, s);
+
+      const sFaster = speS >= speE;
+
+      if (sFaster && atkS.mult >= 2) {
+        momentum += (atkS.ohko || atkS.ohkoProb > 50) ? 15 : 8;
+        crossfireHtml.push(`
+          <div class="crossfire-card crossfire-card--advantage">
+            <div class="crossfire-sprites">
+              ${micro(s)} <i data-lucide="crosshair" style="color: var(--green);"></i> ${micro(e)}
+            </div>
+            <span>Prioridad Letal: ${s.displayName} elimina a ${e.displayName}</span>
+          </div>
+        `);
+      }
+      
+      if (!sFaster && atkE.mult >= 2) {
+        momentum -= (atkE.ohko || atkE.ohkoProb > 50) ? 15 : 8;
+        selfThreats++;
+        crossfireHtml.push(`
+          <div class="crossfire-card crossfire-card--threat">
+            <div class="crossfire-sprites">
+              ${micro(e)} <i data-lucide="crosshair" style="color: var(--red);"></i> ${micro(s)}
+            </div>
+            <span>Peligro Inminente: ${e.displayName} supera y destruye a ${s.displayName}</span>
+          </div>
+        `);
+      }
+    }
+  }
+
+  const sMoves = selfLeads.flatMap(x => x.mon.set?.moves || []).map(m => String(m).toLowerCase());
+  const eMoves = enemyLeads.flatMap(x => x.mon.set?.moves || []).map(m => String(m).toLowerCase());
+  
+  if (sMoves.some(m => m === 'tailwind' || m === 'trick room' || m === 'viento afín' || m === 'espacio raro')) momentum += 8;
+  if (eMoves.some(m => m === 'tailwind' || m === 'trick room' || m === 'viento afín' || m === 'espacio raro')) momentum -= 8;
+
+  momentum = Math.max(10, Math.min(90, momentum));
+  if (momentum < 35 || selfThreats >= 2) {
+    escapeRoute = true;
+  }
+
+  const momentumHtml = `
+    <div class="momentum-container">
+      <div class="momentum-labels">
+        <span style="color: var(--blue);">Tu Inercia</span>
+        <span style="color: var(--red);">Inercia Rival</span>
+      </div>
+      <div class="momentum-track">
+         <div class="momentum-fill" style="width: ${momentum}%"></div>
+         <div class="momentum-marker"></div>
+      </div>
+    </div>
+  `;
+
+  const crossfireSection = crossfireHtml.length > 0 ? `<div class="crossfire-radar">${crossfireHtml.join('')}</div>` : '';
+
+  const escapeRouteHtml = escapeRoute ? `
+    <div class="escape-route-card">
+      <div class="escape-route-icon"><i data-lucide="triangle-alert"></i></div>
+      <div class="escape-route-text">
+        <h4>Vía de Escape Recomendada</h4>
+        <p>Matchup inicial desfavorable. Considera usar Protección, Redirección o cambiar (Pivot) inmediatamente.</p>
+      </div>
+    </div>
+  ` : '';
 
   // 1. Sistema de Detección Inmune a Formatos (Smogon / Traducciones PokeAPI)
   const safeNorm = (str) =>
@@ -3305,8 +3390,8 @@ function renderTurn1Simulator() {
   });
 
   // 8. Double Target
-  const selfLeads = leads.filter((x) => x.side === "self").map((x) => x.mon);
-  const enemyLeads = leads.filter((x) => x.side === "enemy").map((x) => x.mon);
+  // const selfLeads = leads.filter((x) => x.side === "self").map((x) => x.mon);
+  // const enemyLeads = leads.filter((x) => x.side === "enemy").map((x) => x.mon);
 
   if (selfLeads.length === 2 && enemyLeads.length === 2) {
     selfLeads.forEach((myMon) => {
@@ -3357,23 +3442,15 @@ function renderTurn1Simulator() {
     </div>
   `;
 
-  if (!insights.length) {
-    list.innerHTML =
-      timelineHtml +
-      `<div class="muted-small">No se detectaron interacciones críticas de Turno 1.</div>`;
-  } else {
-    list.innerHTML =
-      timelineHtml +
-      insights
-        .map(
-          (htmlStr) => `
-          <div style="padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.02); margin-bottom: 6px;">
-            <div class="formula-row">${htmlStr}</div>
-          </div>
-        `,
-        )
-        .join("");
-  }
+  const insightsEventsHtml = insights.length 
+    ? insights.map(htmlStr => `
+        <div style="padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.02); margin-bottom: 6px;">
+          <div class="formula-row">${htmlStr}</div>
+        </div>
+      `).join("")
+    : `<div class="muted-small" style="margin-top: 12px; text-align: center;">Sin eventos de campo adicionales.</div>`;
+
+  list.innerHTML = momentumHtml + timelineHtml + crossfireSection + escapeRouteHtml + insightsEventsHtml;
   updateIcons();
 }
 
@@ -3392,7 +3469,6 @@ function renderAll() {
   renderThreats();
   renderOpportunities(rows);
   renderStrategies();
-  renderSavedTeams();
 
   const preview = computeQuickPreview(rows);
   renderQuickPreview(preview);
@@ -3555,21 +3631,11 @@ document.getElementById("loadDemoBtn").addEventListener("click", async () => {
 document.getElementById("swapBtn").addEventListener("click", swapTeams);
 document.getElementById("clearBtn").addEventListener("click", clearAll);
 document
-  .getElementById("saveTeamBtn")
-  .addEventListener("click", saveCurrentTeam);
-document
   .querySelector('.team-config-btn[data-team="self"]')
   .addEventListener("click", () => renderTeamConfigDrawer("self"));
 document
   .querySelector('.team-config-btn[data-team="enemy"]')
   .addEventListener("click", () => renderTeamConfigDrawer("enemy"));
-
-savedTeamsList.addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-action]");
-  if (!btn) return;
-  if (btn.dataset.action === "load-saved") loadSavedTeam(btn.dataset.id);
-  if (btn.dataset.action === "delete-saved") deleteSavedTeam(btn.dataset.id);
-});
 
 ratingSelect.value = state.rating;
 ratingSelect.addEventListener("change", async (e) => {
@@ -4215,7 +4281,7 @@ document.getElementById("bestFourCard").addEventListener("click", () => {
 });
 
 async function hydrateSavedState() {
-  renderSavedTeams();
+  // Centralizado en el Drawer, ya no se renderiza en la inicialización
 }
 
 async function warmupLocalizationCaches() {
@@ -4282,6 +4348,61 @@ function renderTeamConfigDrawer(teamType) {
     document.body.appendChild(modalContainer);
   }
 
+  const title = teamType === 'self' ? 'Configuración de Tu Equipo' : 'Configuración del Rival';
+  const icon = teamType === 'self' ? 'shield-half' : 'swords';
+  const savedTeams = getSavedTeams();
+
+  let quickActionsHtml = '';
+  if (teamType === 'self') {
+    quickActionsHtml += `
+      <div class="save-bar" style="margin-bottom: 12px;">
+        <input id="drawerSaveName" class="save-input" placeholder="Nombre del equipo" />
+        <button class="btn green" onclick="handleDrawerAction('save', 'self')">Guardar Equipo</button>
+      </div>
+    `;
+  }
+  quickActionsHtml += `
+    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+      <button class="btn blue" style="flex: 1;" onclick="handleDrawerAction('import', '${teamType}')"><i data-lucide="clipboard-paste"></i> Importar Paste</button>
+      <button class="btn red" style="flex: 1;" onclick="handleDrawerAction('clear', '${teamType}')"><i data-lucide="trash-2"></i> Limpiar Slots</button>
+    </div>
+  `;
+
+  const savedTeamsHtml = savedTeams.length ? savedTeams.map(team => `
+    <div class="drawer-team-card">
+      <div class="drawer-team-info">
+        <div class="drawer-team-title">${team.name}</div>
+        <div class="drawer-team-desc">${team.mons.length} slots · corte ${team.rating || state.rating}</div>
+        <div class="drawer-team-sprites">
+          ${team.mons.map(m => `<div class="drawer-team-sprite"><img src="${m.sprite}"></div>`).join('')}
+        </div>
+      </div>
+      <div class="drawer-team-actions">
+        <button class="btn small blue" onclick="handleDrawerAction('load-saved', '${teamType}', '${team.id}')">Cargar</button>
+        ${teamType === 'self' ? `<button class="btn small red" onclick="handleDrawerAction('delete-saved', '${teamType}', '${team.id}')">Borrar</button>` : ''}
+      </div>
+    </div>
+  `).join('') : '<div class="empty">No hay equipos guardados en tus cajas.</div>';
+
+  const presetsHtml = META_PRESETS.map((preset, idx) => `
+    <div class="drawer-team-card">
+      <div class="drawer-team-info">
+        <div class="drawer-team-title">${preset.name}</div>
+        <div class="drawer-team-desc">${preset.desc}</div>
+        <div class="drawer-team-sprites">
+          ${preset.mons.map(slug => {
+            const cached = state.cache.get(normalizeText(slug));
+            const spriteUrl = cached ? cached.sprite : `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${slug}.png`;
+            return `<div class="drawer-team-sprite"><img src="${spriteUrl}" onerror="this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png'"></div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="drawer-team-actions">
+        <button class="btn small blue" onclick="handleDrawerAction('load-preset', '${teamType}', ${idx})">Cargar</button>
+      </div>
+    </div>
+  `).join('');
+
   modalContainer.innerHTML = `
     <div class="premium-drawer-overlay" id="drawerOverlay" onclick="closeTeamDrawer(event)">
       <div class="premium-drawer" onclick="event.stopPropagation()">
@@ -4289,48 +4410,29 @@ function renderTeamConfigDrawer(teamType) {
 
         <div class="drawer-header">
           <div class="drawer-title">
-            <i data-lucide="${teamType === 'self' ? 'shield-half' : 'swords'}"></i>
-            <span>Configuración del ${teamType === 'self' ? 'Equipo' : 'Rival'}</span>
+            <i data-lucide="${icon}"></i>
+            <span>${title}</span>
           </div>
           <button class="icon-btn" onclick="closeTeamDrawer()" style="background: rgba(255,255,255,0.05); border-radius: 50%; padding: 6px; border: none; cursor: pointer; color: #fff; display: grid; place-items: center;"><i data-lucide="x" style="width: 16px; height: 16px;"></i></button>
         </div>
 
-        <div class="tools-grid">
-          <!-- Guardar / Cargar -->
-          <button class="tool-card primary" onclick="handleTeamAction('save', '${teamType}')">
-            <div class="icon-wrapper"><i data-lucide="save"></i></div>
-            <div>
-              <div class="tool-card-title">Guardar en Box</div>
-              <div class="tool-card-desc">Almacena el equipo en memoria.</div>
-            </div>
-          </button>
+        ${quickActionsHtml}
 
-          <button class="tool-card warning" onclick="handleTeamAction('load', '${teamType}')">
-            <div class="icon-wrapper"><i data-lucide="folder-open"></i></div>
-            <div>
-              <div class="tool-card-title">Cargar Box</div>
-              <div class="tool-card-desc">Restaura un equipo guardado.</div>
-            </div>
-          </button>
+        <div class="drawer-tabs">
+          <button class="drawer-tab active" onclick="switchDrawerTab('saved')">Mis Cajas</button>
+          <button class="drawer-tab" onclick="switchDrawerTab('presets')">Top Meta</button>
+        </div>
 
-          <!-- Importar Pokepaste -->
-          <button class="tool-card success" onclick="handleTeamAction('import', '${teamType}')" style="grid-column: span 2; flex-direction: row; align-items: center;">
-            <div class="icon-wrapper"><i data-lucide="clipboard-paste"></i></div>
-            <div style="flex: 1; text-align: left;">
-              <div class="tool-card-title">Importar Poképaste</div>
-              <div class="tool-card-desc">Pega un texto de Showdown para cargar instantáneamente.</div>
-            </div>
-            <i data-lucide="chevron-right" style="color: var(--muted);"></i>
-          </button>
+        <div class="drawer-tab-content active" id="tab-saved">
+          <div class="drawer-scroll-list">
+            ${savedTeamsHtml}
+          </div>
+        </div>
 
-          <!-- Limpiar Equipo -->
-          <button class="tool-card danger" onclick="handleTeamAction('clear', '${teamType}')" style="grid-column: span 2; flex-direction: row; align-items: center; background: rgba(255,59,48,0.05);">
-            <div class="icon-wrapper"><i data-lucide="trash-2"></i></div>
-            <div style="flex: 1; text-align: left;">
-              <div class="tool-card-title" style="color: var(--red);">Reiniciar Slots</div>
-              <div class="tool-card-desc">Vacía todos los Pokémon de este lado.</div>
-            </div>
-          </button>
+        <div class="drawer-tab-content" id="tab-presets">
+          <div class="drawer-scroll-list">
+            ${presetsHtml}
+          </div>
         </div>
       </div>
     </div>
@@ -4341,7 +4443,7 @@ function renderTeamConfigDrawer(teamType) {
   }
 
   const overlay = document.getElementById("drawerOverlay");
-  void overlay.offsetWidth; // Forzamos un reflow para asegurar la animación
+  void overlay.offsetWidth;
   overlay.classList.add("open");
 }
 
@@ -4353,24 +4455,39 @@ window.closeTeamDrawer = function(e) {
   }
 };
 
-window.handleTeamAction = function(action, teamType) {
-  closeTeamDrawer();
+window.switchDrawerTab = function(tabId) {
+  document.querySelectorAll('.drawer-tab').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.drawer-tab-content').forEach(content => content.classList.remove('active'));
   
+  if (tabId === 'saved') {
+    document.querySelectorAll('.drawer-tab')[0].classList.add('active');
+    document.getElementById('tab-saved').classList.add('active');
+  } else {
+    document.querySelectorAll('.drawer-tab')[1].classList.add('active');
+    document.getElementById('tab-presets').classList.add('active');
+  }
+};
+
+window.handleDrawerAction = async function(action, teamType, payload) {
   if (action === 'save') {
-    if (teamType === 'self') {
-      saveCurrentTeam();
-    } else {
-      alert("Solo puedes guardar tu propio equipo por ahora.");
-    }
-  } else if (action === 'load') {
-    document.querySelector('.save-bar').scrollIntoView({ behavior: 'smooth' });
+    const input = document.getElementById("drawerSaveName");
+    saveCurrentTeam(input ? input.value : "");
+    renderTeamConfigDrawer(teamType);
   } else if (action === 'import') {
-    const paste = prompt("Pega tu Poképaste de Showdown aquí:\n(En esta versión se carga el preset meta automáticamente)");
-    if (paste !== null) {
-      fillMetaPreset(teamType);
-    }
+    alert("En desarrollo: Importación de Poképaste");
   } else if (action === 'clear') {
     state[teamType] = Array(6).fill(null);
     renderAll();
+    closeTeamDrawer();
+  } else if (action === 'load-saved') {
+    await loadSavedTeam(payload, teamType);
+    closeTeamDrawer();
+  } else if (action === 'delete-saved') {
+    deleteSavedTeam(payload);
+    renderTeamConfigDrawer(teamType);
+  } else if (action === 'load-preset') {
+    const preset = META_PRESETS[payload];
+    await fillTeamWithSpecies(teamType, preset.mons);
+    closeTeamDrawer();
   }
 };

@@ -2998,3 +2998,138 @@ tbody th {
   color: #eef4ff;
   line-height: 1.4;
 }
+
+/* --- TEAM CONFIG DRAWER (TABS & LISTS) --- */
+.drawer-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+.drawer-tab {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+.drawer-tab:hover {
+  color: #fff;
+}
+.drawer-tab.active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
+}
+.drawer-tab-content {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+.drawer-tab-content.active {
+  display: block;
+}
+.drawer-scroll-list {
+  max-height: 45vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+.drawer-team-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.drawer-team-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.drawer-team-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.drawer-team-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+}
+.drawer-team-desc {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.drawer-team-sprites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.drawer-team-sprite {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.drawer-team-sprite img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+.drawer-team-actions {
+  display: flex;
+  gap: 6px;
+  flex-direction: column;
+}
+@media (min-width: 560px) {
+  .drawer-team-actions {
+    flex-direction: row;
+  }
+}
+
+/* --- FASE 2: Centro de Comando Táctico (Turno 1) --- */
+
+/* Momentum Bar (Barra de Inercia) */
+.momentum-container { margin-bottom: 16px; padding: 0 4px; }
+.momentum-labels { display: flex; justify-content: space-between; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.momentum-track { height: 8px; background: rgba(255, 59, 48, 0.4); border-radius: 4px; position: relative; overflow: hidden; display: flex; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); }
+.momentum-fill { height: 100%; background: var(--blue); border-radius: 4px 0 0 4px; transition: width 0.4s ease-out; }
+.momentum-marker { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.8); transform: translateX(-50%); z-index: 2; }
+
+/* Optimal Badge (Insignia Óptima) */
+.optimal-badge { position: absolute; top: -6px; right: -6px; background: linear-gradient(135deg, #ffd965, #ffb938); color: #1a2231; font-size: 0.5rem; font-weight: 900; padding: 2px 4px; border-radius: 4px; border: 1px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 2px; z-index: 10; letter-spacing: 0.05em; pointer-events: none; }
+.optimal-badge .lucide { width: 8px; height: 8px; }
+
+/* Crossfire Alerts (Fuego Cruzado) */
+.crossfire-radar { display: grid; gap: 8px; margin-bottom: 12px; }
+.crossfire-card { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 800; background: rgba(0,0,0,0.2); }
+.crossfire-card--threat { border: 1px solid rgba(255, 59, 48, 0.4); background: linear-gradient(90deg, rgba(255, 59, 48, 0.15), transparent); color: #ffc8c4; }
+.crossfire-card--advantage { border: 1px solid rgba(48, 209, 88, 0.4); background: linear-gradient(90deg, rgba(48, 209, 88, 0.15), transparent); color: #d4ffe3; }
+.crossfire-sprites { display: flex; align-items: center; gap: 6px; }
+.crossfire-sprites .sprite-micro { width: 20px; height: 20px; }
+
+/* Escape Route (Vía de Escape) */
+@keyframes pulse-alert { 
+  0% { box-shadow: 0 0 0 0 rgba(255, 179, 77, 0.4); } 
+  70% { box-shadow: 0 0 0 6px rgba(255, 179, 77, 0); } 
+  100% { box-shadow: 0 0 0 0 rgba(255, 179, 77, 0); } 
+}
+.escape-route-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; background: linear-gradient(135deg, rgba(255, 179, 77, 0.2), rgba(255, 59, 48, 0.2)); border: 1px solid var(--orange); color: #fff; margin-bottom: 12px; animation: pulse-alert 2s infinite; }
+.escape-route-icon { background: var(--orange); color: #000; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; }
+.escape-route-text h4 { margin: 0 0 2px 0; font-family: "Cabinet Grotesk", sans-serif; font-size: 0.9rem; font-weight: 900; text-transform: uppercase; color: var(--orange); }
+.escape-route-text p { margin: 0; font-size: 0.7rem; color: #ffe6c5; line-height: 1.3; }
