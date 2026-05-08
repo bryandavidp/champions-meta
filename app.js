@@ -2225,6 +2225,7 @@ async function loadSavedTeam(id, side = "self") {
   );
 
   state[side] = mons.slice(0, 6);
+  state.leads[side] = [];
   while (state[side].length < 6) state[side].push(null);
   if (typeof scheduleMoveWarmup === "function") scheduleMoveWarmup();
   renderAll();
@@ -2335,6 +2336,10 @@ async function pickPokemonIntoSlot(side, index, name) {
     const mon = await fetchPokemon(name);
     mon.set = buildDefaultSetForSpecies(mon.name, side, index);
     state[side][index] = mon;
+    
+    // SOLUCIÓN: Si el usuario cambia un pokemon específico, quitamos ese índice de los leads guardados
+    state.leads[side] = state.leads[side].filter((i) => i !== index);
+    
     scheduleMoveWarmup();
     renderAll();
   } catch (err) {
@@ -2345,6 +2350,10 @@ async function pickPokemonIntoSlot(side, index, name) {
 function clearAll() {
   state.self = Array(6).fill(null);
   state.enemy = Array(6).fill(null);
+  
+  // SOLUCIÓN: Vaciar los arrays de leads
+  state.leads = { self: [], enemy: [] };
+  
   renderAll();
 }
 
@@ -2352,6 +2361,12 @@ function swapTeams() {
   const temp = state.self;
   state.self = state.enemy;
   state.enemy = temp;
+  
+  // SOLUCIÓN: Intercambiar también las elecciones del Turno 1
+  const tempLeads = state.leads.self;
+  state.leads.self = state.leads.enemy;
+  state.leads.enemy = tempLeads;
+  
   renderAll();
 }
 
@@ -2366,6 +2381,10 @@ async function fillTeamWithSpecies(side, speciesList) {
   }
   state[side] = mons;
   while (state[side].length < 6) state[side].push(null);
+  
+  // SOLUCIÓN: Limpiar los leads del turno 1 al cargar equipo nuevo
+  state.leads[side] = [];
+  
   scheduleMoveWarmup();
   renderAll();
 }
@@ -4477,6 +4496,7 @@ window.handleDrawerAction = async function(action, teamType, payload) {
     alert("En desarrollo: Importación de Poképaste");
   } else if (action === 'clear') {
     state[teamType] = Array(6).fill(null);
+    state.leads[teamType] = [];
     renderAll();
     closeTeamDrawer();
   } else if (action === 'load-saved') {
