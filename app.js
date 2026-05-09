@@ -439,6 +439,13 @@ const state = {
   },
   matrixMode: "offensive",
   leads: { self: [], enemy: [] },
+  uiMode: 'quick',
+  chosenFour: [],
+  battleFocus: 'active',
+  activeSelfSlots: [0, 1],
+  activeEnemySlots: [0, 1],
+  selectedMatrixCell: null,
+  battleSheet: { open: false, side: null, slotKey: null, cell: null },
 };
 
 const selfSlots = document.getElementById("selfSlots");
@@ -1506,8 +1513,8 @@ function bestAttack(attacker, defender) {
 }
 
 function getRows() {
-  const self = state.self.filter(Boolean);
-  const enemy = state.enemy.filter(Boolean);
+  const self = getFocusedTeam('self');
+  const enemy = getFocusedTeam('enemy');
   if (!self.length || !enemy.length) return [];
 
   if (state.matrixMode === "defensive") {
@@ -1574,8 +1581,14 @@ function renderDock(side) {
           `;
       }
 
+      const chosenIndex = side === "self" && state.uiMode === 'quick' && state.chosenFour ? state.chosenFour.indexOf(idx) : -1;
+      const chosenBadge = chosenIndex !== -1
+        ? `<div class="chosen-badge">${chosenIndex + 1}</div>`
+        : '';
+
       return `
           <button class="mini-slot" data-action="pick" data-side="${side}" data-index="${idx}" aria-label="${mon.displayName}">
+            ${chosenBadge}
             ${mon.name.includes("-mega") ? '<div class="mega-icon"></div>' : ""}
             <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
             ${side === "self" ? `<span class="slot-edit-dot" title="Set configurado"></span>` : ""}
@@ -1637,8 +1650,8 @@ function renderMatrix(rows) {
     return;
   }
 
-  const self = state.self.filter(Boolean);
-  const enemy = state.enemy.filter(Boolean);
+  const self = getFocusedTeam('self');
+  const enemy = getFocusedTeam('enemy');
   const offensive = state.matrixMode !== "defensive";
   const colMons = offensive ? enemy : self;
   const cornerIcon = offensive ? "swords" : "shield";
@@ -1782,7 +1795,7 @@ function renderMatrix(rows) {
 }
 
 function scoreThreat(enemyMon) {
-  const selfTeam = state.self.filter(Boolean);
+  const selfTeam = getFocusedTeam('self');
   if (!selfTeam.length)
     return { score: 0, level: "green", reasons: [], bestAnswers: [] };
 
@@ -1844,7 +1857,7 @@ function scoreThreat(enemyMon) {
 }
 
 function renderThreats() {
-  const enemy = state.enemy.filter(Boolean);
+  const enemy = getFocusedTeam('enemy');
 
   if (!enemy.length) {
     threatList.innerHTML = `<div class="empty">Añade un rival para activar el semáforo.</div>`;
@@ -2544,88 +2557,560 @@ function calculateMvpScore(mon, selfTeam, enemyTeam) {
   return score;
 }
 
+function getSelfCombos() {
+  const team = state.self.map((mon, idx) => mon ? idx : null).filter(i => i !== null);
+  if (team.length < 4) return [];
+  const combos = [];
+  for (let a = 0; a < team.length - 3; a++) {
+    for (let b = a + 1; b < team.length - 2; b++) {
+      for (let c = b + 1; c < team.length - 1; c++) {
+        for (let d = c + 1; d < team.length; d++) {
+          combos.push([team[a], team[b], team[c], team[d]]);
+        }
+      }
+    }
+  }
+  return combos;
+}
+
+function buildQuickCombos() {
+  const combos = getSelfCombos();
+  const evaluated = combos.map(indices => evaluateCombo(indices));
+  const sorted = evaluated
+    .filter(c => !Number.isNaN(c.score))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+  return sorted;
+}
+
+function hasMoveInTeam(team, moveNames) {
+  const target = new Set(moveNames.map(m => String(m).toLowerCase()));
+  return team.some(mon =>
+    mon?.set?.moves?.some(m => target.has(String(m).toLowerCase()))
+  );
+}
+
+function scoreOffensiveCoverage(selfMons, enemyMons) {
+  if (!enemyMons.length) return 0;
+
+  let totalThreat = 0;
+  let maxPossible = enemyMons.length * 100;
+
+  for (const enemy of enemyMons) {
+    let best = null;
+    for (const selfMon of selfMons) {
+      const res = bestAttack(selfMon, enemy);
+      if (!best || res.damage > best.damage) best = res;
+    }
+    if (!best) continue;
+
+    let score = 0;
+    if (best.mult >= 2) score += 40;
+    if (best.mult >= 4) score += 20;
+    score += Math.min(40, best.ohkoProb * 0.4);
+
+    totalThreat += score;
+  }
+
+  return Math.round((totalThreat / maxPossible) * 100);
+}
+
+function scoreDefensiveSafety(selfMons, enemyMons) {
+  if (!enemyMons.length) return 0;
+
+  let total = 0;
+  const max = selfMons.length * 100;
+
+  for (const selfMon of selfMons) {
+    let worst = null;
+    for (const enemy of enemyMons) {
+      const res = bestAttack(enemy, selfMon);
+      if (!worst || res.damage > worst.damage) worst = res;
+    }
+    if (!worst) continue;
+
+    let score = 100;
+    if (worst.mult >= 2) score -= 30;
+    if (worst.mult >= 4) score -= 50;
+    if (worst.ohkoProb >= 50) score -= 30;
+    if (worst.ohkoProb >= 90) score -= 20;
+
+    total += Math.max(0, score);
+  }
+
+  return Math.round((total / max) * 100);
+}
+
+function scoreSpeedAndTempo(selfMons, enemyMons) {
+  const selfSpeeds  = selfMons.map(m => calculateSpeed(m, 'self')).sort((a,b)=>b-a);
+  const enemySpeeds = enemyMons.map(m => calculateSpeed(m, 'enemy')).sort((a,b)=>b-a);
+
+  if (!selfSpeeds.length || !enemySpeeds.length) return 0;
+
+  const fastestEnemy = enemySpeeds[0];
+  const outspeeders = selfSpeeds.filter(s => s > fastestEnemy).length;
+  let score = (outspeeders / selfSpeeds.length) * 60;
+
+  if (hasMoveInTeam(selfMons, ['Tailwind', 'Viento Afín'])) score += 20;
+  if (hasMoveInTeam(selfMons, ['Trick Room', 'Espacio Raro'])) score += 20;
+  if (hasMoveInTeam(selfMons, ['Thunder Wave', 'Icy Wind', 'Onda Trueno', 'Viento Hielo'])) score += 10;
+
+  return Math.round(Math.min(100, score));
+}
+
+const TOOL_GROUPS = {
+  fakeOut:   ['Fake Out', 'Sorpresa'],
+  redir:     ['Follow Me', 'Rage Powder', 'Señuelo', 'Polvo Ira'],
+  pivot:     ['Parting Shot', 'U-turn', 'Volt Switch', 'Flip Turn', 'Ida y Vuelta', 'Voltiocambio'],
+  protections: ['Wide Guard', 'Quick Guard', 'Vasta Guardia', 'Anticipo'],
+  statusCtrl: ['Taunt', 'Haze', 'Mofa', 'Niebla'],
+};
+
+function scoreTools(selfMons) {
+  let score = 0;
+
+  if (hasMoveInTeam(selfMons, TOOL_GROUPS.fakeOut))      score += 25;
+  if (hasMoveInTeam(selfMons, TOOL_GROUPS.redir))        score += 25;
+  if (hasMoveInTeam(selfMons, TOOL_GROUPS.pivot))        score += 20;
+  if (hasMoveInTeam(selfMons, TOOL_GROUPS.protections))  score += 15;
+  if (hasMoveInTeam(selfMons, TOOL_GROUPS.statusCtrl))   score += 15;
+
+  const protectUsers = selfMons.filter(m =>
+    m?.set?.moves?.some(x => ['protect', 'protección', 'detect', 'detección'].includes(String(x).toLowerCase()))
+  ).length;
+  score += Math.min(20, protectUsers * 7);
+
+  return Math.round(Math.min(100, score));
+}
+
+function scoreRedundancyPenalty(selfMons, enemyMons) {
+  const weaknessCount = new Map();
+
+  for (const selfMon of selfMons) {
+    const types = selfMon.types || [];
+    for (const attackType in TYPE_CHART) {
+      const mult = effectiveness(attackType, types);
+      if (mult >= 2) {
+        weaknessCount.set(attackType, (weaknessCount.get(attackType) || 0) + 1);
+      }
+    }
+  }
+
+  let penalty = 0;
+  for (const [type, count] of weaknessCount.entries()) {
+    if (count >= 3) penalty += 15;
+    else if (count === 2) penalty += 5;
+  }
+
+  for (const enemy of enemyMons) {
+    const enemyMoves = enemy.set?.moves || [];
+    for (const moveName of enemyMoves) {
+      const moveId = String(moveName).toLowerCase().replace(/[^a-z0-9]/g, '');
+      const moveData = typeof MOVES_DB !== 'undefined' ? MOVES_DB[moveId] : null;
+      if (moveData && weaknessCount.get(moveData.type) >= 2) {
+        penalty += 5;
+      }
+    }
+  }
+
+  return penalty;
+}
+
+function derivePlanType(m) {
+  const { offCoverage, defSafety, speedControl, toolsScore, redundancyPen } = m;
+
+  if (offCoverage >= 75 && speedControl >= 60 && defSafety < 55) {
+    return 'agresivo';
+  }
+  if (defSafety >= 75 && offCoverage < 65) {
+    return 'defensivo';
+  }
+  if (speedControl >= 70 && toolsScore >= 60) {
+    return 'tempo';
+  }
+  if (redundancyPen >= 30 && defSafety < 60) {
+    return 'riesgoso';
+  }
+  return 'balanceado';
+}
+
+function getTeamWeakTypes(selfMons) {
+  const weaknessCount = new Map();
+  for (const mon of selfMons) {
+    const types = mon.types || [];
+    for (const atk in TYPE_CHART) {
+      if (effectiveness(atk, types) >= 2) {
+        weaknessCount.set(atk, (weaknessCount.get(atk) || 0) + 1);
+      }
+    }
+  }
+  return Array.from(weaknessCount.entries())
+    .sort((a,b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([type]) => TYPE_META[type]?.name || type);
+}
+
+function getTeamStrongVsEnemy(selfMons, enemyMons) {
+  const strongTargets = [];
+  for (const enemy of enemyMons) {
+    for (const selfMon of selfMons) {
+      const best = bestAttack(selfMon, enemy);
+      if (best.mult >= 2 || best.ohko) {
+        strongTargets.push(enemy.displayName);
+        break;
+      }
+    }
+  }
+  return [...new Set(strongTargets)].slice(0, 2);
+}
+
+function derivePlanText(planType, metrics, selfMons, enemyMons) {
+  const weakTypes = getTeamWeakTypes(selfMons);
+  const strongTargets = getTeamStrongVsEnemy(selfMons, enemyMons);
+
+  const strongStr = strongTargets.length
+    ? `Presionas especialmente bien a ${strongTargets.join(' y ')}.`
+    : `Tienes opciones razonables contra la mayoría de amenazas rivales.`;
+
+  const weakStr = weakTypes.length
+    ? `Cuidado con ataques de tipo ${weakTypes.join(' y ')}.`
+    : `No compartes debilidades graves entre tus cuatro Pokémon.`;
+
+  let toolsList = [];
+  if (hasMoveInTeam(selfMons, TOOL_GROUPS.fakeOut)) toolsList.push('Fake Out');
+  if (hasMoveInTeam(selfMons, TOOL_GROUPS.redir)) toolsList.push('Redirección');
+  if (hasMoveInTeam(selfMons, ['Tailwind', 'Viento Afín'])) toolsList.push('Tailwind');
+  if (hasMoveInTeam(selfMons, ['Trick Room', 'Espacio Raro'])) toolsList.push('Trick Room');
+  if (hasMoveInTeam(selfMons, TOOL_GROUPS.pivot)) toolsList.push('Pivot');
+  const toolsStr = toolsList.length ? `[${toolsList.join('], [')}]` : 'Sin utilidad destacada';
+
+  switch (planType) {
+    case 'agresivo':
+      return {
+        planTitle: 'Plan: Abrir pegando fuerte.',
+        planDescription: `${strongStr} Tu defensa es más frágil, así que busca trades ventajosos en los primeros turnos.`,
+        keyLine: 'Clave: No regales turnos; fuerza intercambios donde ganes el tempo.',
+        toolsStr
+      };
+    case 'defensivo':
+      return {
+        planTitle: 'Plan: Absorber y castigar.',
+        planDescription: `${weakStr} Juega alrededor de las amenazas clave y aprovecha tus resistencias para entrar y salir.`,
+        keyLine: 'Clave: Prioriza Protect y cambios seguros antes de exponerte a OHKOs.',
+        toolsStr
+      };
+    case 'tempo':
+      return {
+        planTitle: 'Plan: Controlar el tempo de la partida.',
+        planDescription: `Tu combinación tiene buen acceso a control de velocidad. Establece Tailwind o Trick Room y luego presiona con tus breakers.`,
+        keyLine: 'Clave: Usa el primer turno para fijar el ritmo (TW/TR) en lugar de buscar daño bruto.',
+        toolsStr
+      };
+    case 'riesgoso':
+      return {
+        planTitle: 'Plan: Presión alta con riesgo elevado.',
+        planDescription: `${strongStr} Sin embargo, ${weakStr.toLowerCase()}`,
+        keyLine: 'Clave: Evita situaciones donde el rival pueda explotar tus debilidades compartidas.',
+        toolsStr
+      };
+    default:
+      return {
+        planTitle: 'Plan: Presión equilibrada desde el turno 1.',
+        planDescription: `${strongStr} ${weakStr}`,
+        keyLine: 'Clave: Alterna turnos agresivos con turnos de protección y reposicionamiento.',
+        toolsStr
+      };
+  }
+}
+
+function evaluateCombo(indices) {
+  const selfMons = indices.map(i => state.self[i]).filter(Boolean);
+  const enemyMons = state.enemy.filter(Boolean);
+  if (selfMons.length < 4 || !enemyMons.length) {
+    return {
+      indices,
+      score: 0,
+      offCoverage: 0,
+      defSafety: 0,
+      speedControl: 0,
+      toolsScore: 0,
+      redundancyPen: 0,
+      planType: 'desconocido',
+      planTitle: 'Datos insuficientes',
+      planDescription: 'Añade 4 Pokémon propios y al menos 1 rival.',
+      keyLine: '',
+      toolsStr: ''
+    };
+  }
+
+  const offCoverage   = scoreOffensiveCoverage(selfMons, enemyMons);
+  const defSafety     = scoreDefensiveSafety(selfMons, enemyMons);
+  const speedControl  = scoreSpeedAndTempo(selfMons, enemyMons);
+  const toolsScore    = scoreTools(selfMons);
+  const redundancyPen = scoreRedundancyPenalty(selfMons, enemyMons);
+
+  const rawScore =
+      offCoverage   * 0.35 +
+      defSafety     * 0.25 +
+      speedControl  * 0.20 +
+      toolsScore    * 0.20 -
+      redundancyPen * 0.40;
+
+  const normalizedScore = Math.round(Math.max(0, Math.min(100, rawScore)));
+
+  const planType = derivePlanType({
+    offCoverage, defSafety, speedControl, toolsScore, redundancyPen
+  });
+
+  const { planTitle, planDescription, keyLine, toolsStr, planIcon } =
+    derivePlanText(planType, { offCoverage, defSafety, speedControl, toolsScore }, selfMons, enemyMons);
+
+  const combo = {
+    indices,
+    mons: selfMons,
+    score: normalizedScore,
+    offCoverage,
+    defSafety,
+    speedControl,
+    toolsScore,
+    redundancyPen,
+    planType,
+    planTitle,
+    planDescription,
+    keyLine,
+    toolsStr,
+    planIcon: planIcon || 'scale'
+  };
+
+  chooseLeadsForCombo(combo, enemyMons);
+  return combo;
+}
+
+function scoreLeadPairForCombo(monA, monB, enemyTeam) {
+  let score = scorePokemonForQuickPick(monA, enemyTeam) + scorePokemonForQuickPick(monB, enemyTeam);
+  const flagsA = getPokemonUtilityFlags(monA);
+  const flagsB = getPokemonUtilityFlags(monB);
+  if ((flagsA.fakeOut && flagsB.tailwind) || (flagsB.fakeOut && flagsA.tailwind)) score += 20;
+  if ((flagsA.fakeOut && flagsB.trickRoom) || (flagsB.fakeOut && flagsA.trickRoom)) score += 20;
+  if ((flagsA.redirection && !flagsB.redirection) || (flagsB.redirection && !flagsA.redirection)) score += 15;
+  if (flagsA.intimidate || flagsB.intimidate) score += 10;
+  if (flagsA.weather || flagsB.weather) score += 5;
+  if (flagsA.fakeOut && flagsB.fakeOut) score -= 15;
+  if (flagsA.tailwind && flagsB.tailwind) score -= 15;
+  return score;
+}
+
+function chooseLeadsForCombo(combo, enemyTeam) {
+  const indices = combo.indices;
+  let bestPair = [indices[0], indices[1]];
+  let bestScore = -Infinity;
+  const chosenMons = indices.map(i => state.self[i]);
+
+  for (let i = 0; i < indices.length; i++) {
+    for (let j = i+1; j < indices.length; j++) {
+      const pair = [indices[i], indices[j]];
+      const s = scoreLeadPairForCombo(chosenMons[i], chosenMons[j], enemyTeam);
+      if (s > bestScore) {
+        bestScore = s;
+        bestPair = pair;
+      }
+    }
+  }
+  combo.leads = bestPair;
+  combo.leadScore = bestScore;
+  combo.orderedIdx = [...bestPair, ...indices.filter(idx => !bestPair.includes(idx))];
+}
+
+function evaluateAllCombos() {
+  const enemyTeam = state.enemy.filter(Boolean);
+  if (state.self.filter(Boolean).length < 4 || !enemyTeam.length) {
+    state.combos = [];
+    return;
+  }
+  const combosIndices = getSelfCombos();
+  const evaluated = combosIndices.map(indices => evaluateCombo(indices)).filter(Boolean);
+  state.combos = evaluated.sort((a, b) => b.score - a.score);
+}
+
+function getTopThreatSummaries() {
+  const enemy = state.enemy.filter(Boolean);
+  if (!enemy.length) return [];
+
+  const items = enemy.map(mon => ({ mon, threat: scoreThreat(mon) }));
+  const reds = items.filter(i => i.threat.level === 'red');
+  const ambers = items.filter(i => i.threat.level === 'amber');
+
+  return [
+    ...reds.slice(0, 2),
+    ...ambers.slice(0, 1),
+  ];
+}
+
+function lockBestFour(preview) {
+  const team = state.self;
+  const best = preview.bestFour || [];
+  if (!team || best.length < 4) return;
+
+  const indices = [];
+  for (let i = 0; i < team.length; i++) {
+    if (!team[i]) continue;
+    if (best.some(m => m.name === team[i].name) && !indices.includes(i)) {
+      indices.push(i);
+    }
+  }
+  if (indices.length < 4) return;
+
+  state.chosenFour = indices.slice(0, 4);
+  renderAll();
+}
+
+function applyQuickCombo(comboIndices) {
+  state.chosenFour = comboIndices;
+  if (state.combos) {
+    const combo = state.combos.find(c => c.indices.join(',') === comboIndices.join(','));
+    if (combo && combo.leads) {
+      state.leads.self = combo.leads;
+    }
+  }
+  renderAll();
+}
+
+function renderQuickCombos() {
+  const selfTeam  = state.self.filter(Boolean);
+  const enemyTeam = state.enemy.filter(Boolean);
+  const section = document.getElementById('quickCombosList');
+  if (!section) return;
+
+  if (selfTeam.length < 6 || enemyTeam.length < 6) {
+    section.innerHTML = `
+      <div class="empty">
+        Completa ambos equipos para ver las combinaciones recomendadas.
+      </div>`;
+    return;
+  }
+
+  const combos = buildQuickCombos();
+  if (!combos.length) {
+    section.innerHTML = '<div class="empty">Añade 4 Pokémon y un rival para ver combinaciones recomendadas.</div>';
+    return;
+  }
+
+  const isActiveCombo = (comboArr) => {
+    if (state.activeComboKey && state.activeComboKey === comboArr.join(',')) return true;
+    if (!state.chosenFour || state.chosenFour.length !== 4) return false;
+    const sortedA = [...comboArr].sort();
+    const sortedB = [...state.chosenFour].sort();
+    return sortedA.every((val, index) => val === sortedB[index]);
+  };
+
+  section.innerHTML = combos.map((combo, idx) => {
+    const mons = combo.orderedIdx.map(i => state.self[i]).filter(Boolean);
+    const active = isActiveCombo(combo.orderedIdx);
+
+    const getPlanIcon = (type) => {
+      if (type === 'agresivo') return { icon: 'swords', color: 'var(--red)' };
+      if (type === 'defensivo') return { icon: 'shield', color: 'var(--blue)' };
+      if (type === 'tempo') return { icon: 'timer', color: 'var(--purple)' };
+      return { icon: 'scale', color: 'var(--gold)' };
+    };
+    const pIcon = getPlanIcon(combo.planType);
+
+    return `
+      <button class="btn combo-card ${active ? 'combo-card--active' : ''}" data-combo="${combo.orderedIdx.join(',')}" style="${active ? 'background: rgba(255, 215, 0, 0.04); box-shadow: var(--shadow-md); border-left: 4px solid var(--gold); border-color: var(--gold);' : ''}">
+        <div class="combo-header">
+          <div style="display:flex; align-items:center; gap: 8px;">
+            <span class="combo-rank">#${idx + 1}</span>
+            ${active ? '<span class="tiny-chip" style="background: var(--gold); color: #000; border: none; font-weight: 900;">ACTIVO</span>' : ''}
+            ${active && state.turn1Custom ? '<span class="tiny-chip" style="background: var(--bg); color: var(--gold); border: 1px solid var(--gold); margin-left: 4px;">Leads Modificados</span>' : ''}
+          </div>
+          <div style="display:flex; align-items:center; gap: 8px;">
+            <div class="tiny-chip" style="color: ${pIcon.color}; border-color: ${pIcon.color}55;"><i data-lucide="${pIcon.icon}" style="width:12px;height:12px;"></i></div>
+            <span class="combo-score" title="Cobertura ${combo.offCoverage} · Defensa ${combo.defSafety} · Tempo ${combo.speedControl} · Redundancia -${combo.redundancyPen}">${combo.score}</span>
+          </div>
+        </div>
+        <div class="combo-sprites" style="display:flex; gap:8px; margin: 12px 0;">
+          ${mons.map((m, mIdx) => {
+            const isLead = mIdx < 2;
+            const badgeLabel = isLead ? `L${mIdx + 1}` : `R${mIdx - 1}`;
+            const badgeColor = isLead ? 'var(--blue)' : 'var(--muted)';
+            return `
+            <div class="combo-sprite" style="position:relative; width: 48px; height: 48px; border: 1px solid var(--line2); border-radius: 8px; background: rgba(255,255,255,0.05); display: flex; flex-direction:column; align-items:center; justify-content:center;">
+              <span style="position:absolute; top:-6px; left:-6px; background:${badgeColor}; color:#fff; font-size:0.6rem; font-weight:900; padding:2px 4px; border-radius:4px; line-height:1;">${badgeLabel}</span>
+              <img src="${m.sprite}" alt="${m.displayName}" style="width: 100%; height: 100%; object-fit: contain;">
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="combo-metrics" style="display:flex; gap:6px; flex-wrap:wrap;">
+          <span class="tiny-chip" style="color: var(--orange); border-color: var(--orange)55;"><i data-lucide="sword" style="width:12px;height:12px;margin-right:4px;"></i> Cobertura ${combo.offCoverage}</span>
+          <span class="tiny-chip" style="color: var(--blue); border-color: var(--blue)55;"><i data-lucide="shield" style="width:12px;height:12px;margin-right:4px;"></i> Defensa ${combo.defSafety}</span>
+          <span class="tiny-chip" style="color: var(--purple); border-color: var(--purple)55; opacity:0.8;"><i data-lucide="wrench" style="width:12px;height:12px;margin-right:4px;"></i> Utilidad ${combo.toolsScore}</span>
+        </div>
+        <div class="combo-plan" style="text-align: left; margin-top: 12px; display:flex; flex-direction:column; gap:8px;">
+          <div class="combo-plan-row" style="display:flex; gap:8px; align-items:flex-start;">
+            <i data-lucide="crosshair" style="width:14px;height:14px; margin-top:2px; color:var(--muted);"></i>
+            <div>
+              <div class="combo-plan-label" style="font-size:0.72rem; text-transform:uppercase; font-weight:900; color:var(--text); opacity:0.9;">Lectura del Matchup</div>
+              <div class="combo-plan-text" style="font-size:0.75rem; color:var(--muted);">${combo.planDescription}</div>
+            </div>
+          </div>
+          <div class="combo-plan-row" style="display:flex; gap:8px; align-items:flex-start;">
+            <i data-lucide="key" style="width:14px;height:14px; margin-top:2px; color:var(--gold);"></i>
+            <div>
+              <div class="combo-plan-label" style="font-size:0.72rem; text-transform:uppercase; font-weight:900; color:var(--gold); opacity:0.9;">Clave</div>
+              <div class="combo-plan-text" style="font-size:0.75rem; color:var(--text);">${combo.keyLine}</div>
+            </div>
+          </div>
+          <div class="combo-plan-row" style="display:flex; gap:8px; align-items:flex-start;">
+            <i data-lucide="wrench" style="width:14px;height:14px; margin-top:2px; color:var(--muted);"></i>
+            <div>
+              <div class="combo-plan-label" style="font-size:0.72rem; text-transform:uppercase; font-weight:900; color:var(--text); opacity:0.9;">Herramientas</div>
+              <div class="combo-plan-text" style="font-size:0.75rem; color:var(--muted);">${combo.toolsStr}</div>
+            </div>
+          </div>
+        </div>
+      </button>
+    `;
+  }).join('');
+  
+  if (typeof lucide !== "undefined" && lucide.createIcons) {
+    lucide.createIcons();
+  }
+}
+
+function renderQuickLayer() {
+  if (state.uiMode !== 'quick') return;
+  const rows = getRows();
+  const preview = computeQuickPreview(rows);
+  renderQuickPreview(preview);
+  renderQuickCombos();
+}
+
 // --- PREVIEW UI ---
 function computeQuickPreview(rows) {
-  const selfTeam = state.self.filter(Boolean);
   const enemyTeam = state.enemy.filter(Boolean);
-
-  if (!selfTeam.length || !enemyTeam.length) {
-    return { enemyPlan: [], bestFour: [], leadPair: [], noBring: [] };
+  if (!state.combos || !state.combos.length || !enemyTeam.length) {
+    return { enemyPlan: [], bestFour: [], leadPair: [], noBring: [], mvp: null };
   }
-
-  // Escaneo del Rival para Scoring Táctico Dinámico
-  const enemyAbilities = enemyTeam.map(e => e?.set?.ability?.toLowerCase()).filter(Boolean);
-  const enemyMoves = enemyTeam.flatMap(e => e?.set?.moves || []).map(m => m.toLowerCase()).filter(Boolean);
-
-  const enemyHasFieldControl = enemyAbilities.some(a => TACTICAL_ROLES.weatherSetters.includes(a) || TACTICAL_ROLES.terrainSetters.includes(a));
-  const enemyHasSpeedControl = enemyMoves.some(m => TACTICAL_ROLES.speedControl.includes(m));
-
-  const scoredSelf = selfTeam
-    .map((mon) => {
-      let baseScore = scorePokemonForQuickPick(mon, enemyTeam);
-      mon.tacticalReason = null;
-
-      const myAbilities = [mon.set?.ability?.toLowerCase()].filter(Boolean);
-      const myMoves = (mon.set?.moves || []).map(m => m.toLowerCase());
-      const mySpeed = mon.raw?.stats?.find(s => s.stat.name === 'speed')?.base_stat || 0;
-
-      if (enemyHasFieldControl && myAbilities.some(a => TACTICAL_ROLES.weatherSetters.includes(a) || TACTICAL_ROLES.terrainSetters.includes(a))) {
-        const myControl = myAbilities.find(a => TACTICAL_ROLES.weatherSetters.includes(a) || TACTICAL_ROLES.terrainSetters.includes(a));
-        if (myControl && !enemyAbilities.includes(myControl)) {
-          baseScore += 500;
-          mon.tacticalReason = 'weather';
-        }
-      } else if (enemyHasSpeedControl) {
-        if (mySpeed < 50 || myMoves.some(m => ['taunt', 'mofa', 'imprison', 'cerca'].includes(m))) {
-          baseScore += 300;
-          mon.tacticalReason = 'speed';
-        }
-      }
-
-      return {
-        mon,
-        score: baseScore,
-        mvpScore: calculateMvpScore(mon, selfTeam, enemyTeam),
-      };
-    })
-    .sort((a, b) => b.score - a.score);
-
-  const bestFour = scoredSelf.slice(0, 4).map((x) => x.mon);
-  const noBring = scoredSelf.slice(4).map((x) => x.mon);
-
-  let bestLeadScore = -Infinity;
-  let leadPair = [];
-
-  if (bestFour.length >= 2) {
-    for (let i = 0; i < bestFour.length; i++) {
-      for (let j = i + 1; j < bestFour.length; j++) {
-        const score = scoreLeadPairQuick(bestFour[i], bestFour[j], enemyTeam);
-        if (score > bestLeadScore) {
-          bestLeadScore = score;
-          leadPair = [bestFour[i], bestFour[j]];
-        }
-      }
-    }
-  } else {
-    leadPair = bestFour.slice(0, 2);
+  
+  let activeCombo = state.combos[0];
+  if (state.chosenFour && state.chosenFour.length === 4) {
+    const found = state.combos.find(c => c.indices.sort().join(',') === [...state.chosenFour].sort().join(','));
+    if (found) activeCombo = found;
   }
+  
+  const bestFour = activeCombo.mons;
+  const leadPair = activeCombo.leads ? activeCombo.leads.map(i => state.self[i]) : [];
+  const noBring = state.self.filter(m => m && !bestFour.includes(m));
+  const enemyPlan = inferStrategies(enemyTeam);
 
-  // --- Detección de MVP ---
   let mvp = null;
-  for (const scoredMon of scoredSelf) {
-    if (scoredMon.mvpScore >= 20) {
-      mvp = scoredMon.mon;
-      break; // Encontramos el primer MVP, asumimos que solo uno es necesario para el banner
-    }
+  let maxScore = -1;
+  for (const m of bestFour) {
+      const score = calculateMvpScore(m, state.self.filter(Boolean), enemyTeam);
+      if (score > maxScore) { maxScore = score; mvp = m; }
   }
 
-  return {
-    mvp, // Pasamos el MVP a la función de renderizado
-    enemyPlan: inferStrategies(enemyTeam), // Estrategias existentes
-    bestFour,
-    leadPair,
-    noBring,
-  };
+  return { enemyPlan, bestFour, leadPair, noBring, mvp };
 }
 
 // --- Actualización de UI para MVP ---
@@ -2723,6 +3208,26 @@ function renderQuickPreview(preview) {
       '<div class="muted-small">Sin plan claro detectado.</div>';
   }
 
+  const topThreats = getTopThreatSummaries();
+  const threatChipsHtml = topThreats.map(({mon, threat}) => `
+    <div class="tag-pill tag-pill--danger" style="margin-bottom: 4px;">
+      <img src="${mon.sprite}" class="sprite-micro" alt="${mon.displayName}">
+      <span>${mon.displayName}: ${threat.reasons[0] || 'Amenaza clave en T1'}</span>
+    </div>
+  `).join('');
+  const planRivalCard = document.getElementById("planRivalCard");
+  if (planRivalCard) {
+    let threatRow = document.getElementById("quickThreatRow");
+    if (!threatRow) {
+      threatRow = document.createElement("div");
+      threatRow.id = "quickThreatRow";
+      threatRow.className = "quick-threat-row";
+      threatRow.style.marginTop = "8px";
+      planRivalCard.appendChild(threatRow);
+    }
+    threatRow.innerHTML = threatChipsHtml || '<span class="muted-small">Sin amenazas rojas claras.</span>';
+  }
+
   const leadIds = new Set(preview.leadPair.map(m => m.name));
   const backline = preview.bestFour.filter(m => !leadIds.has(m.name));
 
@@ -2730,42 +3235,57 @@ function renderQuickPreview(preview) {
   
   // Tablero de Despliegue (Leads + Reserva integrados)
   bestFourCard.className = "deployment-zone";
-  if (preview.leadPair.length === 0 && backline.length === 0) {
-    bestFourCard.innerHTML = `
+
+  const getPlanIcon = (type) => {
+    if (type === 'agresivo') return { icon: 'swords', color: 'var(--red)', label: 'Agresivo' };
+    if (type === 'defensivo') return { icon: 'shield', color: 'var(--blue)', label: 'Defensivo' };
+    if (type === 'tempo') return { icon: 'timer', color: 'var(--purple)', label: 'Tempo' };
+    if (type === 'balanceado') return { icon: 'scale', color: 'var(--gold)', label: 'Balanceado' };
+    return { icon: 'check', color: 'var(--blue)', label: 'Autorizado' };
+  };
+  const planInfo = preview.activeCombo ? getPlanIcon(preview.activeCombo.planType) : { icon: 'check', color: 'var(--blue)', label: 'Autorizado' };
+
+  const headerHtml = `
       <div class="deployment-header">
-        <h3 style="margin: 0; font: 900 0.9rem/1 'Cabinet Grotesk', sans-serif; color: #fff;">Escuadrón Seleccionado</h3>
-        <span class="tiny-chip status-blue" style="border-color: rgba(50,173,230,0.4);">Autorizado</span>
-      </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <h3 style="margin: 0; font: 900 0.9rem/1 'Cabinet Grotesk', sans-serif; color: #fff;">Escuadrón Seleccionado</h3>
+          ${state.turn1Custom ? '<span class="tiny-chip" style="background: var(--bg); color: var(--gold); border: 1px solid var(--gold); font-size:0.65rem;">Leads Custom</span>' : ''}
+        </div>
+        <span class="tiny-chip" style="color: ${planInfo.color}; border-color: ${planInfo.color}55; background: rgba(255,255,255,0.05); font-weight:800;"><i data-lucide="${planInfo.icon}" style="width:12px;height:12px;margin-right:4px;"></i> ${planInfo.label}</span>
+      </div>`;
+
+  if (preview.leadPair.length === 0 && backline.length === 0) {
+    bestFourCard.innerHTML = headerHtml + `
       <div class="empty" style="margin-top: 12px;">Faltan Pokémon en el equipo</div>
     `;
   } else {
-    bestFourCard.innerHTML = `
-      <div class="deployment-header">
-        <h3 style="margin: 0; font: 900 0.9rem/1 'Cabinet Grotesk', sans-serif; color: #fff;">Escuadrón Seleccionado</h3>
-        <span class="tiny-chip status-blue" style="border-color: rgba(50,173,230,0.4);">Autorizado</span>
-      </div>
-      
-      <div class="deployment-tier">
+    bestFourCard.innerHTML = headerHtml + `
+      <div class="deployment-tier" style="margin-top: 12px;">
         <span class="deployment-label">Vanguardia (Leads)</span>
         <div class="deployment-sprites-row">
-          ${preview.leadPair.map(m => `
-            <div class="preview-lead-sprite" style="width: 64px; height: 64px; border: 2px solid var(--blue); border-radius: 12px; background: rgba(50, 173, 230, 0.1); display: grid; place-items: center; box-shadow: 0 0 10px rgba(50,173,230,0.2);" title="${m.displayName}">
+          ${preview.leadPair.map((m, mIdx) => `
+            <div class="preview-lead-sprite" style="position:relative; width: 64px; height: 64px; border: 2px solid var(--blue); border-radius: 12px; background: rgba(50, 173, 230, 0.1); display: grid; place-items: center; box-shadow: 0 0 10px rgba(50,173,230,0.2);" title="${m.displayName}">
+              <span style="position:absolute; top:-6px; left:-6px; background:var(--blue); color:#fff; font-size:0.6rem; font-weight:900; padding:2px 4px; border-radius:4px; line-height:1; z-index:10;">L${mIdx + 1}</span>
               ${renderPreviewSprite(m)}
             </div>
           `).join('<div style="color: var(--blue); font-weight: 900; font-size: 1.2rem;"><i data-lucide="plus"></i></div>')}
         </div>
       </div>
 
-      <div class="deployment-tier" style="margin-top: 8px;">
+      <div class="deployment-tier" style="margin-top: 12px;">
         <span class="deployment-label" style="color: var(--muted);">Retaguardia (Reserva)</span>
         <div class="deployment-sprites-row">
-          ${backline.map(m => `
-            <div class="preview-bench-sprite" style="width: 48px; height: 48px; border: 1px solid var(--line2); border-radius: 10px; background: rgba(255,255,255,0.05); display: grid; place-items: center;" title="${m.displayName}">
+          ${backline.map((m, mIdx) => `
+            <div class="preview-bench-sprite" style="position:relative; width: 48px; height: 48px; border: 1px solid var(--line2); border-radius: 10px; background: rgba(255,255,255,0.05); display: grid; place-items: center;" title="${m.displayName}">
+              <span style="position:absolute; top:-6px; left:-6px; background:var(--muted); color:#fff; font-size:0.6rem; font-weight:900; padding:2px 4px; border-radius:4px; line-height:1; z-index:10;">R${mIdx + 1}</span>
               ${renderPreviewSprite(m)}
             </div>
           `).join('')}
         </div>
       </div>
+      <button class="btn gold full sticky-cta" id="lockBestFourBtn" style="margin-top: 12px;">
+        Bloquear estos 4
+      </button>
     `;
   }
 
@@ -3062,6 +3582,9 @@ function renderTurn1PickRows() {
 function renderTurn1Simulator() {
   const panel = document.getElementById("turn1SimulatorPanel");
   const list = document.getElementById("t1InsightsList");
+  const emptyState = document.getElementById("t1EmptyState");
+  const pickZone = document.getElementById("turn1PickZone");
+  
   const selfTeam = state.self.filter(Boolean);
   const enemyTeam = state.enemy.filter(Boolean);
 
@@ -3069,7 +3592,19 @@ function renderTurn1Simulator() {
     panel.style.display = "none";
     return;
   }
+  
+  // En modo rápido, si no hay combinación de 4 elegida, mostramos estado vacío.
+  if (state.uiMode === 'quick' && (!state.chosenFour || state.chosenFour.length < 4)) {
+    panel.style.display = "block";
+    emptyState.style.display = "block";
+    pickZone.style.display = "none";
+    list.innerHTML = "";
+    return;
+  }
+
   panel.style.display = "block";
+  emptyState.style.display = "none";
+  pickZone.style.display = "grid";
 
   pruneInvalidTurn1Slots();
   ensureTurn1LeadDefaults();
@@ -3104,13 +3639,15 @@ function renderTurn1Simulator() {
   let escapeRoute = false;
   let selfThreats = 0;
 
+  const escapeSteps = [];
+
   for (const sObj of selfLeads) {
     for (const eObj of enemyLeads) {
       const s = sObj.mon;
       const e = eObj.mon;
       const speS = Math.abs(sObj.spe);
       const speE = Math.abs(eObj.spe);
-      
+
       const atkS = bestAttack(s, e);
       const atkE = bestAttack(e, s);
 
@@ -3118,34 +3655,76 @@ function renderTurn1Simulator() {
 
       if (sFaster && atkS.mult >= 2) {
         momentum += (atkS.ohko || atkS.ohkoProb > 50) ? 15 : 8;
+        const moveName = t(atkS.move, "move") || atkS.move;
+        const typeMeta = TYPE_META[atkS.type] || { color: '#fff', name: atkS.type };
+        const iconUrl = `https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${atkS.type.toLowerCase()}.svg`;
+        const iconContrast = getContrastColor(typeMeta.color);
+
         crossfireHtml.push(`
           <div class="crossfire-card crossfire-card--advantage">
             <div class="crossfire-sprites">
               ${micro(s)} <i data-lucide="crosshair" style="color: var(--green);"></i> ${micro(e)}
             </div>
-            <span>Prioridad Letal: ${s.displayName} elimina a ${e.displayName}</span>
+            <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 2px;">
+              <span>Prioridad Letal: ${s.displayName} elimina a ${e.displayName}</span>
+              <div style="display:flex; align-items:center; gap: 4px; font-size: 0.75rem; color: var(--muted);">
+                <div class="type-icon-circle" style="position: static; width:12px; height:12px; background-color: ${typeMeta.color};">
+                  <div class="type-svg-mask" style="mask-image: url('${iconUrl}'); -webkit-mask-image: url('${iconUrl}'); background-color: ${iconContrast}; width: 8px; height: 8px;"></div>
+                </div>
+                con ${moveName} (${fmtMult(atkS.mult)}, ${atkS.minPct}–${atkS.maxPct}%)
+              </div>
+            </div>
           </div>
         `);
       }
-      
+
       if (!sFaster && atkE.mult >= 2) {
         momentum -= (atkE.ohko || atkE.ohkoProb > 50) ? 15 : 8;
         selfThreats++;
+
+        const moveName = t(atkE.move, "move") || atkE.move;
+        const typeMeta = TYPE_META[atkE.type] || { color: '#fff', name: atkE.type };
+        const iconUrl = `https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${atkE.type.toLowerCase()}.svg`;
+        const iconContrast = getContrastColor(typeMeta.color);
+
         crossfireHtml.push(`
           <div class="crossfire-card crossfire-card--threat">
             <div class="crossfire-sprites">
               ${micro(e)} <i data-lucide="crosshair" style="color: var(--red);"></i> ${micro(s)}
             </div>
-            <span>Peligro Inminente: ${e.displayName} supera y destruye a ${s.displayName}</span>
+            <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 2px;">
+              <span>Peligro Inminente: ${e.displayName} supera y destruye a ${s.displayName}</span>
+              <div style="display:flex; align-items:center; gap: 4px; font-size: 0.75rem; color: var(--muted);">
+                <div class="type-icon-circle" style="position: static; width:12px; height:12px; background-color: ${typeMeta.color};">
+                  <div class="type-svg-mask" style="mask-image: url('${iconUrl}'); -webkit-mask-image: url('${iconUrl}'); background-color: ${iconContrast}; width: 8px; height: 8px;"></div>
+                </div>
+                con ${moveName} <span class="tiny-chip" style="background:var(--red); color:#fff; padding:0 4px; border:none; margin-left:4px;">${fmtMult(atkE.mult)}</span> (${atkE.minPct}–${atkE.maxPct}%)
+              </div>
+            </div>
           </div>
         `);
+
+        // Generate specific escape steps based on the threatened mon and partner
+        const myMoves = (s.set?.moves || []).map(m => String(m).toLowerCase());
+        const partner = selfLeads.find(x => x.mon.name !== s.name)?.mon;
+        const partnerMoves = partner ? (partner.set?.moves || []).map(m => String(m).toLowerCase()) : [];
+
+        if (myMoves.includes('protect') || myMoves.includes('detect') || myMoves.includes('protección')) {
+          escapeSteps.push(`Protege a ${s.displayName} (Protect) para esquivar ${moveName}.`);
+        }
+        if (partnerMoves.includes('follow me') || partnerMoves.includes('rage powder') || partnerMoves.includes('señuelo') || partnerMoves.includes('polvo ira')) {
+          escapeSteps.push(`Usa Redirección con ${partner.displayName} si esperas foco en ${s.displayName}.`);
+        }
+        if (myMoves.includes('u-turn') || myMoves.includes('volt switch') || myMoves.includes('parting shot') || myMoves.includes('ida y vuelta') || myMoves.includes('voltiocambio')) {
+          escapeSteps.push(`Considera pivot con ${s.displayName} si anticipas daño masivo.`);
+        }
       }
     }
   }
 
   const sMoves = selfLeads.flatMap(x => x.mon.set?.moves || []).map(m => String(m).toLowerCase());
   const eMoves = enemyLeads.flatMap(x => x.mon.set?.moves || []).map(m => String(m).toLowerCase());
-  
+
   if (sMoves.some(m => m === 'tailwind' || m === 'trick room' || m === 'viento afín' || m === 'espacio raro')) momentum += 8;
   if (eMoves.some(m => m === 'tailwind' || m === 'trick room' || m === 'viento afín' || m === 'espacio raro')) momentum -= 8;
 
@@ -3169,16 +3748,19 @@ function renderTurn1Simulator() {
 
   const crossfireSection = crossfireHtml.length > 0 ? `<div class="crossfire-radar">${crossfireHtml.join('')}</div>` : '';
 
+  let escapeList = escapeSteps.length > 0 ? escapeSteps : ['Considera usar Protección, Redirección o cambiar (Pivot) inmediatamente.'];
+  // Keep unique escape routes
+  escapeList = [...new Set(escapeList)];
+
   const escapeRouteHtml = escapeRoute ? `
     <div class="escape-route-card">
       <div class="escape-route-icon"><i data-lucide="triangle-alert"></i></div>
       <div class="escape-route-text">
         <h4>Vía de Escape Recomendada</h4>
-        <p>Matchup inicial desfavorable. Considera usar Protección, Redirección o cambiar (Pivot) inmediatamente.</p>
+        ${escapeList.map((step, i) => `<p>${i + 1}. ${step}</p>`).join('')}
       </div>
     </div>
   ` : '';
-
   // 1. Sistema de Detección Inmune a Formatos (Smogon / Traducciones PokeAPI)
   const safeNorm = (str) =>
     String(str || "")
@@ -3489,12 +4071,13 @@ function renderAll() {
   renderOpportunities(rows);
   renderStrategies();
 
-  const preview = computeQuickPreview(rows);
-  renderQuickPreview(preview);
   renderWeaknessSummary();
   renderSpeedTiers();
   renderDefensiveAlerts();
+  evaluateAllCombos();
   renderTurn1Simulator();
+  renderQuickLayer();
+  renderUiMode();
   updateIcons();
 }
 
@@ -4307,7 +4890,61 @@ async function warmupLocalizationCaches() {
   // Future translation or cache warmups
 }
 
+const UIMODE_KEY = 'offensive-matrix-ui-mode';
+
+function loadUiMode() {
+  try {
+    const saved = localStorage.getItem(UIMODE_KEY);
+    if (saved === 'quick' || saved === 'expert') state.uiMode = saved;
+  } catch {}
+}
+
+function setUiMode(mode) {
+  state.uiMode = mode;
+  try { localStorage.setItem(UIMODE_KEY, mode); } catch {}
+  renderUiMode();
+}
+
+function renderUiMode() {
+  const isQuick = state.uiMode === 'quick';
+
+  // Toggle visual en el segmented
+  document
+    .querySelectorAll('#uiModeToggle .segmented-btn')
+    .forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === state.uiMode);
+    });
+
+  // Secciones "Rápidas"
+  const quickPreviewPanel = document.getElementById('quickPreviewPanel');
+  const turn1Panel       = document.getElementById('turn1SimulatorPanel');
+  const quickCombosSection = document.getElementById('quickCombosSection');
+  
+  if (quickPreviewPanel) quickPreviewPanel.style.display = isQuick ? 'block' : 'none';
+  if (turn1Panel)        turn1Panel.style.display        = isQuick ? 'block' : 'none';
+  if (quickCombosSection) quickCombosSection.style.display = isQuick ? 'block' : 'none';
+
+  // Secciones "Expertas"
+  const matrixSection = document.getElementById('matrixSectionTitle')?.closest('section');
+  const insightGrid   = document.querySelector('.insight-grid');
+  const dockAlerts    = document.getElementById('defensiveAlertFloat');
+
+  if (matrixSection) matrixSection.style.display = isQuick ? 'none' : 'block';
+  if (insightGrid)   insightGrid.style.display   = isQuick ? 'none' : 'grid';
+  if (dockAlerts)    dockAlerts.style.display    = isQuick ? 'none' : 'flex';
+}
+
+const uiModeToggle = document.getElementById('uiModeToggle');
+if (uiModeToggle) {
+  uiModeToggle.addEventListener('click', e => {
+    const btn = e.target.closest('.segmented-btn');
+    if (!btn) return;
+    setUiMode(btn.dataset.mode);
+  });
+}
+
 async function initApp() {
+  loadUiMode();
   await loadSmogonMeta(state.rating);
   await hydrateSavedState();
   await warmupLocalizationCaches();
@@ -4509,5 +5146,312 @@ window.handleDrawerAction = async function(action, teamType, payload) {
     const preset = META_PRESETS[payload];
     await fillTeamWithSpecies(teamType, preset.mons);
     closeTeamDrawer();
+  }
+};
+
+document.addEventListener('click', e => {
+  const btnLock = e.target.closest('#lockBestFourBtn');
+  if (btnLock) {
+    const preview = computeQuickPreview(getRows());
+    lockBestFour(preview);
+    return;
+  }
+
+  const comboCard = e.target.closest('.combo-card');
+  if (comboCard) {
+    const idxs = comboCard.dataset.combo.split(',').map(x => Number(x));
+    applyQuickCombo(idxs);
+    return;
+  }
+});
+// --- LIVE BATTLE CENTER EXPERT MODE ---
+
+function isBattleFocusActive() {
+  return state.uiMode === "expert" && state.battleFocus === "active";
+}
+
+function getFilledIndices(side) {
+  return state[side].map((m, i) => m ? i : null).filter(i => i !== null);
+}
+
+function normalizeActiveSlots(side) {
+  const activeKey = side === "self" ? "activeSelfSlots" : "activeEnemySlots";
+  const filled = getFilledIndices(side);
+  if (filled.length === 0) {
+    state[activeKey] = [];
+    return;
+  }
+  let current = state[activeKey].filter(idx => filled.includes(idx));
+  for (const idx of filled) {
+    if (current.length >= 2) break;
+    if (!current.includes(idx)) current.push(idx);
+  }
+  state[activeKey] = current;
+}
+
+function getFocusedIndices(side) {
+  if (!isBattleFocusActive()) return getFilledIndices(side);
+  normalizeActiveSlots(side);
+  const activeKey = side === "self" ? "activeSelfSlots" : "activeEnemySlots";
+  return state[activeKey];
+}
+
+function getFocusedTeam(side) {
+  const indices = getFocusedIndices(side);
+  return indices.map(i => state[side][i]).filter(Boolean);
+}
+
+function setBattleFocus(focus) {
+  state.battleFocus = focus;
+  const strip = document.getElementById("activeMatchupStrip");
+  const toolbar = document.getElementById("liveBattleToolbar");
+  if (strip) strip.style.display = focus === "active" ? "flex" : "none";
+  if (toolbar) toolbar.style.display = focus === "active" ? "flex" : "none";
+  renderAll();
+}
+
+function setActiveBattleSlot(side, activePosition, newTeamIndex) {
+  const activeKey = side === "self" ? "activeSelfSlots" : "activeEnemySlots";
+  const current = [...state[activeKey]];
+  
+  if (current.includes(newTeamIndex)) {
+    const otherPos = current.indexOf(newTeamIndex);
+    current[otherPos] = current[activePosition];
+  }
+  current[activePosition] = newTeamIndex;
+  state[activeKey] = current;
+  closeBattleSheet();
+  renderAll();
+}
+
+function getTacticalCellClass(cell) {
+  if (cell.ohko || cell.ohkoProb >= 50) return "ko-probable";
+  if (cell.mult >= 2) return "pressure-high";
+  if (cell.mult >= 1) return "pressure-medium";
+  if (cell.mult === 0 || cell.mult <= 0.25) return "bad-entry";
+  if (cell.mult <= 0.5) return "safe-switch";
+  return "";
+}
+
+const _originalMatrixCellClass = matrixCellClass;
+matrixCellClass = function(cell) {
+  if (isBattleFocusActive()) {
+    const tac = getTacticalCellClass(cell);
+    return tac ? "cell--" + tac : _originalMatrixCellClass(cell);
+  }
+  return _originalMatrixCellClass(cell);
+};
+
+function renderActiveMatchupStrip() {
+  if (!isBattleFocusActive()) return;
+  normalizeActiveSlots("self");
+  normalizeActiveSlots("enemy");
+  
+  const renderSlotBtn = (side, pos, idx) => {
+    const mon = idx !== undefined && idx !== null ? state[side][idx] : null;
+    const btn = document.getElementById(`active${side === "self" ? "Self" : "Enemy"}Slot${pos === 0 ? "A" : "B"}`);
+    if (!btn) return;
+    if (mon) {
+      btn.innerHTML = `<img src="${mon.sprite}" alt="${mon.displayName}">`;
+      btn.className = `active-slot-btn active-slot-btn--${side}`;
+      btn.onclick = () => openBattleSheet({ side, activePosition: pos, isSelector: true });
+    } else {
+      btn.innerHTML = `<i data-lucide="plus" style="color:var(--muted);width:20px;height:20px;"></i>`;
+      btn.className = `active-slot-btn empty`;
+      btn.onclick = null;
+    }
+  };
+
+  renderSlotBtn("self", 0, state.activeSelfSlots[0]);
+  renderSlotBtn("self", 1, state.activeSelfSlots[1]);
+  renderSlotBtn("enemy", 0, state.activeEnemySlots[0]);
+  renderSlotBtn("enemy", 1, state.activeEnemySlots[1]);
+  updateIcons();
+}
+
+function renderLiveBattleToolbar() {
+  if (!isBattleFocusActive()) return;
+  const selfMons = getFocusedTeam("self");
+  const enemyMons = getFocusedTeam("enemy");
+  
+  let threats = 0;
+  let kills = 0;
+  let safes = 0;
+  
+  for (const e of enemyMons) {
+    let threatensMe = false;
+    let safeSwitchForMe = true;
+    for (const s of selfMons) {
+      const eAtk = bestAttack(e, s);
+      if (eAtk.mult >= 2 || eAtk.ohko) threatensMe = true;
+      if (eAtk.mult >= 1) safeSwitchForMe = false;
+      
+      const sAtk = bestAttack(s, e);
+      if (sAtk.ohko || sAtk.ohkoProb >= 80) kills++;
+    }
+    if (threatensMe) threats++;
+    if (safeSwitchForMe) safes++;
+  }
+  
+  const elThreats = document.getElementById("battleUrgencyThreats");
+  const elKills = document.getElementById("battleUrgencyKills");
+  const elSafes = document.getElementById("battleUrgencySafeSwitches");
+  
+  if (elThreats) elThreats.innerHTML = `<i data-lucide="alert-circle" style="width:12px;height:12px;"></i> ${threats} Amenazas`;
+  if (elKills) elKills.innerHTML = `<i data-lucide="crosshair" style="width:12px;height:12px;"></i> ${kills} KOs`;
+  if (elSafes) elSafes.innerHTML = `<i data-lucide="shield-check" style="width:12px;height:12px;"></i> ${safes} Seguros`;
+}
+
+function openBattleSheet(payload) {
+  state.battleSheet = { open: true, ...payload };
+  renderBattleSheet();
+  document.getElementById("battleSheetOverlay").style.display = "block";
+  document.getElementById("battleSheet").classList.add("open");
+}
+
+function closeBattleSheet() {
+  state.battleSheet.open = false;
+  document.getElementById("battleSheetOverlay").style.display = "none";
+  document.getElementById("battleSheet").classList.remove("open");
+  
+  state.selectedMatrixCell = null;
+  document.querySelectorAll(".cell--selected").forEach(el => el.classList.remove("cell--selected"));
+  document.querySelectorAll(".matrix-row-selected").forEach(el => el.classList.remove("matrix-row-selected"));
+  document.querySelectorAll(".matrix-col-selected").forEach(el => el.classList.remove("matrix-col-selected"));
+}
+
+function renderBattleSheet() {
+  const body = document.getElementById("battleSheetBody");
+  const title = document.getElementById("battleSheetTitle");
+  const { side, activePosition, isSelector, cell } = state.battleSheet;
+
+  if (isSelector) {
+    title.textContent = "Elegir Activo";
+    const team = state[side];
+    const filledIndices = getFilledIndices(side);
+    const currentActive = side === "self" ? state.activeSelfSlots : state.activeEnemySlots;
+    
+    body.innerHTML = `
+      <div class="sheet-tactical-label">Reservas Disponibles</div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px; margin-top:8px;">
+        ${filledIndices.map(idx => {
+          const mon = team[idx];
+          const isAct = currentActive.includes(idx);
+          return `
+            <div class="sheet-squad-btn ${isAct ? "active" : ""}" onclick="setActiveBattleSlot('${side}', ${activePosition}, ${idx})" style="position:relative;">
+              ${isAct ? `<span style="position:absolute; top:-4px; right:-4px; background:var(--blue); color:#fff; border-radius:50%; width:16px; height:16px; font-size:10px; display:grid; place-items:center;"><i data-lucide="check" style="width:10px;height:10px;"></i></span>` : ""}
+              <img src="${mon.sprite}" alt="${mon.displayName}">
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+    updateIcons();
+    return;
+  }
+
+  if (cell) {
+    title.textContent = "Lectura Táctica";
+    const data = JSON.parse(decodeURIComponent(cell.dataset.tooltip));
+    const attackerName = data.attacker;
+    const defenderName = data.defender;
+    const move = data.move;
+    const min = data.minPct;
+    const max = data.maxPct;
+    
+    const safeReserves = getFilledIndices("self")
+        .filter(idx => !state.activeSelfSlots.includes(idx))
+        .map(idx => state.self[idx]);
+
+    body.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-size:1.1rem; font-weight:900;">${attackerName} <i data-lucide="arrow-right" style="width:14px;color:var(--muted);margin:0 4px;"></i> ${defenderName}</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:12px; margin-top:8px;">
+        <div style="color:var(--gold); font-weight:900; font-size:0.85rem; margin-bottom:4px;">Mejor Opción Estimada</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${typeDot(data.type)}
+          <span style="font-size:1rem; font-weight:700;">${move}</span>
+        </div>
+        <div style="margin-top:8px; display:flex; gap:16px;">
+          <div><span style="color:var(--muted);font-size:0.75rem;">Daño Rango:</span> <strong>${min}% - ${max}%</strong></div>
+          ${data.ohkoProb > 0 ? `<div><span style="color:var(--muted);font-size:0.75rem;">OHKO Prob:</span> <strong style="color:var(--red);">${data.ohkoProb}%</strong></div>` : ''}
+        </div>
+      </div>
+      ${safeReserves.length > 0 ? `
+        <div style="margin-top:16px;">
+          <div class="sheet-tactical-label">Reservas Seguras Sugeridas</div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            ${safeReserves.map(m => `
+              <div class="sheet-squad-btn">
+                <img src="${m.sprite}" alt="${m.displayName}">
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      ` : ""}
+    `;
+    updateIcons();
+    return;
+  }
+}
+
+const focusToggle = document.getElementById("matrixFocusToggle");
+if (focusToggle) {
+  focusToggle.addEventListener("click", e => {
+    const btn = e.target.closest(".segmented-btn");
+    if (!btn) return;
+    document.querySelectorAll("#matrixFocusToggle .segmented-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    setBattleFocus(btn.dataset.focus);
+  });
+}
+
+document.getElementById("closeBattleSheetBtn")?.addEventListener("click", closeBattleSheet);
+document.getElementById("battleSheetOverlay")?.addEventListener("click", closeBattleSheet);
+
+document.addEventListener("click", e => {
+  if (!isBattleFocusActive()) return;
+  const cell = e.target.closest(".clickable-cell[data-tooltip]");
+  if (!cell) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (state.selectedMatrixCell === cell) {
+    openBattleSheet({ cell });
+  } else {
+    document.querySelectorAll(".cell--selected").forEach(el => el.classList.remove("cell--selected"));
+    document.querySelectorAll(".matrix-row-selected").forEach(el => el.classList.remove("matrix-row-selected"));
+    document.querySelectorAll(".matrix-col-selected").forEach(el => el.classList.remove("matrix-col-selected"));
+
+    cell.classList.add("cell--selected");
+    const td = cell.closest("td");
+    const tr = cell.closest("tr");
+    if (tr) tr.classList.add("matrix-row-selected");
+    if (td) {
+      const colIndex = Array.from(tr.children).indexOf(td);
+      const table = cell.closest("table");
+      if (table) {
+        table.querySelectorAll("tr").forEach(r => {
+           if (r.children[colIndex]) r.children[colIndex].classList.add("matrix-col-selected");
+        });
+      }
+    }
+    state.selectedMatrixCell = cell;
+  }
+});
+
+const _originalRenderAll = renderAll;
+renderAll = function() {
+  _originalRenderAll();
+  renderActiveMatchupStrip();
+  renderLiveBattleToolbar();
+  
+  if (isBattleFocusActive()) {
+    const strip = document.getElementById("activeMatchupStrip");
+    const toolbar = document.getElementById("liveBattleToolbar");
+    if (strip) strip.style.display = "flex";
+    if (toolbar) toolbar.style.display = "flex";
   }
 };

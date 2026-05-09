@@ -2556,6 +2556,9 @@ tbody th {
 .preview-ban-mark { position: absolute; inset: 0; display: grid; place-items: center; color: var(--red); font-size: 1.5rem; opacity: 0.8; }
 
 /* Segmented Control */
+#uiModeToggle {
+  flex-shrink: 0;
+}
 .segmented-control { display: inline-flex; background: rgba(255, 255, 255, 0.04); border-radius: 12px; padding: 4px; border: 1px solid var(--line); }
 .segmented-btn { padding: 6px 14px; font-size: 0.72rem; font-weight: 800; color: var(--muted); border-radius: 8px; border: none; background: transparent; display: flex; align-items: center; gap: 6px; transition: all 0.2s; cursor: pointer; }
 .segmented-btn.active { background: linear-gradient(180deg, var(--panel3), var(--panel2)); color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 1px solid var(--line2); }
@@ -3133,3 +3136,143 @@ tbody th {
 .escape-route-icon { background: var(--orange); color: #000; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; }
 .escape-route-text h4 { margin: 0 0 2px 0; font-family: "Cabinet Grotesk", sans-serif; font-size: 0.9rem; font-weight: 900; text-transform: uppercase; color: var(--orange); }
 .escape-route-text p { margin: 0; font-size: 0.7rem; color: #ffe6c5; line-height: 1.3; }
+
+/* Quick Combos & Chosen Badge */
+.chosen-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--gold), #ffb938);
+  color: #1a2231;
+  font-size: 0.65rem;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 8px rgba(0,0,0,0.6);
+  z-index: 10;
+}
+
+.combo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+}
+.combo-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+.combo-card--active {
+  border-color: var(--gold);
+  background: linear-gradient(to bottom, rgba(255, 215, 0, 0.1), rgba(255, 255, 255, 0.05));
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.15);
+}
+.combo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.combo-rank {
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: var(--gold);
+}
+.combo-score {
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: #fff;
+  font-family: var(--poke-stat-font);
+}
+.combo-sprites {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px 0;
+  background: rgba(0,0,0,0.2);
+  border-radius: 8px;
+}
+.combo-sprite {
+  width: 36px;
+  height: 36px;
+}
+.combo-sprite img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.combo-metrics {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.combo-plan {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.combo-plan p {
+  margin: 0 0 4px 0;
+}
+.combo-plan p:last-child {
+  margin: 0;
+}
+
+/* --- LIVE BATTLE CENTER --- */
+.live-battle-toolbar {
+  display: flex; gap: 8px; justify-content: space-around; padding: 10px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--line);
+}
+.battle-urgency-chip {
+  padding: 4px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 900; letter-spacing: 0.05em; display: flex; align-items: center; gap: 4px; border: 1px solid transparent;
+}
+.battle-urgency-chip.threat { background: rgba(255, 59, 48, 0.15); border-color: rgba(255, 59, 48, 0.4); color: #ffc8c4; }
+.battle-urgency-chip.kill { background: rgba(50, 173, 230, 0.15); border-color: rgba(50, 173, 230, 0.4); color: #d4f0ff; }
+.battle-urgency-chip.safe { background: rgba(48, 209, 88, 0.15); border-color: rgba(48, 209, 88, 0.4); color: #d4ffe3; }
+
+.active-matchup-strip {
+  display: flex; justify-content: center; align-items: center; gap: 16px; padding: 12px 10px; background: linear-gradient(to bottom, rgba(255,255,255,0.03), transparent);
+}
+.active-side { display: flex; gap: 8px; }
+.active-vs { font-size: 0.8rem; font-weight: 900; color: var(--muted); }
+.active-slot-btn {
+  width: 48px; height: 48px; border-radius: 12px; background: rgba(0,0,0,0.3); border: 2px solid var(--line); display: grid; place-items: center; cursor: pointer; padding: 0; position: relative; overflow: hidden;
+}
+.active-slot-btn img { width: 36px; height: 36px; object-fit: contain; }
+.active-slot-btn--self { border-color: rgba(50, 173, 230, 0.5); background: rgba(50, 173, 230, 0.1); }
+.active-slot-btn--enemy { border-color: rgba(255, 59, 48, 0.5); background: rgba(255, 59, 48, 0.1); }
+.active-slot-btn.empty { border-style: dashed; opacity: 0.5; }
+
+.battle-sheet-overlay {
+  position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.battle-sheet {
+  position: fixed; bottom: 0; left: 0; width: 100%; z-index: 1001; background: linear-gradient(180deg, rgba(28, 28, 35, 0.98) 0%, rgba(18, 18, 24, 1) 100%); border-top: 1px solid rgba(255, 255, 255, 0.1); border-radius: 32px 32px 0 0; padding: 12px 24px calc(24px + env(safe-area-inset-bottom)) 24px; transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.battle-sheet.open { transform: translateY(0) !important; }
+.battle-sheet-body { display: flex; flex-direction: column; gap: 16px; }
+.sheet-tactical-label { font-size: 0.8rem; font-weight: 900; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+.sheet-squad-row { display: flex; gap: 8px; }
+.sheet-squad-btn { width: 56px; height: 56px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--line); display: grid; place-items: center; cursor: pointer; }
+.sheet-squad-btn img { width: 42px; height: 42px; }
+.sheet-squad-btn.active { border-color: var(--blue); background: rgba(50, 173, 230, 0.2); }
+
+.cell--ko-probable { background: rgba(255, 59, 48, 0.3); box-shadow: inset 0 0 10px rgba(255, 59, 48, 0.5); }
+.cell--pressure-high { background: rgba(255, 179, 77, 0.25); }
+.cell--pressure-medium { background: rgba(255, 255, 255, 0.1); }
+.cell--bad-entry { background: rgba(150, 0, 200, 0.2); }
+.cell--safe-switch { background: rgba(48, 209, 88, 0.25); box-shadow: inset 0 0 10px rgba(48, 209, 88, 0.3); }
+.cell--bait { background: rgba(50, 173, 230, 0.2); }
+
+.cell--selected { outline: 2px solid var(--gold); outline-offset: -2px; z-index: 10; }
+.matrix-row-selected th { background: rgba(255, 215, 0, 0.15) !important; }
+.matrix-col-selected th { background: rgba(255, 215, 0, 0.15) !important; }
+

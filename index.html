@@ -38,6 +38,16 @@
               <option value="0">0</option>
             </select>
           </label>
+          <div class="segmented-control" id="uiModeToggle" aria-label="Cambiar modo de interfaz">
+            <button type="button" class="segmented-btn active" data-mode="quick">
+              <i data-lucide="zap"></i>
+              Quick
+            </button>
+            <button type="button" class="segmented-btn" data-mode="expert">
+              <i data-lucide="sliders-horizontal"></i>
+              Expert
+            </button>
+          </div>
           <button class="btn gold" id="loadDemoBtn">Ejemplo</button>
           <button class="btn blue" id="swapBtn" title="Swap" style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;"><i data-lucide="refresh-cw" style="width:16px;height:16px;"></i></button>
           <button class="btn red" id="clearBtn" title="Limpiar" style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
@@ -90,15 +100,44 @@
         </div>
       </div>
     </section>
-
-    <section class="panel section-pad" id="turn1SimulatorPanel" style="display: none;">
-      <div class="section-head">
-        <div>
-          <h2 class="section-title">Proyección de Choque Inicial</h2>
-          <p class="section-subtitle">Centro de Comando Táctico: Análisis de inercia, fuego cruzado y letalidad antes de mover.</p>
+<section class="panel" id="quickCombosSection" style="display: none;">
+  <div class="premium-header">
+    <div class="premium-header-content">
+      <h2 class="section-title">Top 3 Combinaciones</h2>
+      <p class="section-subtitle">Las mejores sinergias automáticas evaluando cobertura, defensa, utilidad y debilidades</p>
+    </div>
+  </div>
+  <div class="premium-body">
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 0.75rem;">
+      <div style="font-weight: 900; margin-bottom: 6px; color: var(--gold);"><i data-lucide="info" style="width: 14px; height: 14px;"></i> ¿Cómo leer las métricas?</div>
+      <div style="display: grid; gap: 4px;">
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span class="tiny-chip" style="background: rgba(48,209,88,0.15); border: 1px solid rgba(48,209,88,0.3); color: #4ade80;">Verde</span> <span>Resistido (≤×0.5)</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span class="tiny-chip" style="background: rgba(255,59,48,0.15); border: 1px solid rgba(255,59,48,0.3); color: #ff6b6b;">Rojo</span> <span>Muy eficaz (≥×2)</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span class="tiny-chip" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #a1a1aa;">Gris</span> <span>Inmune (×0)</span>
         </div>
       </div>
-      <div class="t1-pick-zone" id="turn1PickZone">
+    </div>
+    <div id="quickCombosList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+  </div>
+</section>
+
+<section class="panel section-pad" id="turn1SimulatorPanel" style="display: none;">
+  <div class="premium-header">
+    <div>
+      <h2 class="section-title">Proyección de Choque Inicial</h2>
+      <p class="section-subtitle">Centro de Comando Táctico: Análisis de inercia, fuego cruzado y letalidad antes de mover.</p>
+    </div>
+  </div>
+  <div class="premium-body">
+    <div id="t1EmptyState" style="display: none; padding: 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; margin-bottom: 16px;">
+      Selecciona una combinación arriba para ver cómo se ve el choque inicial.
+    </div>
+    <div class="t1-pick-zone" id="turn1PickZone">
         <div>
           <div class="t1-pick-head">
             <span class="t1-pick-label"><span class="tiny-chip" style="background: rgba(50, 173, 230, 0.12); border-color: rgba(50, 173, 230, 0.28); color: var(--blue);">Tu equipo</span></span>
@@ -153,6 +192,31 @@
               <button type="button" class="field-pill" data-terrain="psychic" title="Campo psíquico"><i data-lucide="orbit"></i></button>
               <button type="button" class="field-pill" data-terrain="misty" title="Campo de niebla"><i data-lucide="sparkles"></i></button>
             </div>
+          </div>
+        </div>
+
+        <div class="live-battle-toolbar" id="liveBattleToolbar" style="display: none;">
+          <span class="battle-urgency-chip threat" id="battleUrgencyThreats">0 Amenazas</span>
+          <span class="battle-urgency-chip kill" id="battleUrgencyKills">0 KOs</span>
+          <span class="battle-urgency-chip safe" id="battleUrgencySafeSwitches">0 Seguros</span>
+        </div>
+
+        <div class="active-matchup-strip" id="activeMatchupStrip" style="display: none;">
+          <div class="active-side active-side--self">
+            <button class="active-slot-btn active-slot-btn--self" id="activeSelfSlotA" aria-label="Cambiar activo propio A"></button>
+            <button class="active-slot-btn active-slot-btn--self" id="activeSelfSlotB" aria-label="Cambiar activo propio B"></button>
+          </div>
+          <div class="active-vs">VS</div>
+          <div class="active-side active-side--enemy">
+            <button class="active-slot-btn active-slot-btn--enemy" id="activeEnemySlotA" aria-label="Cambiar activo rival A"></button>
+            <button class="active-slot-btn active-slot-btn--enemy" id="activeEnemySlotB" aria-label="Cambiar activo rival B"></button>
+          </div>
+        </div>
+
+        <div class="matrix-focus-toggle-wrapper" style="padding: 0 10px 10px; display: flex; justify-content: center;">
+          <div class="segmented-control battle-focus-toggle" id="matrixFocusToggle">
+            <button class="segmented-btn active" data-focus="active">En juego</button>
+            <button class="segmented-btn" data-focus="full">Equipo completo</button>
           </div>
         </div>
 
@@ -309,6 +373,15 @@
   </div>
 
   
-</body>
+  <div class="battle-sheet-overlay" id="battleSheetOverlay" style="display: none;"></div>
+  <div class="battle-sheet" id="battleSheet" style="transform: translateY(100%);">
+    <div class="drawer-handle"></div>
+    <div class="drawer-header">
+      <h3 class="drawer-title" id="battleSheetTitle">Recomendación Táctica</h3>
+      <button class="btn small ghost" id="closeBattleSheetBtn"><i data-lucide="x"></i></button>
+    </div>
+    <div class="battle-sheet-body" id="battleSheetBody"></div>
+  </div>
 
+</body>
 </html>
