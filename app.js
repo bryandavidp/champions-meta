@@ -1,10 +1,33 @@
 const STORAGE_KEY = "offensive-matrix-saved-teams-v4";
 const CACHE_KEY_PREFIX = "smogon-chaos-cache-2026-04-";
-const MOVE_CACHE_KEY = "pokeapi-move-cache-v1";
-const I18N_CACHE_KEY = "pokeapi-i18n-cache-es-v2";
 const RATING_STORAGE_KEY = "smogon-champions-rating";
 const SMOGON_MONTH = "2026-04";
 const SMOGON_BASE = "./data/";
+
+let DEBUG_MODE = false;
+
+function toggleDebug(force) {
+  DEBUG_MODE = typeof force === 'boolean' ? force : !DEBUG_MODE;
+  renderAll();
+}
+
+function runDebugScenarios() {
+  const scenarios = [];
+
+  scenarios.push({
+    name: 'Intimidate + Friend Guard + Reflect',
+    setup: () => {
+      const s = structuredClone(state);
+      return s;
+    },
+  });
+
+  for (const sc of scenarios) {
+    const s = sc.setup();
+    const rows = getRows();
+    console.log('[SCENARIO]', sc.name, rows);
+  }
+}
 const SMOGON_FILES = {
   0: "gen9championsou-0.json",
   1500: "gen9championsou-1500.json",
@@ -13,21 +36,24 @@ const SMOGON_FILES = {
 };
 const RATING_ORDER = ["1760", "1630", "1500", "0"];
 
+const MATRIX_DETAIL_MODE_KEY = "offensive-matrix-detail-v1";
+const MATRIX_HELP_SEEN_KEY = "offensive-matrix-help-seen-v1";
+
 const META_PRESETS = [
   {
-    name: "Lluvia Ofensiva",
-    desc: "Presión rápida bajo clima de lluvia.",
-    mons: ["pelipper", "basculegion-male", "archaludon", "urshifu-rapid-strike", "amoonguss", "incineroar"]
+    name: "Hyper Offense",
+    desc: "Presión constante y setups ofensivos.",
+    mons: ["meowscarada", "samurott-hisui", "dragapult", "volcarona", "ceruledge", "kingambit"]
   },
   {
-    name: "Hard Trick Room",
-    desc: "Control de velocidad absoluto.",
-    mons: ["farigiraf", "iron-hands", "ursaluna-bloodmoon", "torkoal", "kingambit", "hatterene"]
+    name: "Bulky Balance",
+    desc: "Core sólido con mega-evolución defensiva.",
+    mons: ["meganium-mega", "rotom-wash", "corviknight", "sneasler", "garchomp", "clefable"]
   },
   {
-    name: "Good Stuff Balance",
-    desc: "Core sólido y adaptable.",
-    mons: ["incineroar", "rillaboom", "urshifu-rapid-strike", "flutter-mane", "ogerpon-wellspring", "raging-bolt"]
+    name: "Clima Arena",
+    desc: "Control de clima y daño residual.",
+    mons: ["tyranitar", "excadrill", "aegislash", "primarina", "dragonite", "hatterene"]
   }
 ];
 
@@ -345,19 +371,19 @@ const MOVE_TYPE_FALLBACK = {
 };
 
 const DEMO_SELF = [
-  "incineroar",
-  "garchomp",
+  "arcanine-hisui",
+  "azumarill",
   "kingambit",
-  "sinistcha",
-  "rotom-wash",
-  "sneasler",
+  "farigiraf",
+  "tyranitar",
+  "excadrill-mega",
 ];
 const DEMO_ENEMY = [
   "charizard-mega-y",
   "whimsicott",
   "farigiraf",
-  "heatran",
-  "landorus-therian",
+  "venusaur",
+  "aegislash",
   "azumarill",
 ];
 
@@ -417,6 +443,56 @@ const MEGA_STONES = {
   sharpedonite: "sharpedo-mega",
 };
 
+function tickField(state) {
+  const f = state.field;
+  if (!f) return;
+
+  const dec = (keyFlag, keyTurns) => {
+    if (f[keyTurns] > 0) {
+      f[keyTurns] -= 1;
+      if (f[keyTurns] <= 0) {
+        f[keyFlag] = false;
+        f[keyTurns] = 0;
+      }
+    }
+  };
+
+  // Clima y terreno (si quieres que duren X turnos en vez de infinito)
+  dec('weather', 'weatherTurns'); // opcional: si weatherTurns llega a 0, puedes setear weather = null
+  dec('terrain', 'terrainTurns'); // idem
+
+  // Trick Room
+  if (f.trickRoomTurns > 0) {
+    f.trickRoomTurns -= 1;
+    if (f.trickRoomTurns <= 0) {
+      f.trickRoom = false;
+      f.trickRoomTurns = 0;
+    }
+  }
+
+  // Tailwind
+  dec('tailwindSelf', 'tailwindSelfTurns');
+  dec('tailwindEnemy', 'tailwindEnemyTurns');
+
+  // Pantallas / velos
+  dec('reflectSelf', 'reflectSelfTurns');
+  dec('lightScreenSelf', 'lightScreenSelfTurns');
+  dec('auroraVeilSelf', 'auroraVeilSelfTurns');
+
+  dec('reflectEnemy', 'reflectEnemyTurns');
+  dec('lightScreenEnemy', 'lightScreenEnemyTurns');
+  dec('auroraVeilEnemy', 'auroraVeilEnemyTurns');
+
+  // Flags de turno: quick/wide guard y redirección se limpian cada turno
+  f.quickGuardSelf = false;
+  f.wideGuardSelf = false;
+  f.redirectionSelf = null;
+
+  f.quickGuardEnemy = false;
+  f.wideGuardEnemy = false;
+  f.redirectionEnemy = null;
+}
+
 const state = {
   self: Array(6).fill(null),
   enemy: Array(6).fill(null),
@@ -424,20 +500,63 @@ const state = {
   pokedex: [],
   cache: new Map(),
   loadingList: false,
-  moveTypeCache: loadMoveCache(),
+  moveTypeCache: {},
   smogonRaw: null,
   metaIndex: new Map(),
+  fallbackIndex: new Map(),
   metaRanked: [],
   rating: localStorage.getItem(RATING_STORAGE_KEY) || "1760",
   loadingMeta: false,
   field: {
-    tailwindSelf: false,
-    tailwindEnemy: false,
-    trickRoom: false,
+    // Clima y terreno
     weather: null,
+    weatherTurns: 0,
     terrain: null,
+    terrainTurns: 0,
+
+    // Rooms
+    trickRoom: false,
+    trickRoomTurns: 0,
+
+    // Tailwind
+    tailwindSelf: false,
+    tailwindSelfTurns: 0,
+    tailwindEnemy: false,
+    tailwindEnemyTurns: 0,
+
+    // Pantallas / velos lado self
+    reflectSelf: false,
+    reflectSelfTurns: 0,
+    lightScreenSelf: false,
+    lightScreenSelfTurns: 0,
+    auroraVeilSelf: false,
+    auroraVeilSelfTurns: 0,
+
+    // Pantallas / velos lado enemy
+    reflectEnemy: false,
+    reflectEnemyTurns: 0,
+    lightScreenEnemy: false,
+    lightScreenEnemyTurns: 0,
+    auroraVeilEnemy: false,
+    auroraVeilEnemyTurns: 0,
+
+    // Hazards
+    hazards: {
+      self: { rocks: false, spikes: 0, tspikes: 0, web: false },
+      enemy: { rocks: false, spikes: 0, tspikes: 0, web: false },
+    },
+
+    // Flags de turno para guard/redirección
+    quickGuardSelf: false,
+    wideGuardSelf: false,
+    redirectionSelf: null,   // p.ej. slug del mon que redirige, o true
+    quickGuardEnemy: false,
+    wideGuardEnemy: false,
+    redirectionEnemy: null,
   },
   matrixMode: "offensive",
+  matrixDetailMode: "detailed",
+  matrixHelpOpen: false,
   leads: { self: [], enemy: [] },
   uiMode: 'quick',
   chosenFour: [],
@@ -445,6 +564,7 @@ const state = {
   activeSelfSlots: [0, 1],
   activeEnemySlots: [0, 1],
   selectedMatrixCell: null,
+  turn1Custom: false,
   battleSheet: { open: false, side: null, slotKey: null, cell: null },
 };
 
@@ -466,111 +586,18 @@ const matrixSourceChip = document.getElementById("matrixSourceChip");
 const metricMeta = document.getElementById("metricMeta");
 const metaStatusText = document.getElementById("metaStatusText");
 
-function loadMoveCache() {
-  try {
-    const raw = localStorage.getItem(MOVE_CACHE_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
+const i18nCache = {};
+
+function getTranslation(name, category) {
+  if (!name) return "";
+  const cleanName = normalizeText(name);
+  const key = `${category}:${cleanName}`;
+  
+  if (i18nCache[key]) return i18nCache[key];
+  if (window.GameDB?.translations?.[key]) return window.GameDB.translations[key];
+  
+  return name;
 }
-
-function saveMoveCache() {
-  try {
-    localStorage.setItem(MOVE_CACHE_KEY, JSON.stringify(state.moveTypeCache));
-  } catch {}
-}
-
-const i18nCache = loadI18nCache();
-
-function loadI18nCache() {
-  try {
-    return JSON.parse(localStorage.getItem(I18N_CACHE_KEY)) || {};
-  } catch {
-    return {};
-  }
-}
-
-function saveI18nCache() {
-  try {
-    localStorage.setItem(I18N_CACHE_KEY, JSON.stringify(i18nCache));
-  } catch {}
-}
-
-function t(englishName, category) {
-  if (!englishName) return "";
-  const clean = getPapiSlug(englishName, category);
-  const cacheKey = `${category}:${clean}`;
-  if (i18nCache[cacheKey]) return i18nCache[cacheKey];
-  return englishName;
-}
-
-const PAPI_MAP = {
-  dazzlinggleam: "dazzling-gleam",
-  drainingkiss: "draining-kiss",
-  psychicnoise: "psychic-noise",
-  healingwish: "healing-wish",
-  magicbounce: "magic-bounce",
-  gigadrain: "giga-drain",
-  uturn: "u-turn",
-  voltswitch: "volt-switch",
-  willowisp: "will-o-wisp",
-  thunderwave: "thunder-wave",
-  earthpower: "earth-power",
-  stealthrock: "stealth-rock",
-  toxicspikes: "toxic-spikes",
-  stickyweb: "sticky-web",
-  bravebird: "brave-bird",
-  closecombat: "close-combat",
-  flareblitz: "flare-blitz",
-  leafblade: "leaf-blade",
-  rockslide: "rock-slide",
-  swordsdance: "swords-dance",
-  nastyplot: "nasty-plot",
-  dragondance: "dragon-dance",
-  quiverdance: "quiver-dance",
-  calmmind: "calm-mind",
-  bulkup: "bulk-up",
-  ironhead: "iron-head",
-  playrough: "play-rough",
-  icebeam: "ice-beam",
-  hydropump: "hydro-pump",
-  fireblast: "fire-blast",
-  focusblast: "focus-blast",
-  shadowball: "shadow-ball",
-  energyball: "energy-ball",
-  sludgebomb: "sludge-bomb",
-  dracometeor: "draco-meteor",
-  extremespeed: "extreme-speed",
-  suckerpunch: "sucker-punch",
-  aquajet: "aqua-jet",
-  fakeout: "fake-out",
-  helpinghand: "helping-hand",
-  wideguard: "wide-guard",
-  quickguard: "quick-guard",
-  partingshot: "parting-shot",
-  freezedry: "freeze-dry",
-  knockoff: "knock-off",
-  darkestlariat: "darkest-lariat",
-  throatchop: "throat-chop",
-  drainpunch: "drain-punch",
-  bulletpunch: "bullet-punch",
-  machpunch: "mach-punch",
-  heatwave: "heat-wave",
-  trickroom: "trick-room",
-  auroraveil: "aurora-veil",
-  shadowsneak: "shadow-sneak",
-  darkpulse: "dark-pulse",
-  flashcannon: "flash-cannon",
-  dragonpulse: "dragon-pulse",
-  heavyslam: "heavy-slam",
-  bodypress: "body-press",
-  terablast: "tera-blast",
-  surgingstrikes: "surging-strikes",
-  ivycudgel: "ivy-cudgel",
-  wickedblow: "wicked-blow",
-};
 
 const CUSTOM_TERMS = new Set([
   "megasol",
@@ -586,99 +613,26 @@ const CUSTOM_TERMS = new Set([
   "floette-mega",
 ]);
 
-function getPapiSlug(name, category = "move") {
-  let n = normalizeText(name);
-  if (PAPI_MAP[n]) return PAPI_MAP[n];
-  if (category === "item") {
-    if (n === "choicescarf") return "choice-scarf";
-    if (n === "choicespecs") return "choice-specs";
-    if (n === "choiceband") return "choice-band";
-    if (n === "heavydutyboots") return "heavy-duty-boots";
-    if (n === "focussash") return "focus-sash";
-    if (n === "lifeorb") return "life-orb";
-    if (n === "assaultvest") return "assault-vest";
-    if (n === "rockyhelmet") return "rocky-helmet";
-    if (n === "clearamulet") return "clear-amulet";
-    if (n === "covertcloak") return "covert-cloak";
-    if (n === "sitrusberry") return "sitrus-berry";
-    if (n === "boosterenergy") return "booster-energy";
-    if (n === "safetygoggles") return "safety-goggles";
-    if (n === "dragonfang") return "dragon-fang";
-    if (n === "expertbelt") return "expert-belt";
-    if (n === "blackglasses") return "black-glasses";
-    if (n === "loadeddice") return "loaded-dice";
+function isSupportMove(moveName) {
+  const n = normalizeText(moveName);
+  for (const sm of SUPPORT_MOVES) {
+    if (normalizeText(sm) === n) return true;
   }
-  if (category === "ability") {
-    if (n === "speedboost") return "speed-boost";
-    if (n === "waterabsorb") return "water-absorb";
-    if (n === "voltabsorb") return "volt-absorb";
-    if (n === "flashfire") return "flash-fire";
-    if (n === "sandstream") return "sand-stream";
-    if (n === "snowwarning") return "snow-warning";
-    if (n === "quarkdrive") return "quark-drive";
-    if (n === "hadronengine") return "hadron-engine";
-    if (n === "orichalcumpulse") return "orichalcum-pulse";
-    if (n === "swordofruin") return "sword-of-ruin";
-    if (n === "beadsofruin") return "beads-of-ruin";
-    if (n === "vesselofruin") return "vessel-of-ruin";
-    if (n === "tabletsofruin") return "tablets-of-ruin";
-    if (n === "wellbakedbody") return "well-baked-body";
-    if (n === "purifyingsalt") return "purifying-salt";
-    if (n === "goodasgold") return "good-as-gold";
-    if (n === "stancechange") return "stance-change";
-    if (n === "hugepower") return "huge-power";
-    if (n === "purepower") return "pure-power";
-    if (n === "magicguard") return "magic-guard";
-    if (n === "swiftswim") return "swift-swim";
-    if (n === "sandrush") return "sand-rush";
-    if (n === "slushrush") return "slush-rush";
-    if (n === "innerfocus") return "inner-focus";
-    if (n === "clearbody") return "clear-body";
-  }
-  return n;
+  return false;
 }
 
-async function fetchTranslation(englishName, category) {
-  if (!englishName) return;
-  const clean = getPapiSlug(englishName, category);
-  if (CUSTOM_TERMS.has(clean)) return;
+function fetchTranslation(englishName, category) {
+  const clean = normalizeText(englishName);
   const cacheKey = `${category}:${clean}`;
-  if (i18nCache[cacheKey] || i18nCache[cacheKey] === null) return;
-
-  try {
-    let url = "";
-    if (category === "move") url = `https://pokeapi.co/api/v2/move/${clean}`;
-    else if (category === "ability")
-      url = `https://pokeapi.co/api/v2/ability/${clean}`;
-    else if (category === "item")
-      url = `https://pokeapi.co/api/v2/item/${clean}`;
-    else return;
-
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Not found");
-    const data = await res.json();
-    const esName = data.names?.find((n) => n.language.name === "es")?.name;
-    if (esName) {
-      i18nCache[cacheKey] = esName;
-      saveI18nCache();
-    } else {
-      i18nCache[cacheKey] = null;
-    }
-  } catch {
-    i18nCache[cacheKey] = null;
+  
+  if (window.GameDB?.translations?.[cacheKey]) {
+    i18nCache[cacheKey] = window.GameDB.translations[cacheKey];
   }
 }
 
-function normalizeText(str = "") {
-  return String(str)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[’'".:,%]/g, "")
-    .replace(/♀/g, " female ")
-    .replace(/♂/g, " male ")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
+function normalizeText(text) {
+  if (!text) return "";
+  return String(text).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function formatName(name = "") {
@@ -739,6 +693,10 @@ const POKEAPI_SPECIES_SLUG = {
   "meowstic-m-mega": "meowstic-mega",
   "meowstic-f-mega": "meowstic-mega",
   dudunsparce: "dudunsparce-two-segment",
+  "ogerpon-wellspring": "ogerpon-wellspring-mask",
+  "ogerpon-hearthflame": "ogerpon-hearthflame-mask",
+  "ogerpon-cornerstone": "ogerpon-cornerstone-mask",
+  "urshifu": "urshifu-single-strike",
 };
 
 function pokeapiPokemonSlug(normalizedKey) {
@@ -858,10 +816,10 @@ function parseSpread(spreadKey = "") {
   };
 }
 
+// CORE ENGINE: calcula la velocidad efectiva de un mon (Tailwind/TR/registry).
 function calculateSpeed(mon, side) {
   if (!mon) return 0;
-  const baseSpe =
-    mon.raw?.stats?.find((s) => s.stat.name === "speed")?.base_stat || 100;
+  const baseSpe = mon.baseStats?.speed || 100;
   const evsSpe = mon.set?.evs?.spe || 0;
   const nature = mon.set?.nature || "";
 
@@ -887,7 +845,25 @@ function calculateSpeed(mon, side) {
   if (field.weather === "sun" && ab === "Chlorophyll") modifier *= 2;
   if (field.weather === "sand" && ab === "Sand Rush") modifier *= 2;
 
+  if (window.EffectsRegistryBridge) {
+    const regSpeed = window.EffectsRegistryBridge.resolveSpeedModifiers(mon, {
+      side,
+      holder: mon,
+      field: window.EffectsRegistryBridge.createCurrentFieldSnapshot(state)
+    });
+    modifier *= regSpeed.modifiers.speed;
+  }
+
   let finalSpe = Math.floor(spe * modifier);
+
+  if (DEBUG_MODE) {
+    console.groupCollapsed(`🚀 [SPEED CALC] ${mon.name} (${side})`);
+    console.log(`📊 Stats -> Base: ${baseSpe} | EVs: ${evsSpe} | Naturaleza: ${nature}`);
+    console.log(`⚙️ Modificadores -> Multiplicador Final: x${modifier} | Trick Room: ${field.trickRoom ? 'SÍ' : 'NO'}`);
+    console.log(`🏁 Velocidad Efectiva: ${field.trickRoom ? -finalSpe : finalSpe}`);
+    console.groupEnd();
+  }
+  
   return field.trickRoom ? -finalSpe : finalSpe;
 }
 
@@ -923,7 +899,12 @@ function natureMod(nature, stat) {
 }
 
 function getBaseStatRaw(mon, apiName) {
-  return mon?.raw?.stats?.find((s) => s.stat.name === apiName)?.base_stat || 0;
+  const val = mon?.baseStats?.[apiName];
+  if (val === undefined || val === null) {
+    if (DEBUG_MODE) console.warn(`⚠️ [STATS MISSING] No se encontró el stat base '${apiName}' para el Pokémon: ${mon?.name}. El cálculo fallará devolviendo 0.`);
+    return 0;
+  }
+  return val;
 }
 
 function calcMonHP(mon) {
@@ -932,10 +913,24 @@ function calcMonHP(mon) {
   return Math.floor(((2 * b + 31 + Math.floor(ev / 4)) * 50) / 100) + 60;
 }
 
-function calcOtherStatLv50(base, ev, natureMultiplier) {
+// stage: entero de -6 a +6
+function stageMultiplier(stage) {
+  // Fórmula estándar de Showdown
+  if (!Number.isFinite(stage) || stage === 0) return 1;
+  if (stage > 0) {
+    return (2 + stage) / 2;
+  }
+  // stage < 0
+  return 2 / (2 - stage);
+}
+
+function calcOtherStatLv50(base, ev, natureMultiplier, stage = 0) {
+  const evSafe = Number(ev || 0);
   const inner =
-    Math.floor(((2 * base + 31 + Math.floor((ev || 0) / 4)) * 50) / 100) + 5;
-  return Math.floor(inner * natureMultiplier);
+    Math.floor(((2 * base + 31 + Math.floor(evSafe / 4)) * 50) / 100) + 5;
+
+  const staged = inner * stageMultiplier(stage);
+  return Math.floor(staged * natureMultiplier);
 }
 
 const PRIORITY_MOVES = new Set([
@@ -963,20 +958,47 @@ const PRIORITY_MOVES = new Set([
   "Helping Hand",
 ]);
 
+// Movimientos típicos de spread en dobles
+const SPREAD_MOVES = new Set([
+  'Rock Slide',
+  'Heat Wave',
+  'Earthquake',
+  'Snarl',
+  'Dazzling Gleam',
+  'Make It Rain',
+  'Bleakwind Storm',
+  'Hurricane', // según formato, ajústalo
+  // añade aquí los que uses más en Champions OU
+]);
+
+// Multi-hits garantizados (aprox. corto plazo)
+const GUARANTEED_MULTI_HITS = {
+  'Surging Strikes': 3,
+  'Triple Axel': 3, // ojo, técnicamente puede fallar hits posteriores
+  'Dual Chop': 2,
+  'Population Bomb': 10, // placeholder, a ajustar cuando uses PokeAPI
+};
+
+// CORE ENGINE: calcula el daño base de un movimiento entre dos mons.
+// TODO(registry): extender para incorporar todos los modificadores de daño
+// de abilities/items/campo vía EffectsRegistryBridge.resolveDamageModifiers.
 function estimateMoveDamage(attacker, defender, cand, field) {
   const power = cand.power || 0;
   const info = state.moveTypeCache[cand.move];
   const dmgClass = cand.damageClass || info?.damageClass || "physical";
-  if (power <= 0 || dmgClass === "status") return { damage: 0, blocked: false };
+  if (power <= 0 || dmgClass === "status") return { damage: 0, minDamage: 0, maxDamage: 0, blocked: false };
 
-  if (field.terrain === "psychic" && PRIORITY_MOVES.has(cand.move)) {
-    return { damage: 0, blocked: true, wMul: 1, terrMul: 1 }; // FIX: Retornar modificadores
-  }
+  const moveName = cand.move || '';
+  const isSpread = !!cand.isSpread || SPREAD_MOVES.has(moveName);
+  const hits = cand.hits || GUARANTEED_MULTI_HITS[moveName] || 1;
 
   const natA = attacker.set?.nature || "";
   const natD = defender.set?.nature || "";
   const evA = attacker.set?.evs || {};
   const evD = defender.set?.evs || {};
+
+  const stagesA = attacker.battle?.stages || {};
+  const stagesD = defender.battle?.stages || {};
 
   let atkS;
   let defS;
@@ -985,22 +1007,26 @@ function estimateMoveDamage(attacker, defender, cand, field) {
       getBaseStatRaw(attacker, "attack"),
       evA.atk,
       natureMod(natA, "atk"),
+      stagesA.atk || 0
     );
     defS = calcOtherStatLv50(
       getBaseStatRaw(defender, "defense"),
       evD.def,
       natureMod(natD, "def"),
+      stagesD.def || 0
     );
   } else {
     atkS = calcOtherStatLv50(
       getBaseStatRaw(attacker, "special-attack"),
       evA.spa,
       natureMod(natA, "spa"),
+      stagesA.spa || 0
     );
     defS = calcOtherStatLv50(
       getBaseStatRaw(defender, "special-defense"),
       evD.spd,
       natureMod(natD, "spd"),
+      stagesD.spd || 0
     );
   }
 
@@ -1019,11 +1045,128 @@ function estimateMoveDamage(attacker, defender, cand, field) {
   if (field.terrain === "electric" && cand.type === "electric") terrMul *= 1.3;
   if (field.terrain === "grassy" && cand.move === "Earthquake") terrMul *= 0.5;
 
+  const fieldSnapshot =
+    window.EffectsRegistryBridge
+      ? window.EffectsRegistryBridge.createCurrentFieldSnapshot(state)
+      : field;
+
+  let registry = null;
+  let registryDamageMul = 1;
+  let blockedByRegistry = false;
+
+  if (window.EffectsRegistryBridge) {
+    try {
+      registry = window.EffectsRegistryBridge.resolveDamageModifiers(
+        attacker,
+        defender,
+        cand,
+        {
+          field: fieldSnapshot,
+          effectiveness: eff,
+        }
+      );
+
+      if (registry && registry.final) {
+        // Multiplicador final de daño (ofensivo * defensivo)
+        if (Number.isFinite(registry.final.damageMultiplier)) {
+          registryDamageMul *= registry.final.damageMultiplier;
+        }
+
+        // Multiplicadores de stats (para stats crudos o ya aplicados como Choice Band o Burn)
+        if (Number.isFinite(registry.final.attackMultiplier) && dmgClass === 'physical') {
+          atkS = Math.floor(atkS * registry.final.attackMultiplier);
+        }
+        if (Number.isFinite(registry.final.specialAttackMultiplier) && dmgClass === 'special') {
+          atkS = Math.floor(atkS * registry.final.specialAttackMultiplier);
+        }
+        if (Number.isFinite(registry.final.specialDefenseMultiplier) && dmgClass === 'special') {
+          defS = Math.max(1, Math.floor(defS * registry.final.specialDefenseMultiplier));
+        }
+
+        // Bloqueos e inmunidades
+        const prev = registry.prevention?.final || {};
+        if (prev.immune || prev.blockedByPriority || prev.blockedByStatus || prev.blockedBySecondaryShield) {
+          blockedByRegistry = true;
+        }
+      }
+    } catch (e) {
+      console.warn('[DEBUG] resolveDamageModifiers error', e);
+    }
+  }
+
   const stab = (attacker.types || []).includes(cand.type) ? 1.5 : 1;
   const defSafe = Math.max(1, defS);
-  const raw =
-    ((22 * power * atkS) / defSafe / 50 + 2) * stab * eff * wMul * terrMul;
-  return { damage: Math.floor(raw), blocked: false, wMul, terrMul }; // FIX: Retornar wMul y terrMul
+
+  // Bloqueo por Psychic Terrain + prioridad
+  let blocked = false;
+  if (field.terrain === 'psychic' && PRIORITY_MOVES.has(cand.move)) {
+    blocked = true;
+  }
+
+  // Si el registry dice que está bloqueado/inmune, respetamos eso
+  if (blockedByRegistry) {
+    blocked = true;
+  }
+
+  if (blocked) {
+    return {
+      damage: 0,
+      minDamage: 0,
+      maxDamage: 0,
+      blocked: true,
+      wMul,
+      terrMul,
+      registry,
+    };
+  }
+
+  // Daño base sin RNG
+  let basePerHit =
+    (((((22 * power * atkS) / defSafe) / 50) + 2) *
+      stab *
+      eff *
+      wMul *
+      terrMul *
+      registryDamageMul);
+
+  if (isSpread) {
+    basePerHit *= 0.75;
+  }
+
+  const baseTotal = basePerHit * hits;
+
+  // Simular los 16 rolls (0.85 .. 1.00)
+  const rolls = [];
+  for (let i = 0; i < 16; i++) {
+    const roll = 0.85 + (i / 15) * 0.15;
+    rolls.push(Math.floor(baseTotal * roll));
+  }
+
+  const maxDamage = Math.max(...rolls);
+  const minDamage = Math.min(...rolls);
+  const critDamage = Math.floor(baseTotal * 1.5);
+
+  if (DEBUG_MODE) {
+    console.groupCollapsed(`⚔️ [DAMAGE CALC] ${attacker.name} usa ${cand.move} vs ${defender.name}`);
+    console.log(`🔹 Movimiento -> Poder Base: ${power} | Tipo: ${cand.type} | Clase: ${dmgClass.toUpperCase()}`);
+    console.log(`🔹 Stats Base Brutos -> Atk/SpA Base: ${getBaseStatRaw(attacker, dmgClass === 'physical' ? 'attack' : 'special-attack')} | Def/SpD Base: ${getBaseStatRaw(defender, dmgClass === 'physical' ? 'defense' : 'special-defense')}`);
+    console.log(`🔹 Stats Reales (Nv50+EVs) -> Atacante: ${atkS} | Defensor: ${defSafe}`);
+    console.log(`🔹 Multiplicadores -> STAB: ${stab} | Eficacia: x${eff} | Clima: x${wMul} | Terreno: x${terrMul} | Registro: x${registryDamageMul}`);
+    console.log(`🔹 Golpes Múltiples: ${hits} | Penalización por Spread: ${isSpread ? 'SÍ (x0.75)' : 'NO'}`);
+    console.log(`🏁 Rango de Daño Resultante: ${minDamage} - ${maxDamage} HP`);
+    console.groupEnd();
+  }
+
+  return {
+    damage: maxDamage,      // compat con código existente
+    minDamage,
+    maxDamage,
+    critDamage,
+    blocked: false,
+    wMul,
+    terrMul,
+    registry,
+  };
 }
 
 function serializeSetSummary(set) {
@@ -1044,60 +1187,6 @@ function serializeSetSummary(set) {
 
 function getCacheKey(rating) {
   return `${CACHE_KEY_PREFIX}${rating}`;
-}
-
-async function loadSmogonMeta(rating = state.rating) {
-  state.loadingMeta = true;
-  metricMeta.textContent = "Cargando";
-  metaStatusText.textContent = `Champions OU ${SMOGON_MONTH}`;
-  if (matrixSourceChip) matrixSourceChip.textContent = `Local ${SMOGON_MONTH} · corte ${rating}`;
-
-  const file = SMOGON_FILES[rating] || SMOGON_FILES["1760"];
-  const url = `${SMOGON_BASE}${file}`;
-
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(`No se pudo cargar ${file}`);
-
-    const json = await res.json();
-
-    state.smogonRaw = json;
-    buildMetaIndex(json);
-    state.rating = rating;
-    localStorage.setItem(RATING_STORAGE_KEY, rating);
-
-    metricMeta.textContent = `${state.metaRanked.length}`;
-    metaStatusText.textContent = `Champions OU ${SMOGON_MONTH} · ${file}`;
-    if (matrixSourceChip) matrixSourceChip.textContent = `Local ${SMOGON_MONTH} · corte ${rating}`;
-    searchHint.textContent = `${state.metaRanked.length} Pokémon meta disponibles`;
-
-    await rehydrateCurrentTeamsSets();
-    ensurePokedex();
-    renderAll();
-    preloadTopMeta(); // Lanza precarga en segundo plano
-  } catch (err) {
-    console.error(err);
-    metricMeta.textContent = "Error";
-    metaStatusText.textContent = `Falta ${file}`;
-    searchHint.textContent = `No se pudo cargar ${file}. Revisa que exista en ./data/`;
-    renderAll();
-  } finally {
-    state.loadingMeta = false;
-  }
-}
-
-async function preloadTopMeta() {
-  // Evita colapsar la conexión, carga solo los top 50
-  const topMons = state.metaRanked.slice(0, 50);
-  for (const record of topMons) {
-    const key = normalizeText(record.slug);
-    const inIDB = await getFromIDB(key);
-    if (!inIDB && !state.cache.has(key)) {
-      // fetch silencioso sin await para no bloquear
-      fetchPokemon(key).catch(() => {});
-      await new Promise((r) => setTimeout(r, 100)); // throttle entre requests
-    }
-  }
 }
 
 function buildMetaIndex(json) {
@@ -1141,8 +1230,65 @@ function buildMetaIndex(json) {
   state.metaRanked = ranked;
 }
 
+function buildFallbackIndex(jsonArray) {
+  state.fallbackIndex = new Map();
+  if (!Array.isArray(jsonArray) || jsonArray.length === 0) return;
+
+  // Iteramos en orden inverso para que los JSON de mayor prioridad (los primeros del array)
+  // sobreescriban los datos de menor prioridad.
+  const reversed = [...jsonArray].reverse();
+
+  for (const json of reversed) {
+    const rawData = json?.data || json?.Data || {};
+    Object.entries(rawData).forEach(([name, entry], idx) => {
+      const slug = slugFromSmogonName(name);
+      const displayName = displayFromSmogonName(name);
+      const usage = Number(entry?.["Raw count"] ?? entry?.raw ?? entry?.usage ?? entry?.count ?? 0) || 0;
+      state.fallbackIndex.set(slug, {
+        key: name,
+        slug,
+        displayName,
+        entry: entry || {},
+        usage,
+        rankSeed: idx,
+      });
+    });
+  }
+}
+
 function getMetaRecord(speciesId) {
-  return state.metaIndex.get(normalizeText(speciesId)) || null;
+  if (!speciesId) return null;
+  const slug = normalizeText(speciesId);
+  
+  // 1. Coincidencia directa
+  if (state.metaIndex.has(slug)) return state.metaIndex.get(slug);
+  if (state.fallbackIndex.has(slug)) return state.fallbackIndex.get(slug);
+
+  // 2. Búsqueda inversa para mapeos de PokeAPI (ej: 'palafin-hero' -> 'palafin')
+  for (const [smogonKey, apiKey] of Object.entries(POKEAPI_SPECIES_SLUG)) {
+    if (slug === apiKey) {
+      if (state.metaIndex.has(smogonKey)) return state.metaIndex.get(smogonKey);
+      if (state.fallbackIndex.has(smogonKey)) return state.fallbackIndex.get(smogonKey);
+    }
+  }
+
+  // 3. Override directo hacia Smogon (ej: 'urshifu' -> 'urshifu-single-strike')
+  const smogonOverride = slugFromSmogonName(slug);
+  if (smogonOverride !== slug) {
+    if (state.metaIndex.has(smogonOverride)) return state.metaIndex.get(smogonOverride);
+    if (state.fallbackIndex.has(smogonOverride)) return state.fallbackIndex.get(smogonOverride);
+  }
+
+  // 4. Búsqueda agresiva ignorando guiones (ej: 'ironhands' -> 'iron-hands')
+  const slugNoDash = slug.replace(/-/g, "");
+  for (const [key, record] of state.metaIndex.entries()) {
+    if (key.replace(/-/g, "") === slugNoDash) return record;
+  }
+  for (const [key, record] of state.fallbackIndex.entries()) {
+    if (key.replace(/-/g, "") === slugNoDash) return record;
+  }
+
+  return null;
 }
 
 function chooseBestItem(itemEntries, side, ignoreIndex = -1, speciesId = "") {
@@ -1151,24 +1297,26 @@ function chooseBestItem(itemEntries, side, ignoreIndex = -1, speciesId = "") {
     ([, megaId]) => megaId === speciesId,
   );
   if (entryPair) {
-    return entryPair[0]
-      .replace("-", " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase()); // Format the mega stone name
+    return formatName(entryPair[0]);
   }
 
   const usedItems = new Set(
     state[side]
       .map((mon, idx) => (idx === ignoreIndex ? null : mon?.set?.item))
-      .filter(Boolean),
+      .filter(Boolean)
+      .map(i => normalizeText(i))
   );
-  const sorted = topEntries(itemEntries, 8).map((x) => x.key);
-  const free = sorted.find((item) => !usedItems.has(item));
+  const sorted = topEntries(itemEntries, 8).map((x) => formatName(normalizeText(x.key)));
+  const free = sorted.find((item) => !usedItems.has(normalizeText(item)));
   return free || sorted[0] || "";
 }
 
 function buildDefaultSetForSpecies(speciesId, side = "self", slotIndex = -1) {
   const record = getMetaRecord(speciesId);
   const entry = record?.entry || null;
+
+  
+
   if (!entry) {
     return {
       source: "fallback",
@@ -1182,12 +1330,14 @@ function buildDefaultSetForSpecies(speciesId, side = "self", slotIndex = -1) {
     };
   }
 
-  const abilities = topEntries(entry.Abilities || {}, 3);
-  const items = topEntries(entry.Items || {}, 6);
+  const formatSmogonStr = (str, cat) => formatName(normalizeText(str));
+
+  const abilities = topEntries(entry.Abilities || {}, 3).map(x => ({...x, key: formatSmogonStr(x.key, 'ability')}));
+  const items = topEntries(entry.Items || {}, 6).map(x => ({...x, key: formatSmogonStr(x.key, 'item')}));
   const moves = topEntries(entry.Moves || {}, 8)
-    .map((x) => x.key)
+    .map((x) => formatSmogonStr(x.key, "move"))
     .filter(Boolean)
-    .filter((move) => !String(move).toLowerCase().includes("nothing"))
+    .filter((move) => !normalizeText(move).includes("nothing"))
     .slice(0, 4);
 
   const spreads = topEntries(entry.Spreads || entry["Spreads"] || {}, 3);
@@ -1196,7 +1346,7 @@ function buildDefaultSetForSpecies(speciesId, side = "self", slotIndex = -1) {
     slugFromSmogonName(x.key),
   );
 
-  return {
+  const mon = {
     source: "smogon-chaos",
     rating: state.rating,
     ability: abilities[0]?.key || "",
@@ -1209,47 +1359,36 @@ function buildDefaultSetForSpecies(speciesId, side = "self", slotIndex = -1) {
       abilities,
       items,
       spreads,
-      moves: topEntries(entry.Moves || {}, 8),
+      moves: topEntries(entry.Moves || {}, 8).map(x => ({...x, key: formatSmogonStr(x.key, 'move')})),
       teammates: topEntries(entry.Teammates || {}, 6),
     },
   };
+
+  ensureBattleState(mon);
+  return mon;
 }
 
-const IDB_STORE_NAME = "pokemon-cache";
-const idbPromise = new Promise((resolve, reject) => {
-  const request = indexedDB.open("smogon-champions-db", 1);
-  request.onerror = () => reject(request.error);
-  request.onsuccess = () => resolve(request.result);
-  request.onupgradeneeded = (e) => {
-    const db = e.target.result;
-    if (!db.objectStoreNames.contains(IDB_STORE_NAME)) {
-      db.createObjectStore(IDB_STORE_NAME, { keyPath: "name" });
-    }
-  };
-});
-
-async function getFromIDB(key) {
-  try {
-    const db = await idbPromise;
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE_NAME, "readonly");
-      const store = tx.objectStore(IDB_STORE_NAME);
-      const request = store.get(key);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } catch {
-    return null;
+function ensureBattleState(mon) {
+  if (!mon) return mon;
+  if (!mon.battle) {
+    mon.battle = {
+      // HP en porcentaje relativo al máximo calculado por calcMonHP
+      hpPct: 100,
+      // Stages de stats, al estilo Showdown (-6..+6)
+      stages: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+      // Estado principal: 'brn', 'par', 'slp', 'psn', 'tox', 'frz', etc.
+      status: null,
+      // Nombre del movimiento bloqueado por Choice
+      choiceLocked: null,
+      // Flag de si el Sash sigue intacto
+      sashIntact: mon.set?.item === 'Focus Sash',
+      // Contadores especiales (ej. Rage Fist, Anger Shell, etc.)
+      boostStacks: {
+        rageFist: 0,
+      },
+    };
   }
-}
-
-async function saveToIDB(data) {
-  try {
-    const db = await idbPromise;
-    const tx = db.transaction(IDB_STORE_NAME, "readwrite");
-    const store = tx.objectStore(IDB_STORE_NAME);
-    store.put(data);
-  } catch {}
+  return mon;
 }
 
 async function fetchPokemon(name) {
@@ -1259,148 +1398,676 @@ async function fetchPokemon(name) {
     return {
       name: key,
       displayName: formatName(name),
-      sprite:
-        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png",
+      sprite: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png",
       types: ["normal"],
-      set: buildDefaultSetForSpecies(key),
+      baseStats: {
+        "hp": 100, "attack": 100, "defense": 100,
+        "special-attack": 100, "special-defense": 100, "speed": 100
+      },
+        set: buildDefaultSetForSpecies(key, "self", -1, ["normal"]),
     };
   }
   if (state.cache.has(key)) {
     const cloned = structuredClone(state.cache.get(key));
-    cloned.set = buildDefaultSetForSpecies(key);
+      cloned.set = buildDefaultSetForSpecies(key, "self", -1, cloned.types);
+      ensureBattleState(cloned);
     return cloned;
   }
-
-  let mon = await getFromIDB(key);
-
-  if (!mon) {
-    const apiSlug = pokeapiPokemonSlug(key);
-    const url = `https://pokeapi.co/api/v2/pokemon/${apiSlug}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`No encontrado: ${name}`);
-    const data = await res.json();
-
-    const record = getMetaRecord(key);
-
-    let spriteUrl = homeSpriteFromPokemon(data);
-    if (record && record.rank <= 20) {
-      try {
-        const bRes = await fetch(spriteUrl);
-        const blob = await bRes.blob();
-        spriteUrl = await new Promise((r) => {
-          const reader = new FileReader();
-          reader.onloadend = () => r(reader.result);
-          reader.readAsDataURL(blob);
-        });
-      } catch {}
-    }
-
-    mon = {
-      id: data.id,
-      name: key,
-      displayName: record?.displayName || formatName(data.name),
-      sprite: spriteUrl,
-      types: data.types
-        .slice()
-        .sort((a, b) => a.slot - b.slot)
-        .map((x) => x.type.name),
-      metaRank: record?.rank || null,
-      usage: record?.usage || 0,
-      raw: data,
+  
+  if (!window.GameDB) return null;
+  
+  const dbData = window.GameDB.pokedex[key];
+  if (!dbData) {
+    console.warn(`[DEBUG] Pokémon no encontrado o ignorado por Smogon: ${name}`);
+    const fallback = {
+      id: 0, 
+      name: key, 
+      displayName: name, 
+      sprite: '',
+      types: ['normal'],
+      baseStats: { hp: 100, attack: 100, defense: 100, "special-attack": 100, "special-defense": 100, speed: 100 },
+      metaRank: null, 
+      usage: 0
     };
-    await saveToIDB(mon);
+    fallback.set = buildDefaultSetForSpecies(key, "self", -1, fallback.types);
+    ensureBattleState(fallback);
+    return fallback;
   }
+
+  const record = getMetaRecord(key);
+
+  const mon = {
+    id: dbData.id,
+    name: key,
+    displayName: dbData.displayName,
+    sprite: dbData.sprite,
+    types: dbData.types,
+    baseStats: dbData.baseStats,
+    metaRank: record?.rank || null,
+    usage: record?.usage || 0,
+  };
 
   state.cache.set(key, structuredClone(mon));
 
-  mon.set = buildDefaultSetForSpecies(key);
+  mon.set = buildDefaultSetForSpecies(key, "self", -1, mon.types);
+  ensureBattleState(mon);
   scheduleMoveWarmup();
   return structuredClone(mon);
 }
 
-async function fetchMoveInfo(moveName) {
-  if (!moveName) return null;
-  const cached = state.moveTypeCache[moveName];
-  if (cached) return cached;
+function ensureAbilityRegistry(abilityName) {
+  if (!window.EffectsRegistryBridge || !abilityName) return;
+  const slug = normalizeText(abilityName);
+  if (window.EffectsRegistryBridge.getAbilityEntry(slug)) return;
 
-  const slug = getPapiSlug(moveName, "move");
-  if (CUSTOM_TERMS.has(slug)) {
-    const info = { type: "normal", damageClass: "status", power: 0 };
-    state.moveTypeCache[moveName] = info;
-    return info;
+  let entry = null;
+
+  switch (slug) {
+    case 'intimidate':
+      entry = {
+        slug,
+        name: 'Intimidate',
+        triggers: ['on_switch_in'],
+        effects: [
+          {
+            kind: 'modify_stat_stage',
+            target: 'foe',
+            stat: 'atk',
+            value: -1,
+          },
+        ],
+      };
+      break;
+
+    case 'swiftswim':
+      entry = {
+        slug,
+        name: 'Swift Swim',
+        triggers: ['on_speed_calc'],
+        effects: [
+          {
+            kind: 'speed_multiplier',
+            value: 2,
+            when: { weather: 'rain' },
+          },
+        ],
+      };
+      break;
+
+    case 'chlorophyll':
+      entry = {
+        slug,
+        name: 'Chlorophyll',
+        triggers: ['on_speed_calc'],
+        effects: [
+          {
+            kind: 'speed_multiplier',
+            value: 2,
+            when: { weather: 'sun' },
+          },
+        ],
+      };
+      break;
+
+    case 'sandrush':
+      entry = {
+        slug,
+        name: 'Sand Rush',
+        triggers: ['on_speed_calc'],
+        effects: [
+          {
+            kind: 'speed_multiplier',
+            value: 2,
+            when: { weather: 'sand' },
+          },
+        ],
+      };
+      break;
+
+    case 'friendguard':
+      entry = {
+        slug,
+        name: 'Friend Guard',
+        triggers: ['on_damage_calc_taken'],
+        effects: [
+          {
+            kind: 'final_damage_multiplier',
+            value: 0.75,
+            target: 'ally',
+          },
+        ],
+      };
+      break;
+
+    case 'goodasgold':
+      entry = {
+        slug,
+        name: 'Good as Gold',
+        triggers: ['on_try_status'],
+        effects: [
+          {
+            kind: 'grant_immunity',
+            move_damage_class: 'status',
+          },
+        ],
+      };
+      break;
+
+    case 'armortail':
+      entry = {
+        slug,
+        name: 'Armor Tail',
+        triggers: ['on_try_hit'],
+        effects: [
+          {
+            kind: 'block_priority',
+          },
+        ],
+      };
+      break;
+
+    case 'waterabsorb':
+      entry = {
+        slug,
+        name: 'Water Absorb',
+        triggers: ['on_damage_calc_taken'],
+        effects: [
+          {
+            kind: 'grant_immunity',
+            move_type: 'water',
+          },
+          {
+            kind: 'heal_fraction',
+            value: 0.25,
+            when: { move_type: 'water' },
+          },
+        ],
+      };
+      break;
+
+    // Añade aquí otras habilidades clave (lightning-rod, storm-drain, ruins...)
+    default:
+      break;
   }
-  const fallbackType = MOVE_TYPE_FALLBACK[moveName];
-  try {
-    const res = await fetch(`https://pokeapi.co/api/v2/move/${slug}`);
-    if (!res.ok) throw new Error("Move not found");
-    const data = await res.json();
-    const info = {
-      type: data?.type?.name || fallbackType || null,
-      damageClass: data?.damage_class?.name || "status",
-      power: data?.power || 0,
-    };
-    state.moveTypeCache[moveName] = info;
-    saveMoveCache();
-    return info;
-  } catch {
-    const info = {
-      type: fallbackType || null,
-      damageClass: SUPPORT_MOVES.has(moveName) ? "status" : "physical",
-      power: 0,
-    };
-    state.moveTypeCache[moveName] = info;
-    saveMoveCache();
-    return info;
+
+  if (entry) {
+    window.EffectsRegistryBridge.upsertAbilityEntry(slug, entry);
   }
 }
 
-let moveWarmupToken = 0;
-function scheduleMoveWarmup() {
-  const token = ++moveWarmupToken;
-  setTimeout(async () => {
-    if (token !== moveWarmupToken) return;
-    const mons = [...state.self, ...state.enemy].filter(Boolean);
-    const moveNames = [
-      ...new Set(mons.flatMap((mon) => mon?.set?.moves || []).filter(Boolean)),
-    ];
-    const abilityNames = [
-      ...new Set(mons.map((mon) => mon?.set?.ability).filter(Boolean)),
-    ];
-    const itemNames = [
-      ...new Set(mons.map((mon) => mon?.set?.item).filter(Boolean)),
-    ];
+function ensureItemRegistry(itemName) {
+  if (!window.EffectsRegistryBridge || !itemName) return;
+  const slug = normalizeText(itemName);
+  if (window.EffectsRegistryBridge.getItemEntry(slug)) return;
 
-    // Process Move Types first (important for Matrix)
-    await Promise.all(moveNames.map((m) => fetchMoveInfo(m)));
-    if (token !== moveWarmupToken) return;
-    renderAll();
+  let entry = null;
 
-    // Process translations in batches of 5 to avoid 429 Rate Limit
-    const translationTasks = [];
-    moveNames.forEach((m) =>
-      translationTasks.push(() => fetchTranslation(m, "move")),
-    );
-    abilityNames.forEach((a) =>
-      translationTasks.push(() => fetchTranslation(a, "ability")),
-    );
-    itemNames.forEach((i) =>
-      translationTasks.push(() => fetchTranslation(i, "item")),
-    );
+  switch (slug) {
+    case 'lifeorb':
+      entry = {
+        slug,
+        name: 'Life Orb',
+        triggers: ['on_damage_calc', 'on_after_hit'],
+        effects: [
+          {
+            kind: 'final_damage_multiplier',
+            value: 1.3,
+          },
+          {
+            kind: 'recoil_fraction',
+            value: 0.1,
+            target: 'self',
+          },
+        ],
+      };
+      break;
 
-    for (let i = 0; i < translationTasks.length; i += 5) {
-      if (token !== moveWarmupToken) return;
-      await Promise.all(translationTasks.slice(i, i + 5).map((fn) => fn()));
+    case 'choiceband':
+      entry = {
+        slug,
+        name: 'Choice Band',
+        triggers: ['on_damage_calc', 'on_move_selected'],
+        effects: [
+          {
+            kind: 'stat_multiplier',
+            stat: 'atk',
+            value: 1.5,
+          },
+          {
+            kind: 'choice_lock',
+          },
+        ],
+      };
+      break;
 
-      if (token !== moveWarmupToken) return;
-      renderAll();
+    case 'choicespecs':
+      entry = {
+        slug,
+        name: 'Choice Specs',
+        triggers: ['on_damage_calc', 'on_move_selected'],
+        effects: [
+          {
+            kind: 'stat_multiplier',
+            stat: 'spa',
+            value: 1.5,
+          },
+          {
+            kind: 'choice_lock',
+          },
+        ],
+      };
+      break;
 
-      if (state.setEditor.index !== null) {
-        renderSetEditor();
-        if (state.setChoice.kind) renderSetChoiceList();
-      }
-      await new Promise((r) => setTimeout(r, 100)); // delay between batches
+    case 'assaultvest':
+      entry = {
+        slug,
+        name: 'Assault Vest',
+        triggers: ['on_defense_calc'],
+        effects: [
+          {
+            kind: 'special_defense_multiplier',
+            value: 1.5,
+          },
+          {
+            kind: 'forbid_status_moves',
+          },
+        ],
+      };
+      break;
+
+    case 'clearamulet':
+      entry = {
+        slug,
+        name: 'Clear Amulet',
+        triggers: ['on_stat_drop_attempt'],
+        effects: [
+          {
+            kind: 'block_stat_drop',
+          },
+        ],
+      };
+      break;
+
+    case 'covertcloak':
+      entry = {
+        slug,
+        name: 'Covert Cloak',
+        triggers: ['on_secondary_effect_attempt'],
+        effects: [
+          {
+            kind: 'block_secondary_effects',
+          },
+        ],
+      };
+      break;
+
+    case 'focussash':
+      entry = {
+        slug,
+        name: 'Focus Sash',
+        triggers: ['on_lethal_hit'],
+        effects: [
+          {
+            kind: 'survive_at_1hp',
+          },
+        ],
+      };
+      break;
+
+    // Berries mitigadoras, Weakness Policy, etc. se pueden añadir aquí
+    default:
+      break;
+  }
+
+  if (entry) {
+    window.EffectsRegistryBridge.upsertItemEntry(slug, entry);
+  }
+}
+
+function ensureMoveRegistry(moveName) {
+  if (!window.EffectsRegistryBridge || !moveName) return;
+  const slug = normalizeText(moveName);
+  if (window.EffectsRegistryBridge.getMoveEntry(slug)) return;
+
+  let entry = null;
+
+  switch (slug) {
+    case 'trickroom':
+      entry = {
+        slug,
+        name: 'Trick Room',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'toggle_room',
+            room: 'trickRoom',
+            value: true,
+            turns: 5,
+          },
+        ],
+      };
+      break;
+
+    case 'tailwind':
+      entry = {
+        slug,
+        name: 'Tailwind',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'set_side_condition',
+            side: 'self',
+            condition: 'tailwind',
+            turns: 4,
+          },
+        ],
+      };
+      break;
+
+    case 'reflect':
+      entry = {
+        slug,
+        name: 'Reflect',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'set_side_condition',
+            side: 'self',
+            condition: 'reflect',
+            turns: 5,
+          },
+        ],
+      };
+      break;
+
+    case 'lightscreen':
+      entry = {
+        slug,
+        name: 'Light Screen',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'set_side_condition',
+            side: 'self',
+            condition: 'light_screen',
+            turns: 5,
+          },
+        ],
+      };
+      break;
+
+    case 'auroraveil':
+      entry = {
+        slug,
+        name: 'Aurora Veil',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'set_side_condition',
+            side: 'self',
+            condition: 'aurora_veil',
+            turns: 5,
+          },
+        ],
+      };
+      break;
+
+    case 'wideguard':
+      entry = {
+        slug,
+        name: 'Wide Guard',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'protect_side_from_spread',
+            side: 'self',
+          },
+        ],
+      };
+      break;
+
+    case 'quickguard':
+      entry = {
+        slug,
+        name: 'Quick Guard',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'protect_side_from_priority',
+            side: 'self',
+          },
+        ],
+      };
+      break;
+
+    case 'followme':
+    case 'ragepowder':
+      entry = {
+        slug,
+        name: moveName,
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'set_redirection',
+            side: 'self',
+            value: true,
+          },
+        ],
+      };
+      break;
+
+    case 'stealthrock':
+      entry = {
+        slug,
+        name: 'Stealth Rock',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'set_side_condition',
+            side: 'enemy',
+            condition: 'stealth_rock',
+          },
+        ],
+      };
+      break;
+
+    case 'spikes':
+      entry = {
+        slug,
+        name: 'Spikes',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'set_side_condition',
+            side: 'enemy',
+            condition: 'spikes',
+          },
+        ],
+      };
+      break;
+
+    case 'toxicspikes':
+      entry = {
+        slug,
+        name: 'Toxic Spikes',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'set_side_condition',
+            side: 'enemy',
+            condition: 'toxic_spikes',
+          },
+        ],
+      };
+      break;
+
+    case 'stickyweb':
+      entry = {
+        slug,
+        name: 'Sticky Web',
+        triggers: ['on_move_resolution'],
+        effects: [
+          {
+            kind: 'set_side_condition',
+            side: 'enemy',
+            condition: 'sticky_web',
+          },
+        ],
+      };
+      break;
+
+    // Protect se gestiona más por flags y hooks on_try_hit/on_move_resolution
+    default:
+      break;
+  }
+
+  if (entry) {
+    window.EffectsRegistryBridge.upsertMoveEntry(slug, entry);
+  }
+}
+
+function ensureStatusRegistry(statusName) {
+  if (!window.EffectsRegistryBridge || !statusName) return;
+  const slug = normalizeText(statusName);
+  if (window.EffectsRegistryBridge.getStatusEntry && window.EffectsRegistryBridge.getStatusEntry(slug)) return;
+
+  let entry = null;
+
+  switch (slug) {
+    case 'brn':
+      entry = {
+        slug,
+        name: 'Burn',
+        triggers: ['on_damage_calc'],
+        effects: [
+          {
+            kind: 'attack_multiplier',
+            value: 0.5,
+            unless: ['guts']
+          }
+        ],
+      };
+      break;
+  }
+
+  if (entry && window.EffectsRegistryBridge.upsertStatusEntry) {
+    window.EffectsRegistryBridge.upsertStatusEntry(slug, entry);
+  }
+}
+
+function fetchMoveInfo(moveName) {
+  if (!moveName) return null;
+
+  const cached = state.moveTypeCache[moveName];
+  if (cached) return cached;
+
+  const slug = normalizeText(moveName);
+
+  if (CUSTOM_TERMS.has(slug)) {
+    const info = {
+      type: 'normal',
+      damageClass: 'status',
+      power: 0,
+      hits: 1,
+      isSpread: false,
+      makesContact: false,
+      isSound: false,
+      isPunch: false,
+      isBite: false,
+      isBullet: false,
+    };
+    state.moveTypeCache[moveName] = info;
+    return info;
+  }
+
+  let fallbackType = MOVE_TYPE_FALLBACK[moveName];
+  if (!fallbackType) fallbackType = MOVE_TYPE_FALLBACK[formatName(slug)] || null;
+
+  const info = window.GameDB?.moves?.[slug] || window.GameDB?.moves?.[moveName.toLowerCase()];
+  
+  if (info) {
+    if (DEBUG_MODE && !state.moveTypeCache[moveName]) {
+      console.log(`✅ [MOVE CACHE] "${moveName}" cargado en RAM -> Poder: ${info.power}, Tipo: ${info.type}, Clase: ${info.damageClass}`);
     }
-  }, 50);
+    state.moveTypeCache[moveName] = info;
+    return info;
+  }
+  
+  if (DEBUG_MODE && !state.moveTypeCache[moveName]) {
+    console.groupCollapsed(`❌ [MOVE MISSING] Ataque Fantasma: "${moveName}" no existe en la Base de Datos Local`);
+    console.warn(`Se buscó usando la clave: "${slug}". Al no existir, el simulador le aplicará Poder 0 (Daño 0).`);
+    console.log(`💡 Pista: Si es un ataque de 2 palabras, el script de Python probablemente falló al cruzar los nombres con la PokeAPI.`);
+    console.groupEnd();
+  }
+
+  const fallbackInfo = {
+    type: fallbackType || 'normal',
+    damageClass: isSupportMove(moveName) ? 'status' : 'physical',
+    power: 0,
+    hits: 1,
+    isSpread: false,
+    makesContact: false,
+    isSound: false,
+    isPunch: false,
+    isBite: false,
+    isBullet: false,
+  };
+  state.moveTypeCache[moveName] = fallbackInfo;
+  return fallbackInfo;
+}
+
+function warmupRegistries() {
+  const mons = [...state.self, ...state.enemy].filter(Boolean);
+  mons.forEach(mon => {
+    const set = mon.set || {};
+    if (set.ability) ensureAbilityRegistry(set.ability);
+    if (set.item) ensureItemRegistry(set.item);
+    (set.moves || []).filter(Boolean).forEach(m => {
+      ensureMoveRegistry(m);
+      fetchMoveInfo(m);
+    });
+    if (mon.battle?.status) ensureStatusRegistry(mon.battle.status);
+  });
+}
+
+function recalculateActiveField() {
+  // Limpiamos los estados autogenerados
+  state.field.weather = null;
+  state.field.weatherTurns = 0;
+  state.field.terrain = null;
+  state.field.terrainTurns = 0;
+
+  const actives = [];
+  
+  const sIdx = (state.uiMode === 'quick') ? getTurn1ResolvedLeadIndices("self") : state.activeSelfSlots;
+  const eIdx = (state.uiMode === 'quick') ? getTurn1ResolvedLeadIndices("enemy") : state.activeEnemySlots;
+
+  sIdx.forEach(i => {
+     const m = state.self[i];
+     if (m) actives.push({ mon: m, side: 'self', spe: calculateSpeed(m, 'self') });
+  });
+  eIdx.forEach(i => {
+     const m = state.enemy[i];
+     if (m) actives.push({ mon: m, side: 'enemy', spe: calculateSpeed(m, 'enemy') });
+  });
+
+  // Orden de resolución: de MÁS a MENOS rápido.
+  // El más lento aplica su clima de último, por lo que es el que prevalece.
+  actives.sort((a, b) => b.spe - a.spe);
+
+  for (const cand of actives) {
+    applySwitchInEffects(cand.mon, cand.side);
+  }
+}
+
+function scheduleMoveWarmup() {
+  warmupRegistries();
+  recalculateActiveField();
+  renderAll();
+  if (state.setEditor.index !== null) {
+    renderSetEditor();
+    if (state.setChoice.kind) renderSetChoiceList();
+  }
 }
 
 async function rehydrateCurrentTeamsSets() {
@@ -1408,7 +2075,8 @@ async function rehydrateCurrentTeamsSets() {
     for (let i = 0; i < state[side].length; i++) {
       const mon = state[side][i];
       if (!mon) continue;
-      mon.set = buildDefaultSetForSpecies(mon.name, side, i);
+          mon.set = buildDefaultSetForSpecies(mon.name, side, i, mon.types);
+          ensureBattleState(mon);
     }
   }
   scheduleMoveWarmup();
@@ -1426,6 +2094,8 @@ function getMoveCandidates(mon) {
         type: info.type,
         power: info.power || 0,
         damageClass: info.damageClass || "physical",
+        hits: info.hits || 1,
+        isSpread: info.isSpread || false,
       };
     })
     .filter(Boolean);
@@ -1434,9 +2104,13 @@ function getMoveCandidates(mon) {
 
   const fallbackMoves = moves
     .map((move) => {
-      const type = MOVE_TYPE_FALLBACK[move];
-      if (!type || SUPPORT_MOVES.has(move)) return null;
-      return { move, type, power: 0, damageClass: "physical" };
+      let type = MOVE_TYPE_FALLBACK[move];
+      if (!type) {
+         const slug = normalizeText(move);
+         type = MOVE_TYPE_FALLBACK[formatName(slug)];
+      }
+      if (!type || isSupportMove(move)) return null;
+      return { move, type, power: 0, damageClass: "physical", hits: 1, isSpread: false };
     })
     .filter(Boolean);
 
@@ -1447,59 +2121,78 @@ function getMoveCandidates(mon) {
     type,
     power: 0,
     damageClass: "special",
+    hits: 1,
+    isSpread: false,
   }));
 }
 
+// CORE ENGINE: elige el mejor movimiento ofensivo entre dos mons.
 function bestAttack(attacker, defender) {
   const field = state.field;
   const candidates = getMoveCandidates(attacker);
   if (!candidates.length) {
+    console.warn(`[DEBUG] bestAttack: No candidates for attacker ${attacker?.name} vs ${defender?.name}`);
     return {
       type: "normal",
       mult: 1,
+      rawMult: 1,
+      wMul: 1,
+      terrMul: 1,
+      blocked: false,
       move: "",
       power: 0,
       damage: 0,
+      minPct: 0,
+      maxPct: 0,
+      ohkoProb: 0,
       ohko: false,
     };
   }
 
-  const defHP = calcMonHP(defender);
+  const baseHP = calcMonHP(defender);
+  const hpPct = defender.battle?.hpPct ?? 100;
+  const defHP = Math.max(1, Math.floor((baseHP * hpPct) / 100));
   const scored = candidates.map((c) => {
-    // FIX: Extraer modificadores de clima/terreno para ajustar el multiplicador visual
     const {
       damage,
+      minDamage: minRoll,
+      maxDamage: maxRoll,
       blocked,
       wMul = 1,
       terrMul = 1,
+      registry = null
     } = estimateMoveDamage(attacker, defender, c, field);
-    let mult = effectiveness(c.type, defender?.types || []);
-    if (blocked) {
-      mult = 0;
-    } else {
-      mult = mult * wMul * terrMul;
-    }
     
-    const maxDamage = damage;
-    const minDamage = Math.floor(damage * 0.85);
+    const rawMult = effectiveness(c.type, defender?.types || []);
+    const mult = blocked ? 0 : rawMult * wMul * terrMul;
+    
+    const maxDamage = Number.isFinite(maxRoll) ? maxRoll : damage;
+    const minDamage = Number.isFinite(minRoll) ? minRoll : Math.floor(maxDamage * 0.85);
     const maxPct = Math.min(100, Math.floor((maxDamage / defHP) * 100));
     const minPct = Math.min(100, Math.floor((minDamage / defHP) * 100));
     
     let ohkoProb = 0;
     if (maxDamage >= defHP) {
         if (minDamage >= defHP) ohkoProb = 100;
-        else ohkoProb = Math.floor(((maxDamage - defHP) / (maxDamage - minDamage)) * 100);
+        else ohkoProb = Math.floor(((maxDamage - defHP) / Math.max(1, maxDamage - minDamage)) * 100);
     }
     const ohko = ohkoProb > 0;
 
     return {
       type: c.type,
       mult,
+      rawMult,
+      wMul,
+      terrMul,
+      blocked,
       move: c.move || TYPE_META[c.type]?.name || c.type,
       power: c.power || 0,
       damage: maxDamage,
       minPct, maxPct, ohkoProb,
       ohko,
+      registry,
+      registryReasons: registry ? registry.reasons : [],
+      registryExplain: (window.EffectsRegistryBridge && registry) ? window.EffectsRegistryBridge.buildExplainLines(registry) : []
     };
   });
 
@@ -1509,9 +2202,255 @@ function bestAttack(attacker, defender) {
     return (b.power || 0) - (a.power || 0);
   });
 
+  if (DEBUG_MODE) {
+    console.groupCollapsed(`🎯 [BEST ATTACK] ${attacker?.name} vs ${defender?.name}`);
+    scored.forEach((s, i) => {
+       console.log(`  [${i+1}] ${s.move} -> Daño: ${s.damage} HP (${s.minPct}% - ${s.maxPct}%) | Mult: x${s.mult}`);
+    });
+    console.log(`🏆 Movimiento Elegido: ${scored[0]?.move}`);
+    console.groupEnd();
+  }
+
   return scored[0];
 }
 
+// CORE ENGINE: aplica efectos de entrada (clima, terreno, etc.).
+// TODO(registry): aplicar TODOS los eventos relevantes de switch-in
+// (hazards, rooms, side-conditions) cuando el registry esté completo.
+function applySwitchInEffects(mon, explicitSide) {
+  if (!mon || !window.EffectsRegistryBridge) return;
+
+  const fieldSnapshot =
+    window.EffectsRegistryBridge.createCurrentFieldSnapshot(state);
+
+  const entry = window.EffectsRegistryBridge.resolveSwitchIn(mon, {
+    holder: mon,
+    field: fieldSnapshot,
+  });
+
+  if (!entry || !Array.isArray(entry.events)) return;
+
+  const side = explicitSide || mon.side || mon.battle?.side || 'self';
+  const oppSide = side === 'self' ? 'enemy' : 'self';
+
+  for (const ev of entry.events) {
+    const payload = ev.payload || {};
+
+    if (ev.kind === 'set_weather') {
+      state.field.weather = payload.weather || payload.value || null;
+      state.field.weatherTurns = payload.turns || 5;
+    }
+
+    if (ev.kind === 'set_terrain') {
+      state.field.terrain = payload.terrain || payload.value || null;
+      state.field.terrainTurns = payload.turns || 5;
+    }
+
+    if (ev.kind === 'toggle_room') {
+      if (payload.room === 'trickRoom') {
+        const next = !state.field.trickRoom;
+        state.field.trickRoom = next;
+        state.field.trickRoomTurns = next ? payload.turns || 5 : 0;
+      }
+    }
+
+    if (ev.kind === 'set_side_condition') {
+      const targetSide = payload.side || side; // por defecto, lado del owner
+      const isSelf = targetSide === 'self';
+      const f = state.field;
+
+      switch (payload.condition) {
+        case 'reflect':
+          if (isSelf) {
+            f.reflectSelf = true;
+            f.reflectSelfTurns = payload.turns || 5;
+          } else {
+            f.reflectEnemy = true;
+            f.reflectEnemyTurns = payload.turns || 5;
+          }
+          break;
+        case 'light_screen':
+          if (isSelf) {
+            f.lightScreenSelf = true;
+            f.lightScreenSelfTurns = payload.turns || 5;
+          } else {
+            f.lightScreenEnemy = true;
+            f.lightScreenEnemyTurns = payload.turns || 5;
+          }
+          break;
+        case 'aurora_veil':
+          if (isSelf) {
+            f.auroraVeilSelf = true;
+            f.auroraVeilSelfTurns = payload.turns || 5;
+          } else {
+            f.auroraVeilEnemy = true;
+            f.auroraVeilEnemyTurns = payload.turns || 5;
+          }
+          break;
+        case 'tailwind':
+          if (isSelf) {
+            f.tailwindSelf = true;
+            f.tailwindSelfTurns = payload.turns || 4;
+          } else {
+            f.tailwindEnemy = true;
+            f.tailwindEnemyTurns = payload.turns || 4;
+          }
+          break;
+        case 'stealth_rock':
+          state.field.hazards[targetSide].rocks = true;
+          break;
+        case 'spikes':
+          state.field.hazards[targetSide].spikes = Math.min(
+            3,
+            (state.field.hazards[targetSide].spikes || 0) + 1
+          );
+          break;
+        case 'toxic_spikes':
+          state.field.hazards[targetSide].tspikes = Math.min(
+            2,
+            (state.field.hazards[targetSide].tspikes || 0) + 1
+          );
+          break;
+        case 'sticky_web':
+          state.field.hazards[targetSide].web = true;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+}
+
+function applyMoveResolutionEffects(attacker, move) {
+  if (!attacker || !move || !window.EffectsRegistryBridge) return;
+
+  const fieldSnapshot =
+    window.EffectsRegistryBridge.createCurrentFieldSnapshot(state);
+
+  const entry = window.EffectsRegistryBridge.resolveMoveResolution(attacker, move, {
+    holder: attacker,
+    move,
+    field: fieldSnapshot,
+  });
+
+  if (!entry || !Array.isArray(entry.events)) return;
+
+  const side = attacker.side || attacker.battle?.side || 'self';
+  const oppSide = side === 'self' ? 'enemy' : 'self';
+
+  for (const ev of entry.events) {
+    const payload = ev.payload || {};
+    const f = state.field;
+
+    if (ev.kind === 'set_weather') {
+      f.weather = payload.weather || payload.value || null;
+      f.weatherTurns = payload.turns || 5;
+    }
+
+    if (ev.kind === 'set_terrain') {
+      f.terrain = payload.terrain || payload.value || null;
+      f.terrainTurns = payload.turns || 5;
+    }
+
+    if (ev.kind === 'toggle_room' && payload.room === 'trickRoom') {
+      const next = !f.trickRoom;
+      f.trickRoom = next;
+      f.trickRoomTurns = next ? payload.turns || 5 : 0;
+    }
+
+    if (ev.kind === 'set_side_condition') {
+      const targetSide = payload.side || side;
+      const isSelf = targetSide === 'self';
+
+      switch (payload.condition) {
+        case 'reflect':
+          if (isSelf) {
+            f.reflectSelf = true;
+            f.reflectSelfTurns = payload.turns || 5;
+          } else {
+            f.reflectEnemy = true;
+            f.reflectEnemyTurns = payload.turns || 5;
+          }
+          break;
+        case 'light_screen':
+          if (isSelf) {
+            f.lightScreenSelf = true;
+            f.lightScreenSelfTurns = payload.turns || 5;
+          } else {
+            f.lightScreenEnemy = true;
+            f.lightScreenEnemyTurns = payload.turns || 5;
+          }
+          break;
+        case 'aurora_veil':
+          if (isSelf) {
+            f.auroraVeilSelf = true;
+            f.auroraVeilSelfTurns = payload.turns || 5;
+          } else {
+            f.auroraVeilEnemy = true;
+            f.auroraVeilEnemyTurns = payload.turns || 5;
+          }
+          break;
+        case 'tailwind':
+          if (isSelf) {
+            f.tailwindSelf = true;
+            f.tailwindSelfTurns = payload.turns || 4;
+          } else {
+            f.tailwindEnemy = true;
+            f.tailwindEnemyTurns = payload.turns || 4;
+          }
+          break;
+        case 'stealth_rock':
+          f.hazards[targetSide].rocks = true;
+          break;
+        case 'spikes':
+          f.hazards[targetSide].spikes = Math.min(
+            3,
+            (f.hazards[targetSide].spikes || 0) + 1
+          );
+          break;
+        case 'toxic_spikes':
+          f.hazards[targetSide].tspikes = Math.min(
+            2,
+            (f.hazards[targetSide].tspikes || 0) + 1
+          );
+          break;
+        case 'sticky_web':
+          f.hazards[targetSide].web = true;
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (ev.kind === 'protect_side_from_spread') {
+      const targetSide = payload.side || side;
+      if (targetSide === 'self') {
+        f.wideGuardSelf = true;
+      } else {
+        f.wideGuardEnemy = true;
+      }
+    }
+
+    if (ev.kind === 'protect_side_from_priority') {
+      const targetSide = payload.side || side;
+      if (targetSide === 'self') {
+        f.quickGuardSelf = true;
+      } else {
+        f.quickGuardEnemy = true;
+      }
+    }
+
+    if (ev.kind === 'set_redirection') {
+      const targetSide = payload.side || side;
+      const value = payload.value || attacker.name || attacker.displayName || true;
+      if (targetSide === 'self') {
+        f.redirectionSelf = value;
+      } else {
+        f.redirectionEnemy = value;
+      }
+    }
+  }
+}
 function getRows() {
   const self = getFocusedTeam('self');
   const enemy = getFocusedTeam('enemy');
@@ -1527,6 +2466,10 @@ function getRows() {
           defender,
           type: best.type,
           mult: best.mult,
+          rawMult: best.rawMult,
+          wMul: best.wMul,
+          terrMul: best.terrMul,
+          blocked: best.blocked,
           move: best.move,
           damage: best.damage,
           minPct: best.minPct,
@@ -1547,6 +2490,10 @@ function getRows() {
         defender,
         type: best.type,
         mult: best.mult,
+        rawMult: best.rawMult,
+        wMul: best.wMul,
+        terrMul: best.terrMul,
+        blocked: best.blocked,
         move: best.move,
         damage: best.damage,
         minPct: best.minPct,
@@ -1587,7 +2534,7 @@ function renderDock(side) {
         : '';
 
       return `
-          <button class="mini-slot" data-action="pick" data-side="${side}" data-index="${idx}" aria-label="${mon.displayName}">
+          <button class="mini-slot" data-action="pick" data-side="${side}" data-index="${idx}" aria-label="${mon.displayName}" ${side === "enemy" ? `data-scout="${mon.name}"` : ""}>
             ${chosenBadge}
             ${mon.name.includes("-mega") ? '<div class="mega-icon"></div>' : ""}
             <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
@@ -1599,10 +2546,342 @@ function renderDock(side) {
     .join("");
 }
 
+const WEATHER_LABELS = {
+  sun: 'Sol',
+  rain: 'Lluvia',
+  sand: 'Arena',
+  snow: 'Nieve'
+};
+
+const TERRAIN_LABELS = {
+  electric: 'Campo eléctrico',
+  grassy: 'Campo de hierba',
+  psychic: 'Campo psíquico',
+  misty: 'Campo de niebla'
+};
+
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[char]));
+}
+
+function localizeMoveName(name) {
+  if (!name) return '';
+  return typeof getTranslation === 'function' ? getTranslation(name, 'move') : name;
+}
+
+function localizeTypeName(type) {
+  if (!type) return 'Sin tipo';
+  return TYPE_META[type]?.name || formatName(type);
+}
+
+function formatCellPct(cell) {
+  if (cell.blocked || cell.mult === 0) return '0%';
+  const min = Number.isFinite(cell.minPct) ? cell.minPct : 0;
+  const max = Number.isFinite(cell.maxPct) ? cell.maxPct : 0;
+  if (!min && !max) return '0%';
+  if (min === max) return `${max}%`;
+  return `${min}-${max}%`;
+}
+
+function describeWeatherEffect(cell) {
+  if (!cell.weather || !cell.weatherMul || cell.weatherMul === 1) return '';
+  return `${WEATHER_LABELS[cell.weather] || cell.weather} ${cell.weatherMul > 1 ? 'potencia' : 'reduce'}`;
+}
+
+function describeTerrainEffect(cell) {
+  if (cell.blocked && cell.terrain === 'psychic') return 'Psíquico anula prioridad';
+  if (!cell.terrain || !cell.terrainMul || cell.terrainMul === 1) return '';
+  return `${TERRAIN_LABELS[cell.terrain] || cell.terrain} ${cell.terrainMul > 1 ? 'potencia' : 'reduce'}`;
+}
+
+function classifyMatrixCell(cell, offensive = true) {
+  const maxPct = Number(cell.maxPct || 0);
+  const minPct = Number(cell.minPct || 0);
+
+  if (offensive) {
+    if (cell.blocked) return { tone: 'blocked', label: 'Bloqueado', shortLabel: 'Bloqueado' };
+    if (cell.mult === 0) return { tone: 'immune', label: 'Inmune', shortLabel: 'Inmune' };
+    if (cell.ohkoProb >= 75 || (maxPct >= 100 && minPct >= 85)) {
+      return { tone: 'ko', label: 'KO probable', shortLabel: 'KO' };
+    }
+    if (cell.mult >= 2 && maxPct >= 50) {
+      return { tone: 'pressure', label: 'Presión alta', shortLabel: 'Presión' };
+    }
+    if (cell.mult > 1 || maxPct >= 25) {
+      return { tone: 'chip', label: 'Chip útil', shortLabel: 'Chip' };
+    }
+    if (cell.mult < 1 || maxPct < 25) {
+      return { tone: 'wall', label: 'Muro', shortLabel: 'Muro' };
+    }
+    return { tone: 'neutral', label: 'Neutral', shortLabel: 'Neutral' };
+  }
+
+  if (cell.mult === 0) return { tone: 'safe', label: 'Inmune', shortLabel: 'Inmune' };
+  if (cell.mult < 1 && maxPct < 35) return { tone: 'safe', label: 'Cambio seguro', shortLabel: 'Seguro' };
+  if (cell.ohkoProb >= 50 || maxPct >= 90 || cell.mult >= 4) {
+    return { tone: 'danger', label: 'Peligro real', shortLabel: 'Peligro' };
+  }
+  if (cell.mult >= 2 || maxPct >= 50) {
+    return { tone: 'respect', label: 'Respetar', shortLabel: 'Respeto' };
+  }
+  return { tone: 'neutral', label: 'Neutral', shortLabel: 'Neutral' };
+}
+
+function buildMatrixContextTags(cell, offensive, compact = false) {
+  const tags = [];
+
+  const weatherTag = describeWeatherEffect(cell);
+  const terrainTag = describeTerrainEffect(cell);
+
+  if (cell.blocked) {
+    tags.push({ tone: 'blocked', label: terrainTag || 'Bloqueado por campo' });
+  } else {
+    if (weatherTag) {
+      tags.push({
+        tone: cell.weatherMul > 1 ? 'boost' : 'nerf',
+        label: weatherTag
+      });
+    }
+
+    if (terrainTag) {
+      tags.push({
+        tone: cell.terrainMul > 1 ? 'boost' : 'nerf',
+        label: terrainTag
+      });
+    }
+
+    if (cell.ohkoProb > 0 && cell.ohkoProb < 100) {
+      tags.push({ tone: 'danger', label: `OHKO ${cell.ohkoProb}%` });
+    }
+
+    if (offensive && cell.mult >= 2 && cell.maxPct < 50) {
+      tags.push({ tone: 'info', label: 'Buen tipo, daño medio' });
+    }
+
+    if (offensive && cell.mult < 1 && cell.maxPct < 25) {
+      tags.push({ tone: 'blocked', label: 'No merece click' });
+    }
+  }
+
+  return tags.slice(0, compact ? 1 : 3);
+}
+
+function getTacticalPhrase(cell, offensive) {
+  if (offensive) {
+    if (cell.blocked) return "Bloqueado por estado del campo";
+    if (cell.mult === 0) return "Totalmente inmune al daño";
+    if (cell.ohkoProb >= 75 || (cell.maxPct >= 100 && cell.minPct >= 85)) return "Amenaza KO si entra limpio";
+    if (cell.mult >= 2 && cell.maxPct >= 50) return "Buena presión, fuerza respuesta";
+    if (cell.mult > 1 || cell.maxPct >= 25) return "Buen chip, no fuerza cambio";
+    if (cell.mult < 1 || cell.maxPct < 25) return "Resiste bien, no compensa pulsar";
+    return "Daño aceptable sin ventaja clara";
+  } else {
+    if (cell.mult === 0) return "Inmune a su mejor ataque";
+    if (cell.mult < 1 && cell.maxPct < 35) return "Entrada segura, resiste bien";
+    if (cell.ohkoProb >= 50 || cell.maxPct >= 90 || cell.mult >= 4) return "Te castiga si pivotas aquí";
+    if (cell.mult >= 2 || cell.maxPct >= 50) return "Amenaza fuerte, cuidado al entrar";
+    return "Intercambio de daño parejo";
+  }
+}
+
+function renderMatrixExplainer(rows, offensive) {
+  const titleEl = document.getElementById('matrixExplainerTitle');
+  const textEl = document.getElementById('matrixExplainerText');
+  const badgesEl = document.getElementById('matrixExplainerBadges');
+  const footEl = document.getElementById('matrixExplainerFoot');
+
+  if (!titleEl || !textEl || !badgesEl || !footEl) return;
+
+  if (offensive) {
+    titleEl.textContent = 'Cómo leer esta matriz';
+    textEl.textContent = 'Cada celda resume si conviene presionar, cuánto daño estimas y qué campo altera la lectura.';
+    badgesEl.innerHTML = `
+      <span class="matrix-state-badge matrix-state-badge--ko">KO probable</span>
+      <span class="matrix-state-badge matrix-state-badge--pressure">Presión alta</span>
+      <span class="matrix-state-badge matrix-state-badge--chip">Chip útil</span>
+      <span class="matrix-state-badge">Neutral</span>
+      <span class="matrix-state-badge matrix-state-badge--wall">Muro</span>
+      <span class="matrix-state-badge matrix-state-badge--blocked">Inmune / bloqueado</span>
+    `;
+    footEl.textContent = 'Objetivo: detectar KOs, presión útil y muros reales de un vistazo.';
+  } else {
+    titleEl.textContent = 'Cómo leer esta matriz';
+    textEl.textContent = 'Cada celda resume si puedes entrar seguro, qué amenaza recibes y qué campo empeora el cruce.';
+    badgesEl.innerHTML = `
+      <span class="matrix-state-badge matrix-state-badge--danger">Peligro real</span>
+      <span class="matrix-state-badge matrix-state-badge--respect">Respetar</span>
+      <span class="matrix-state-badge">Neutral</span>
+      <span class="matrix-state-badge matrix-state-badge--safe">Cambio seguro</span>
+      <span class="matrix-state-badge matrix-state-badge--blocked">Inmune</span>
+    `;
+    footEl.textContent = 'Objetivo: detectar entradas seguras, amenazas inmediatas e inmunidades antes de pivotar.';
+  }
+}
+
+function loadMatrixPreferences() {
+  try {
+    const detailMode = localStorage.getItem(MATRIX_DETAIL_MODE_KEY);
+    if (detailMode === 'compact' || detailMode === 'detailed') {
+      state.matrixDetailMode = detailMode;
+    } else {
+      state.matrixDetailMode = 'detailed';
+    }
+    
+    const helpSeen = localStorage.getItem(MATRIX_HELP_SEEN_KEY);
+    if (!helpSeen) {
+      state.matrixHelpOpen = true;
+      localStorage.setItem(MATRIX_HELP_SEEN_KEY, "true");
+    }
+  } catch(e) {}
+}
+
+function setMatrixDetailMode(mode) {
+  state.matrixDetailMode = mode;
+  try { localStorage.setItem(MATRIX_DETAIL_MODE_KEY, mode); } catch(e){}
+  triggerMatrixFlash();
+  renderAll();
+}
+
+function toggleMatrixHelp(forceOpen) {
+  state.matrixHelpOpen = forceOpen !== undefined ? forceOpen : !state.matrixHelpOpen;
+  const panel = document.getElementById('matrixHelpPanel');
+  const btn = document.getElementById('matrixHelpToggleBtn');
+  if (panel && btn) {
+    panel.classList.toggle('is-open', state.matrixHelpOpen);
+    btn.setAttribute('aria-expanded', state.matrixHelpOpen ? 'true' : 'false');
+  }
+}
+
+function sanitizeCell(cell) {
+  const move = typeof cell.move === 'string' ? cell.move.trim() : '';
+
+  const minPct = Number(cell.minPct);
+  const maxPct = Number(cell.maxPct);
+  const hasValidDamage = Number.isFinite(minPct) && Number.isFinite(maxPct);
+
+  if (!move || !hasValidDamage) {
+    console.warn(`[DEBUG] sanitizeCell: Cell flagged with dataIssue. Attacker: ${cell.attacker?.name}, Move: "${move}", hasValidDamage: ${hasValidDamage}`, cell);
+    return { ...cell, move: null, minPct: null, maxPct: null, dataIssue: true };
+  }
+
+  return cell;
+}
+
+function buildMatrixCellMarkup(rowAttacker, rawCell, offensive, compact = false) {
+  const cell = sanitizeCell(rawCell);
+  const isCompact = compact;
+  const verdict = classifyMatrixCell(cell, offensive);
+  const moveLabel = cell.dataIssue ? 'Datos incompletos' : (localizeMoveName(cell.move) || 'Sin presión real');
+  const typeLabel = localizeTypeName(cell.type);
+  const rangeLabel = cell.dataIssue ? 'N/A' : formatCellPct(cell);
+  
+  const multLabel = cell.blocked ? 'inmune' : `x${fmtMult(cell.mult).replace('×', '')}`;
+  const metaLine = cell.blocked ? `0% · ${multLabel}` : (cell.dataIssue ? `Sin daño · ${multLabel}` : `${rangeLabel} · ${multLabel}`);
+  
+  const phrase = getTacticalPhrase(cell, offensive);
+
+  const tags = buildMatrixContextTags(cell, offensive, isCompact);
+  const payloadObject = {
+    attacker: rowAttacker,
+    defender: cell.defender,
+    moveName: cell.move,
+    moveType: cell.type || 'normal',
+    mult: cell.mult ?? cell.rawMult ?? 1,
+    rawMult: cell.rawMult ?? 1,
+    wMul: cell.wMul ?? 1,
+    terrMul: cell.terrMul ?? 1,
+    damage: cell.damage ?? 0,
+    minPct: cell.minPct,
+    maxPct: cell.maxPct,
+    ohkoProb: Number(cell.ohkoProb || 0),
+    verdict: verdict.label,
+    blocked: !!cell.blocked,
+    offensive: offensive,
+    tags: tags.map((tag) => tag.label),
+    label: phrase,
+    shortNote: metaLine,
+    dataIssue: cell.dataIssue,
+    debug: DEBUG_MODE
+      ? {
+          registryExplain: cell.registryExplain || [],
+          rawMult: cell.rawMult,
+          wMul: cell.wMul,
+          terrMul: cell.terrMul,
+        }
+      : null,
+  };
+
+  if (cell.dataIssue) {
+    console.warn(`[DEBUG] buildMatrixCellMarkup: dataIssue detected for ${rowAttacker?.name} vs ${cell.defender?.name}`, payloadObject);
+  }
+
+  const tooltipData = encodeURIComponent(JSON.stringify(payloadObject));
+
+  const classes = [
+    'cell',
+    'matrix-cell-card',
+    `matrix-cell-card--${verdict.tone}`,
+    'clickable-cell'
+  ];
+
+  const stateLabel = isCompact ? verdict.shortLabel : verdict.label;
+  const chipsHtml = tags.length
+    ? `<div class="matrix-cell-context">${tags.map(tag => `
+        <span class="matrix-context-chip matrix-context-chip--${tag.tone}">
+          ${escapeHtml(tag.label)}
+        </span>
+      `).join('')}</div>`
+    : '';
+
+  if (isCompact) {
+    return `
+      <div class="${classes.join(' ')}" data-tooltip="${tooltipData}" title="Toca para lectura táctica">
+        <div class="cell__top">
+          <div class="cell__top-state">${escapeHtml(stateLabel)}</div>
+          ${cell.type ? typeChip(cell.type) : ''}
+        </div>
+        <div class="cell__move ${cell.move ? '' : 'matrix-cell-move--muted'}">
+          ${escapeHtml(moveLabel)}
+        </div>
+        <div class="cell__range">
+          ${escapeHtml(metaLine)}
+        </div>
+        ${chipsHtml}
+      </div>
+    `;
+  } else {
+    return `
+      <div class="${classes.join(' ')}" data-tooltip="${tooltipData}" title="Toca para lectura táctica">
+        <div class="cell__top-state">${escapeHtml(stateLabel)}</div>
+        <div class="cell__move-box">
+          ${cell.type ? typeChip(cell.type) : ''}
+          <span class="cell__move ${cell.move ? '' : 'matrix-cell-move--muted'}">${escapeHtml(moveLabel)}</span>
+        </div>
+        <div class="cell__dmg-box">
+          <span class="cell__dmg-range">${rangeLabel}</span>
+          <span class="cell__dmg-mult">${multLabel}</span>
+        </div>
+        <div class="cell__note">${escapeHtml(phrase)}</div>
+      </div>
+    `;
+  }
+}
+
 function updateMatrixFieldUI() {
   const modeBtns = document.querySelectorAll("#matrixModeToggleGroup .segmented-btn");
   modeBtns.forEach(btn => {
     btn.classList.toggle("active", btn.dataset.mode === state.matrixMode);
+  });
+
+  const detailBtns = document.querySelectorAll("#matrixDetailToggleGroup .segmented-btn");
+  detailBtns.forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.detail === state.matrixDetailMode);
   });
 
   const title = document.getElementById("matrixSectionTitle");
@@ -1612,10 +2891,15 @@ function updateMatrixFieldUI() {
     title.textContent =
       state.matrixMode === "defensive" ? "Matriz defensiva" : "Matriz ofensiva";
   if (sub) {
-    sub.textContent =
-      state.matrixMode === "defensive"
-        ? "Daño entrante a tu equipo por rival. Verde = resistido (≤×0.5), rojo = muy eficaz (≥×2)."
-        : "Daño aprox. a Lv.50 con EVs/naturaleza, clima y terreno. 💀 = OHKO estimado.";
+    if (state.matrixMode === "offensive") {
+      sub.textContent = state.matrixDetailMode === "compact"
+        ? "Cruces rápidos para detectar KO, presión útil y muros."
+        : "Detalle de daño estimado, tipo y presión por cruce.";
+    } else {
+      sub.textContent = state.matrixDetailMode === "compact"
+        ? "Qué amenazas te rompen y qué cruces aguantas."
+        : "Daño entrante estimado con clima, terreno y sets actuales.";
+    }
   }
   if (legend) {
     legend.textContent =
@@ -1635,162 +2919,112 @@ function updateMatrixFieldUI() {
 function renderMatrix(rows) {
   updateMatrixFieldUI();
 
+  const offensive = state.matrixMode !== 'defensive';
+  renderMatrixExplainer(rows, offensive);
+
   if (!rows.length) {
-    matrixPlaceholder.classList.remove("hidden");
-    matrixContainer.classList.add("hidden");
-    matrixStatus.textContent = "0 cruces";
-    const mc = document.getElementById("metricCross");
-    if (mc) mc.textContent = "0";
-    const ms = document.getElementById("metricStrong");
-    if (ms) ms.textContent = "0";
-    const mp = document.getElementById("metricPeak");
-    if (mp) mp.textContent = "×0";
-    const ma = document.getElementById("metricAvg");
-    if (ma) ma.textContent = "0.00";
+    matrixPlaceholder.classList.remove('hidden');
+    matrixContainer.classList.add('hidden');
+    matrixContainer.classList.remove('matrix-grid--compact');
+    matrixStatus.textContent = '0 cruces';
+    const mc = document.getElementById('metricCross');
+    const ms = document.getElementById('metricStrong');
+    const mp = document.getElementById('metricPeak');
+    const ma = document.getElementById('metricAvg');
+    if (mc) mc.textContent = '0';
+    if (ms) ms.textContent = '0';
+    if (mp) mp.textContent = '0';
+    if (ma) ma.textContent = '0.00';
     return;
   }
 
   const self = getFocusedTeam('self');
   const enemy = getFocusedTeam('enemy');
-  const offensive = state.matrixMode !== "defensive";
   const colMons = offensive ? enemy : self;
-  const cornerIcon = offensive ? "swords" : "shield";
-
-  const flat = rows.flatMap((r) => r.cells);
+  const flat = rows.flatMap((row) => row.cells);
   const cross = flat.length;
-  const strong = flat.filter((x) => x.mult >= 2).length;
-  const peak = Math.max(...flat.map((x) => x.mult));
-  const avg = flat.reduce((acc, x) => acc + x.mult, 0) / flat.length;
+  const isCompact = state.matrixDetailMode === 'compact';
 
-  document.getElementById("metricCross").textContent = cross;
-  document.getElementById("metricStrong").textContent = strong;
-  document.getElementById("metricPeak").textContent = fmtMult(peak);
-  document.getElementById("metricAvg").textContent = avg.toFixed(2);
-  matrixStatus.textContent = `${cross} cruces · ${strong} fuertes`;
+  let ohkos = 0;
+  let pressure = 0;
+  let walls = 0;
 
-  const colTag = offensive ? "RIVAL" : "TÚ";
-  const colColor = offensive ? "var(--red)" : "var(--blue)";
-  const rowTag = offensive ? "TÚ" : "RIVAL";
-  const rowColor = offensive ? "var(--blue)" : "var(--red)";
+  flat.forEach((cell) => {
+    if (cell.ohko || cell.ohkoProb >= 50) {
+      ohkos++;
+    } else if (cell.mult >= 2) {
+      pressure++;
+    }
+    if (cell.mult <= 0.5 || cell.blocked) {
+      walls++;
+    }
+  });
 
-  const theadBorder = offensive ? "rgba(255, 59, 48, 0.4)" : "rgba(50, 173, 230, 0.4)";
-  const tbodyBorder = offensive ? "rgba(50, 173, 230, 0.4)" : "rgba(255, 59, 48, 0.4)";
+  const elOhko = document.getElementById('metricOhkoCount');
+  const elPressure = document.getElementById('metricPressureCount');
+  const elWall = document.getElementById('metricWallCount');
+  
+  if (elOhko) elOhko.innerHTML = `<strong>${ohkos}</strong> OHKOs`;
+  if (elPressure) elPressure.innerHTML = `<strong>${pressure}</strong> Presión x2+`;
+  if (elWall) elWall.innerHTML = `<strong>${walls}</strong> Muros/Inmunes`;
+
+  matrixStatus.textContent = `${cross} cruces`;
+
+  matrixContainer.classList.remove('matrix-grid--compact', 'matrix-grid--detailed');
+  matrixContainer.classList.add(`matrix-grid--${state.matrixDetailMode}`);
+
+  const colTag = offensive ? 'RIVAL' : 'TÚ';
+  const colColor = offensive ? 'var(--red)' : 'var(--blue)';
+  const rowTag = offensive ? 'TÚ' : 'RIVAL';
+  const rowColor = offensive ? 'var(--blue)' : 'var(--red)';
+  const theadBorder = offensive ? 'rgba(255, 59, 48, 0.4)' : 'rgba(50, 173, 230, 0.4)';
+  const tbodyBorder = offensive ? 'rgba(50, 173, 230, 0.4)' : 'rgba(255, 59, 48, 0.4)';
 
   const thead = `
-        <thead>
-          <tr>
-            <th class="corner" style="background: linear-gradient(to bottom right, transparent 49%, var(--line) 50%, transparent 51%); position: sticky; top: 0; left: 0; z-index: 3;">
-              <span style="position: absolute; top: 4px; right: 4px; font-size: 0.55rem; font-weight: 900; color: ${colColor};">${colTag}</span>
-              <span style="position: absolute; bottom: 4px; left: 4px; font-size: 0.55rem; font-weight: 900; color: ${rowColor};">${rowTag}</span>
-            </th>
-            ${colMons
-              .map(
-                (mon) => `
-              <th style="border-bottom: 2px solid ${theadBorder};">
-                <div class="head-mon" title="${mon.displayName}">
-                  <div class="sprite">
-                    <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
-                  </div>
-                </div>
-              </th>
-            `,
-              )
-              .join("")}
-          </tr>
-        </thead>
-      `;
+    <thead>
+      <tr>
+        <th class="corner" style="background:linear-gradient(to bottom right, transparent 49%, var(--line) 50%, transparent 51%); position:sticky; top:0; left:0; z-index:3;">
+          <span style="position:absolute; top:4px; right:4px; font-size:0.55rem; font-weight:900; color:${colColor};">${colTag}</span>
+          <span style="position:absolute; bottom:4px; left:4px; font-size:0.55rem; font-weight:900; color:${rowColor};">${rowTag}</span>
+        </th>
+        ${colMons.map((mon) => `
+          <th style="border-bottom:2px solid ${theadBorder}">
+            <div class="head-mon" title="${escapeHtml(mon.displayName)}">
+              <div class="sprite">
+                <img src="${mon.sprite}" alt="${escapeHtml(mon.displayName)}" loading="lazy">
+              </div>
+            </div>
+          </th>
+        `).join('')}
+      </tr>
+    </thead>
+  `;
 
   const tbody = `
-        <tbody>
-          ${rows
-            .map(
-              (row) => `
-            <tr>
-              <th style="border-right: 2px solid ${tbodyBorder};">
-                <div class="row-mon" title="${row.attacker.displayName}">
-                  <div class="sprite">
-                    <img src="${row.attacker.sprite}" alt="${row.attacker.displayName}" loading="lazy">
-                  </div>
-                </div>
-              </th>
+    <tbody>
+      ${rows.map((row) => `
+        <tr>
+          <th style="border-right:2px solid ${tbodyBorder}">
+            <div class="row-mon" title="${escapeHtml(row.attacker.displayName)}">
+              <div class="sprite">
+                <img src="${row.attacker.sprite}" alt="${escapeHtml(row.attacker.displayName)}" loading="lazy">
+              </div>
+            </div>
+          </th>
 
-              ${row.cells
-                .map((cell) => {
-                  const dmgHint =
-                    typeof cell.damage === "number" ? ` · ~${cell.damage}` : "";
-                  const title = `${row.attacker.displayName} → ${cell.defender.displayName} · ${t(cell.move, "move")} · ${fmtMult(cell.mult)}${dmgHint}`;
-
-                  if (offensive) {
-                    let content = "";
-                    let cellClasses = ["cell"];
-
-                    if (cell.ohko || cell.ohkoProb >= 100) {
-                      cellClasses.push("cell--ohko", "clickable-cell");
-                      content = `
-                        <i data-lucide="crosshair" class="lethality-icon"></i>
-                        ${typeDot(cell.type)}
-                      `;
-                    } else if (cell.mult === 0) {
-                      cellClasses.push("cell--immune");
-                      content = `<i data-lucide="shield-off" style="width:20px;height:20px;color:#4a4a4a;"></i>`;
-                    } else if (cell.mult < 1) {
-                      cellClasses.push("cell--resist");
-                      content = `<i data-lucide="chevrons-down" style="width:20px;height:20px;color:#a0c4ff;"></i>`;
-                    } else if (cell.mult >= 2) {
-                      cellClasses.push("cell--se-no-ohko", effClass(cell.mult), "clickable-cell");
-                      content = `
-                        <div class="mult">${fmtMult(cell.mult)}</div>
-                        ${typeDot(cell.type)}
-                      `;
-                    } else {
-                      cellClasses.push(effClass(cell.mult));
-                      content = '';
-                    }
-
-                    const tooltipAttr = (cell.mult >= 2 || cell.ohko) ? `data-tooltip="${encodeURIComponent(JSON.stringify({
-                        attacker: row.attacker.displayName, defender: cell.defender.displayName, 
-                        move: t(cell.move, "move"), type: cell.type, 
-                        minPct: cell.minPct, maxPct: cell.maxPct, ohkoProb: cell.ohkoProb
-                    }))}"` : "";
-
-                    return `<td><div class="${cellClasses.join(" ")}" title="${title}" ${tooltipAttr}>${content}</div></td>`;
-                  }
-
-                  // Defensive mode
-                  const vClass = matrixCellClass(cell);
-                  const isDanger = cell.mult >= 2 || cell.ohko;
-                  const cClasses = ["cell", vClass];
-                  if (isDanger) cClasses.push("clickable-cell");
-                  
-                  const tooltipAttrDef = isDanger ? `data-tooltip="${encodeURIComponent(JSON.stringify({
-                        attacker: row.attacker.displayName, defender: cell.defender.displayName, 
-                        move: t(cell.move, "move"), type: cell.type, 
-                        minPct: cell.minPct, maxPct: cell.maxPct, ohkoProb: cell.ohkoProb
-                    }))}"` : "";
-                  
-                  let defContent = "";
-                  if (cell.mult === 0) defContent = `<i data-lucide="shield-off" style="width:20px;height:20px;color:#4a4a4a;"></i>`;
-                  else if (cell.mult < 1) defContent = `<i data-lucide="chevrons-down" style="width:20px;height:20px;color:#a0c4ff;"></i>`;
-                  else if (cell.mult !== 1) defContent = `<div class="mult">${fmtMult(cell.mult)}</div>${typeDot(cell.type)}`;
-
-                  return `
-                    <td>
-                      <div class="${cClasses.join(" ")}" title="${title}" ${tooltipAttrDef}>
-                        ${defContent}
-                      </div>
-                    </td>`;
-                })
-                .join("")}
-            </tr>
-          `,
-            )
-            .join("")}
-        </tbody>
-      `;
+          ${row.cells.map((cell) => `
+            <td>
+              ${buildMatrixCellMarkup(row.attacker, cell, offensive, isCompact)}
+            </td>
+          `).join('')}
+        </tr>
+      `).join('')}
+    </tbody>
+  `;
 
   matrixContainer.innerHTML = `<table>${thead}${tbody}</table>`;
-  matrixPlaceholder.classList.add("hidden");
-  matrixContainer.classList.remove("hidden");
+  matrixPlaceholder.classList.add('hidden');
+  matrixContainer.classList.remove('hidden');
   updateIcons();
 }
 
@@ -1852,8 +3086,18 @@ function scoreThreat(enemyMon) {
     reasons.push("Intimidate");
 
   const bestAnswers = strongAnswers.slice(0, 2).map((x) => x.mon);
+  const isSupportThreat = maxEnemyPressure < 2 && score >= 40;
 
-  return { score, level, reasons: reasons.slice(0, 3), bestAnswers, maxEnemyPressure };
+  if (DEBUG_MODE) {
+    console.groupCollapsed(`🚨 [THREAT SCORE] Evaluando peligro de ${enemyMon?.name}`);
+    console.log(`⚔️ Presión Máxima vs tu equipo: x${maxEnemyPressure}`);
+    console.log(`🛠️ Utilidad Detectada -> Tailwind: ${setMoves.includes("Tailwind")}, Trick Room: ${setMoves.includes("Trick Room")}, Fake Out: ${setMoves.includes("Fake Out")}, Redirección: ${setMoves.includes("Follow Me") || setMoves.includes("Rage Powder")}`);
+    console.log(`🛡️ Respuestas fuertes en tu equipo: ${strongAnswers.length} Pokémon`);
+    console.log(`🏁 Puntuación Final: ${score} (Nivel: ${level.toUpperCase()}) | ¿Amenaza pura de soporte?: ${isSupportThreat ? 'SÍ' : 'NO'}`);
+    console.groupEnd();
+  }
+
+  return { score, level, reasons: reasons.slice(0, 3), bestAnswers, maxEnemyPressure, isSupportThreat };
 }
 
 function renderThreats() {
@@ -1879,7 +3123,7 @@ function renderThreats() {
 
   if (reds.length > 0) {
     html += reds.map(({ mon, threat }) => `
-      <div class="threat-hero-card">
+      <div class="threat-hero-card" data-scout="${mon.name}">
         <div class="threat-hero-sprite">
           <img src="${mon.sprite}" alt="${mon.displayName}">
         </div>
@@ -1887,6 +3131,7 @@ function renderThreats() {
           <div style="font-weight: 900; font-size: 1.15rem; color: #fff;">${mon.displayName}</div>
           <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
             ${threat.reasons.map(r => `<span class="tag-pill tag-pill--danger">${r}</span>`).join("")}
+            ${threat.isSupportThreat ? `<span class="tag-pill tag-pill--info"><i data-lucide="shield-alert"></i> Peligro de Soporte</span>` : ""}
           </div>
           ${threat.bestAnswers.length ? `
             <div class="threat-kill-chain">
@@ -1903,10 +3148,11 @@ function renderThreats() {
   if (ambers.length > 0) {
     html += `<div class="threat-amber-grid">`;
     html += ambers.map(({ mon, threat }) => `
-      <div class="threat-compact-card">
+      <div class="threat-compact-card" data-scout="${mon.name}">
         <img src="${mon.sprite}" style="width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" alt="${mon.displayName}">
         <div style="font-weight: 900; font-size: 0.85rem; color: #fff;">${mon.displayName}</div>
         ${threat.reasons.length ? `<div style="color: var(--orange); font-size: 0.65rem; line-height: 1.2;">${threat.reasons[0]}</div>` : ""}
+        ${threat.isSupportThreat ? `<div style="color: var(--blue); font-size: 0.65rem; font-weight: bold; line-height: 1.2;">Soporte Clave</div>` : ""}
       </div>
     `).join("");
     html += `</div>`;
@@ -1915,7 +3161,7 @@ function renderThreats() {
   if (greens.length > 0) {
     html += `<div class="threat-walled-zone">`;
     html += greens.map(({ mon }) => `
-      <div class="threat-walled-sprite" title="${mon.displayName}">
+      <div class="threat-walled-sprite" title="${mon.displayName}" data-scout="${mon.name}">
         <img src="${mon.sprite}" alt="${mon.displayName}">
         <div class="threat-walled-check"><i data-lucide="shield-check"></i></div>
       </div>
@@ -1992,7 +3238,7 @@ function renderOpportunities(rows) {
                <div class="target-execution-row">
                  <img src="${hit.attacker.sprite}" class="sprite-micro" title="${hit.attacker.displayName}">
                  <div style="display:flex; align-items:center; gap:4px;">
-                   <span class="target-move-name">${t(hit.move, "move") || hit.type}</span>
+                   <span class="target-move-name">${getTranslation(hit.move, "move") || hit.type}</span>
                    <div class="type-icon-circle" style="position: static; width:14px; height:14px; background-color: ${typeMeta.color};"></div>
                  </div>
                </div>
@@ -2240,6 +3486,10 @@ async function loadSavedTeam(id, side = "self") {
   state[side] = mons.slice(0, 6);
   state.leads[side] = [];
   while (state[side].length < 6) state[side].push(null);
+  mons.forEach(mon => {
+    ensureBattleState(mon);
+    // applySwitchInEffects(mon);
+  });
   if (typeof scheduleMoveWarmup === "function") scheduleMoveWarmup();
   renderAll();
 }
@@ -2347,12 +3597,14 @@ async function pickPokemonIntoSlot(side, index, name) {
   }
   try {
     const mon = await fetchPokemon(name);
-    mon.set = buildDefaultSetForSpecies(mon.name, side, index);
+    mon.set = buildDefaultSetForSpecies(mon.name, side, index, mon.types);
+    ensureBattleState(mon);
     state[side][index] = mon;
     
     // SOLUCIÓN: Si el usuario cambia un pokemon específico, quitamos ese índice de los leads guardados
     state.leads[side] = state.leads[side].filter((i) => i !== index);
     
+
     scheduleMoveWarmup();
     renderAll();
   } catch (err) {
@@ -2364,9 +3616,12 @@ function clearAll() {
   state.self = Array(6).fill(null);
   state.enemy = Array(6).fill(null);
   
-  // SOLUCIÓN: Vaciar los arrays de leads
+  // SOLUCIÓN: Vaciar los arrays de leads y reiniciar activos
   state.leads = { self: [], enemy: [] };
+  state.activeSelfSlots = [0, 1];
+  state.activeEnemySlots = [0, 1];
   
+  recalculateActiveField();
   renderAll();
 }
 
@@ -2375,31 +3630,44 @@ function swapTeams() {
   state.self = state.enemy;
   state.enemy = temp;
   
-  // SOLUCIÓN: Intercambiar también las elecciones del Turno 1
+  // SOLUCIÓN: Intercambiar también las elecciones de Turno 1 y Expert
   const tempLeads = state.leads.self;
   state.leads.self = state.leads.enemy;
   state.leads.enemy = tempLeads;
   
+  const tempActive = state.activeSelfSlots;
+  state.activeSelfSlots = state.activeEnemySlots;
+  state.activeEnemySlots = tempActive;
+  
+  recalculateActiveField();
   renderAll();
 }
 
 async function fillTeamWithSpecies(side, speciesList) {
-  const mons = [];
-  for (let i = 0; i < Math.min(speciesList.length, 6); i++) {
-    try {
-      const mon = await fetchPokemon(speciesList[i]);
-      mon.set = buildDefaultSetForSpecies(mon.name, side, i);
-      mons.push(mon);
-    } catch {}
+  isBatchUpdating = true;
+  try {
+    const mons = [];
+    for (let i = 0; i < Math.min(speciesList.length, 6); i++) {
+      try {
+        const mon = await fetchPokemon(speciesList[i]);
+            mon.set = buildDefaultSetForSpecies(mon.name, side, i, mon.types);
+        ensureBattleState(mon);
+        mons.push(mon);
+      } catch {}
+    }
+    state[side] = mons;
+    while (state[side].length < 6) state[side].push(null);
+    
+    // SOLUCIÓN: Limpiar los leads del turno 1 y resetear activos
+    state.leads[side] = [];
+    if (side === "self") state.activeSelfSlots = [0, 1];
+    if (side === "enemy") state.activeEnemySlots = [0, 1];
+    
+    scheduleMoveWarmup();
+  } finally {
+    isBatchUpdating = false;
+    renderAll();
   }
-  state[side] = mons;
-  while (state[side].length < 6) state[side].push(null);
-  
-  // SOLUCIÓN: Limpiar los leads del turno 1 al cargar equipo nuevo
-  state.leads[side] = [];
-  
-  scheduleMoveWarmup();
-  renderAll();
 }
 
 async function fillMetaPreset(side) {
@@ -2716,6 +3984,34 @@ function scoreRedundancyPenalty(selfMons, enemyMons) {
   return penalty;
 }
 
+function classifyTeamRoles(selfMons, enemyMons) {
+  const roles = new Map();
+
+  const baseScore = typeof scoreBoard === 'function' ? scoreBoard(state, 'self') : 0;
+
+  for (const mon of selfMons) {
+    if (!mon) continue;
+    // "Quitar" mon del equipo y ver cuánto empeora el tablero
+    const tmpState = structuredClone(state);
+    const tmpSelf = tmpState.self;
+    const idx = tmpSelf.findIndex((m) => m && m.name === mon.name);
+    if (idx !== -1) {
+      tmpSelf[idx] = null;
+    }
+    const newScore = typeof scoreBoard === 'function' ? scoreBoard(tmpState, 'self') : 0;
+    const delta = baseScore - newScore;
+
+    // delta grande -> wincon; delta pequeño -> redundante
+    let role = 'glue';
+    if (delta >= 2000) role = 'wincon';
+    else if (delta <= 200) role = 'redundante';
+
+    roles.set(mon, { role, impact: delta });
+  }
+
+  return roles;
+}
+
 function derivePlanType(m) {
   const { offCoverage, defSafety, speedControl, toolsScore, redundancyPen } = m;
 
@@ -2882,6 +4178,17 @@ function evaluateCombo(indices) {
     planIcon: planIcon || 'scale'
   };
 
+  if (DEBUG_MODE) {
+    console.groupCollapsed(`🧩 [COMBO EVAL] Equipo simulado: ${selfMons.map(m=>m.name).join(', ')}`);
+    console.log(`⚔️ Cobertura Ofensiva: ${offCoverage}`);
+    console.log(`🛡️ Seguridad Defensiva: ${defSafety}`);
+    console.log(`⏱️ Control de Tempo/Velocidad: ${speedControl}`);
+    console.log(`🛠️ Puntuación de Utilidad: ${toolsScore}`);
+    console.log(`⚠️ Penalización por Redundancia: -${redundancyPen}`);
+    console.log(`🏁 Puntuación Final Normalizada: ${normalizedScore}/100 | Plan Inferido: ${planType.toUpperCase()}`);
+    console.groupEnd();
+  }
+
   chooseLeadsForCombo(combo, enemyMons);
   return combo;
 }
@@ -2961,17 +4268,29 @@ function lockBestFour(preview) {
   if (indices.length < 4) return;
 
   state.chosenFour = indices.slice(0, 4);
+  
+  if (preview.leadPair && preview.leadPair.length === 2) {
+    const leadIndices = preview.leadPair.map(m => team.findIndex(tm => tm && tm.name === m.name));
+    if (!leadIndices.includes(-1)) {
+      state.leads.self = leadIndices;
+      state.turn1Custom = false;
+    }
+  }
+  
+  recalculateActiveField();
   renderAll();
 }
 
 function applyQuickCombo(comboIndices) {
   state.chosenFour = comboIndices;
   if (state.combos) {
-    const combo = state.combos.find(c => c.indices.join(',') === comboIndices.join(','));
+    const combo = state.combos.find(c => [...c.indices].sort().join(',') === [...comboIndices].sort().join(','));
     if (combo && combo.leads) {
-      state.leads.self = combo.leads;
+      state.leads.self = [...combo.leads];
+      state.turn1Custom = false;
     }
   }
+  recalculateActiveField();
   renderAll();
 }
 
@@ -3136,7 +4455,29 @@ function renderMvpBanner(mvp) {
       quickPreviewPanel.prepend(mvpBanner);
     }
   }
-  
+
+  const selfTeam = state.self.filter(Boolean);
+  const enemyTeam = state.enemy.filter(Boolean);
+  let text = `<span>Mantén a tu</span> <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width: 32px; height: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));"> <strong>${mvp.displayName}</strong> <span>vivo a toda costa.</span>`;
+
+  if (typeof classifyTeamRoles === 'function') {
+    const roles = classifyTeamRoles(selfTeam, enemyTeam);
+    const mvpRole = roles.get(mvp);
+
+    if (mvpRole) {
+      const hp = mvp.battle?.hpPct ?? 100;
+      if (mvpRole.role === 'wincon') {
+         if (hp <= 40 && state.uiMode === 'live') {
+             text = `<span>¡CUIDADO!</span> <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width: 32px; height: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));"> <strong>${mvp.displayName}</strong> <span>(Wincon) está bajo de HP. Protégelo a toda costa.</span>`;
+         } else {
+             text = `<span>Asegura el wincon:</span> <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width: 32px; height: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));"> <strong>${mvp.displayName}</strong> <span>es tu mejor baza.</span>`;
+         }
+      } else if (mvpRole.role === 'redundante') {
+         text = `<span>Pivote disponible:</span> <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width: 32px; height: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));"> <strong>${mvp.displayName}</strong> <span>puede usarse para desgaste o pivotar sin comprometer la victoria.</span>`;
+      }
+    }
+  }
+
   mvpBanner.innerHTML = `
     <div class="mvp-directive-icon">
       <i data-lucide="crosshair" style="width: 24px; height: 24px;"></i>
@@ -3144,16 +4485,12 @@ function renderMvpBanner(mvp) {
     <div class="mvp-directive-content">
       <div class="mvp-directive-title">Directiva Principal</div>
       <div class="mvp-directive-text">
-        <span>Mantén a tu</span>
-        <img src="${mvp.sprite}" alt="${mvp.displayName}" style="width: 32px; height: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
-        <strong>${mvp.displayName}</strong>
-        <span>vivo a toda costa.</span>
+        ${text}
       </div>
     </div>
   `;
   updateIcons();
 }
-
 function renderWeaknessSummary() {
   // Future
 }
@@ -3178,6 +4515,168 @@ function renderPreviewSprite(mon) {
   `;
 }
 
+// --- HLEPERS PARA COPY TÁCTICO QUICK PREVIEW ---
+
+function getRoleLabel(mon) {
+  if (!mon) return "Flexible";
+  const moves = (mon.set?.moves || []).map(m => String(m).toLowerCase());
+  if (moves.includes("tailwind") || moves.includes("trick room") || moves.includes("viento afín") || moves.includes("espacio raro")) return "Control de velocidad";
+  if (moves.includes("fake out") || moves.includes("sorpresa")) return "Soporte de tempo";
+  if (moves.includes("follow me") || moves.includes("rage powder") || moves.includes("señuelo")) return "Redirección";
+  const rawAtk = getBaseStatRaw(mon, "attack");
+  const rawSpa = getBaseStatRaw(mon, "special-attack");
+  if (rawAtk > 100 || rawSpa > 100) return "Breaker";
+  return "Pivot defensivo";
+}
+
+function getLeadSinergyText(leads) {
+  if (leads.length < 2) return "Apertura estándar.";
+  const f1 = getPokemonUtilityFlags(leads[0]);
+  const f2 = getPokemonUtilityFlags(leads[1]);
+  if ((f1.fakeOut && f2.tailwind) || (f2.fakeOut && f1.tailwind)) return "Sorpresa + Viento Afín para control inicial.";
+  if ((f1.fakeOut && f2.trickRoom) || (f2.fakeOut && f1.trickRoom)) return "Sorpresa + Espacio Raro para invertir la velocidad.";
+  if (f1.redirection || f2.redirection) return "Redirección + setup o ataque protegido.";
+  if (f1.intimidate || f2.intimidate) return "Intimidación + presión segura.";
+  if (f1.fakeOut && f2.fakeOut) return "Doble Sorpresa para frenar el momentum rival.";
+  return "Pareja flexible de presión equilibrada.";
+}
+
+function getLeadPressureText(leads, enemyTeam) {
+  const targets = [];
+  for (const e of enemyTeam) {
+    for (const l of leads) {
+      if (bestAttack(l, e).mult >= 2) {
+        targets.push(e.displayName);
+        break;
+      }
+    }
+  }
+  if (!targets.length) return "Daño neutro y posicionamiento general.";
+  return `Presiona a ${targets.slice(0,2).join(' y ')}.`;
+}
+
+function getLeadAvoidText(leads, enemyTeam) {
+  const threats = [];
+  for (const e of enemyTeam) {
+    for (const l of leads) {
+      if (bestAttack(e, l).mult >= 2) {
+        threats.push(e.displayName);
+        break;
+      }
+    }
+  }
+  if (!threats.length) return "Matchup sólido contra la mayoría de aperturas.";
+  return `Evita quedar expuesto ante ${threats.slice(0,2).join(' o ')}.`;
+}
+
+function getBenchEntryText(mon, enemyTeam) {
+  if (state.uiMode === 'live') {
+    // Bench como entrada reactiva según estado actual
+    const currentState = state;
+    let bestUse = 'Entra para estabilizar el daño o pivotar.';
+
+    const enemies = enemyTeam.filter(Boolean);
+    let strongTargets = 0;
+    for (const e of enemies) {
+      const res = bestAttack(mon, e);
+      if (res.mult >= 2 && res.maxPct >= 50) strongTargets++;
+    }
+
+    if (strongTargets >= 2) {
+      bestUse = `Entra para presionar fuerte a ${enemies
+        .filter((e) => bestAttack(mon, e).mult >= 2)
+        .map((e) => e.displayName)
+        .slice(0, 2)
+        .join(' y ')}.`;
+    }
+
+    const boardDelta = (() => {
+      if (typeof simulateTurn !== 'function' || typeof scoreBoard !== 'function') return 0;
+
+      const simIn = structuredClone(currentState);
+      const activeIdx = currentState.activeSelfSlots[0];
+      const benchIdx = currentState.self.findIndex(m => m && m.name === mon.name);
+      if (activeIdx === undefined || benchIdx === -1) return 0;
+
+      const action = { kind: 'switch', side: 'self', userIndex: activeIdx, switchInIndex: benchIdx };
+      const { nextState } = simulateTurn(currentState, [action], []);
+      
+      return scoreBoard(nextState, 'self') - scoreBoard(currentState, 'self');
+    })();
+
+    if (boardDelta > 0) {
+      bestUse += ' Mejora tu posición global en el tablero.';
+    }
+
+    return bestUse;
+  }
+
+  // lógica original
+  const targets = [];
+  for (const e of enemyTeam) {
+    if (bestAttack(mon, e).mult >= 2) targets.push(e.displayName);
+  }
+  if (targets.length) return `Entra si necesitas presionar a ${targets[0]}.`;
+  return `Entra para estabilizar el daño o pivotar.`;
+}
+
+function getBenchAvoidText(mon, enemyTeam) {
+  if (state.uiMode === 'live') {
+    const enemies = enemyTeam.filter(Boolean);
+    let worst = 0;
+    let worstName = null;
+
+    for (const e of enemies) {
+      const res = bestAttack(e, mon);
+      const pct = res.maxPct || res.damage || 0;
+      if (pct > worst) {
+        worst = pct;
+        worstName = e.displayName;
+      }
+    }
+
+    if (!worstName) return 'Cuidado al exponerlo sin necesidad.';
+    if (worst >= 100) return `No lo expongas si ${worstName} está activo: riesgo de OHKO.`;
+    if (worst >= 60) return `Evita sacarlo frente a ${worstName}: recibe demasiada presión.`;
+
+    return `Úsalo con prudencia cuando ${worstName} esté en campo.`;
+  }
+
+  // lógica original
+  const threats = [];
+  for (const e of enemyTeam) {
+    if (bestAttack(e, mon).mult >= 2) threats.push(e.displayName);
+  }
+  if (threats.length) return `No lo expongas si ${threats[0]} está activo.`;
+  return `Cuidado con recibir demasiado daño de desgaste.`;
+}
+
+function getNoBringReason(mon, enemyTeam) {
+  let weakCount = 0;
+  for (const e of enemyTeam) {
+     if (bestAttack(e, mon).mult >= 2) weakCount++;
+  }
+  if (weakCount >= 2) return "Demasiado castigado por sus amenazas principales.";
+  
+  const speed = calculateSpeed(mon, "self");
+  if (speed < 100 && !mon.set?.moves?.includes("Trick Room")) return "Pierde tempo de salida contra este equipo.";
+  
+  return "No aporta presión real ni utilidad clave en este matchup.";
+}
+
+function getPlanExplanation(title) {
+  const t = title.toLowerCase();
+  if (t.includes('viento')) return "Buscará ganar tempo desde el turno 1.";
+  if (t.includes('trick room')) return "Intentará invertir la velocidad para sus atacantes.";
+  if (t.includes('lluvia')) return "Sus atacantes suben mucho bajo lluvia.";
+  if (t.includes('sol')) return "Daño masivo de fuego y velocidad por habilidad.";
+  if (t.includes('arena')) return "Daño residual y potenciación de stats.";
+  if (t.includes('pivot')) return "Buscará reposicionar sin ceder presión.";
+  if (t.includes('soporte')) return "Protegerá a sus atacantes principales.";
+  if (t.includes('disrup')) return "Intentará anular tus condiciones de victoria.";
+  return "Composición sólida que se adapta al matchup.";
+}
+
 function renderQuickPreview(preview) {
   const selfTeam = state.self.filter(Boolean);
   const enemyTeam = state.enemy.filter(Boolean);
@@ -3196,9 +4695,12 @@ function renderQuickPreview(preview) {
     planList.innerHTML = preview.enemyPlan
       .map(
         (item) => `
-          <div class="tiny-chip" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); padding: 4px 8px;" title="${item.text}">
-            <span style="font-size:0.9rem; display:flex; align-items:center;">${item.icon}</span>
-            <span style="font-size:0.7rem; font-weight:800">${item.title}</span>
+          <div class="qp-plan-item">
+            <div class="qp-plan-item-header">
+              <span class="qp-plan-icon">${item.icon}</span>
+              <span class="qp-plan-title">${item.title}</span>
+            </div>
+            <div class="qp-plan-desc">${getPlanExplanation(item.title)}</div>
           </div>
         `,
       )
@@ -3210,7 +4712,7 @@ function renderQuickPreview(preview) {
 
   const topThreats = getTopThreatSummaries();
   const threatChipsHtml = topThreats.map(({mon, threat}) => `
-    <div class="tag-pill tag-pill--danger" style="margin-bottom: 4px;">
+    <div class="tag-pill tag-pill--danger" style="margin-bottom: 4px;" data-scout="${mon.name}">
       <img src="${mon.sprite}" class="sprite-micro" alt="${mon.displayName}">
       <span>${mon.displayName}: ${threat.reasons[0] || 'Amenaza clave en T1'}</span>
     </div>
@@ -3230,6 +4732,10 @@ function renderQuickPreview(preview) {
 
   const leadIds = new Set(preview.leadPair.map(m => m.name));
   const backline = preview.bestFour.filter(m => !leadIds.has(m.name));
+
+  const synergyText = getLeadSinergyText(preview.leadPair);
+  const pressureText = getLeadPressureText(preview.leadPair, enemyTeam);
+  const avoidText = getLeadAvoidText(preview.leadPair, enemyTeam);
 
   const bestFourCard = document.getElementById("bestFourCard");
   
@@ -3260,25 +4766,38 @@ function renderQuickPreview(preview) {
     `;
   } else {
     bestFourCard.innerHTML = headerHtml + `
-      <div class="deployment-tier" style="margin-top: 12px;">
-        <span class="deployment-label">Vanguardia (Leads)</span>
-        <div class="deployment-sprites-row">
+      <div class="qp-section">
+        <h4 class="qp-section-title">Leads Recomendados</h4>
+        <div class="qp-leads-row">
           ${preview.leadPair.map((m, mIdx) => `
-            <div class="preview-lead-sprite" style="position:relative; width: 64px; height: 64px; border: 2px solid var(--blue); border-radius: 12px; background: rgba(50, 173, 230, 0.1); display: grid; place-items: center; box-shadow: 0 0 10px rgba(50,173,230,0.2);" title="${m.displayName}">
-              <span style="position:absolute; top:-6px; left:-6px; background:var(--blue); color:#fff; font-size:0.6rem; font-weight:900; padding:2px 4px; border-radius:4px; line-height:1; z-index:10;">L${mIdx + 1}</span>
-              ${renderPreviewSprite(m)}
+            <div class="qp-lead-sprite" title="${m.displayName}">
+              <img src="${m.sprite}">
+              <span class="qp-lead-name">${m.displayName}</span>
             </div>
-          `).join('<div style="color: var(--blue); font-weight: 900; font-size: 1.2rem;"><i data-lucide="plus"></i></div>')}
+          `).join('<i data-lucide="plus" class="qp-lead-plus"></i>')}
+        </div>
+        <div class="qp-tactics-box">
+          <div class="qp-tactic-row"><strong class="color-blue">Objetivo:</strong> <span>${synergyText}</span></div>
+          <div class="qp-tactic-row"><strong class="color-green">Qué presiona:</strong> <span>${pressureText}</span></div>
+          <div class="qp-tactic-row"><strong class="color-red">Qué evitar:</strong> <span>${avoidText}</span></div>
         </div>
       </div>
 
-      <div class="deployment-tier" style="margin-top: 12px;">
-        <span class="deployment-label" style="color: var(--muted);">Retaguardia (Reserva)</span>
-        <div class="deployment-sprites-row">
+      <div class="qp-section">
+        <h4 class="qp-section-title">Banquillo Situacional</h4>
+        <p class="qp-section-desc">No son leads; guárdalos para cuando el rival muestre su plan o necesites cubrir amenazas concretas.</p>
+        <div class="qp-bench-list">
           ${backline.map((m, mIdx) => `
-            <div class="preview-bench-sprite" style="position:relative; width: 48px; height: 48px; border: 1px solid var(--line2); border-radius: 10px; background: rgba(255,255,255,0.05); display: grid; place-items: center;" title="${m.displayName}">
-              <span style="position:absolute; top:-6px; left:-6px; background:var(--muted); color:#fff; font-size:0.6rem; font-weight:900; padding:2px 4px; border-radius:4px; line-height:1; z-index:10;">R${mIdx + 1}</span>
-              ${renderPreviewSprite(m)}
+            <div class="qp-bench-item">
+              <img src="${m.sprite}" class="qp-bench-sprite">
+              <div class="qp-bench-info">
+                <div class="qp-bench-head">
+                  <strong>${m.displayName}</strong>
+                  <span class="qp-role-badge">${getRoleLabel(m)}</span>
+                </div>
+                <div class="qp-bench-tactic"><i data-lucide="check-circle" class="color-green"></i> ${getBenchEntryText(m, enemyTeam)}</div>
+                <div class="qp-bench-tactic"><i data-lucide="x-circle" class="color-red"></i> ${getBenchAvoidText(m, enemyTeam)}</div>
+              </div>
             </div>
           `).join('')}
         </div>
@@ -3295,16 +4814,19 @@ function renderQuickPreview(preview) {
   noBringCard.className = "hazard-zone";
   noBringCard.innerHTML = `
     <div class="deployment-header" style="border-bottom-color: rgba(255,59,48,0.2);">
-      <h3 style="margin: 0; font: 900 0.9rem/1 'Cabinet Grotesk', sans-serif; color: #ffc8c4;">No Desplegar</h3>
-      <span class="tiny-chip status-red">Riesgo Extremo</span>
+      <h3 style="margin: 0; font: 900 0.9rem/1 'Cabinet Grotesk', sans-serif; color: #ffc8c4;">Evitar salvo lectura muy concreta</h3>
     </div>
     
-    <div class="deployment-sprites-row" style="margin-top: 16px;">
+    <div class="qp-nobring-list" style="margin-top: 12px;">
       ${preview.noBring.length > 0 ? preview.noBring.map(m => `
-        <div style="position: relative; width: 56px; height: 56px; background: rgba(255, 59, 48, 0.1); border: 1px solid rgba(255, 59, 48, 0.4); border-radius: 12px; display: grid; place-items: center;" title="${m.displayName}">
-          <img src="${m.sprite}" style="width: 42px; height: 42px; opacity: 0.5; filter: grayscale(50%);">
-          <div style="position: absolute; inset: 0; display: grid; place-items: center; color: var(--red); font-size: 2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
-            <i data-lucide="ban"></i>
+        <div class="qp-nobring-item">
+          <div class="qp-nobring-sprite-box">
+            <img src="${m.sprite}">
+            <div class="qp-nobring-overlay"><i data-lucide="ban"></i></div>
+          </div>
+          <div class="qp-nobring-info">
+            <strong>${m.displayName}</strong>
+            <span>${getNoBringReason(m, enemyTeam)}</span>
           </div>
         </div>
       `).join('') : '<div class="muted-small">Todos los agentes autorizados.</div>'}
@@ -3483,11 +5005,8 @@ function isPhysicalAttacker(mon) {
     (m) => state.moveTypeCache[m]?.damageClass === "physical",
   );
   if (hasPhysical) return true;
-  const atk =
-    mon.raw?.stats?.find((s) => s.stat.name === "attack")?.base_stat || 0;
-  const spa =
-    mon.raw?.stats?.find((s) => s.stat.name === "special-attack")?.base_stat ||
-    0;
+  const atk = mon.baseStats?.attack || 0;
+  const spa = mon.baseStats?.['special-attack'] || 0;
   return atk > spa;
 }
 
@@ -3547,6 +5066,7 @@ function renderTurn1PickRows() {
   const rows = getRows();
   const preview = computeQuickPreview(rows);
   const optimalNames = preview.leadPair.map(m => m.name);
+  const isQuick = state.uiMode === 'quick';
 
   const build = (side) => {
     const team = state[side];
@@ -3559,6 +5079,12 @@ function renderTurn1PickRows() {
         if (!mon) cls.push("t1-slot--empty");
         if (mon && on)
           cls.push(side === "self" ? "t1-slot--on-self" : "t1-slot--on-enemy");
+          
+        if (isQuick && side === "self" && state.chosenFour && state.chosenFour.length === 4) {
+          if (!state.chosenFour.includes(i)) {
+            cls.push("matchup-slot--dimmed");
+          }
+        }
         
         const isOptimal = side === "self" && mon && optimalNames.includes(mon.name);
         const badge = isOptimal ? `<div class="optimal-badge"><i data-lucide="star"></i> ÓPTIMO</div>` : '';
@@ -3567,7 +5093,7 @@ function renderTurn1PickRows() {
           ? `<img src="${mon.sprite}" alt="" loading="lazy">${badge}`
           : '<span class="t1-slot-ph">—</span>';
         const dis = mon ? "" : " disabled";
-        return `<button type="button" class="${cls.join(" ")}" data-t1-slot data-side="${side}" data-idx="${i}"${dis}>${inner}</button>`;
+        return `<button type="button" class="${cls.join(" ")}" data-t1-slot data-side="${side}" data-idx="${i}" ${mon && side === "enemy" ? `data-scout="${mon.name}"` : ""}${dis}>${inner}</button>`;
       })
       .join("");
   };
@@ -3635,11 +5161,11 @@ function renderTurn1Simulator() {
   const enemyLeads = leads.filter(x => x.side === "enemy");
 
   let momentum = 50;
-  let crossfireHtml = [];
-  let escapeRoute = false;
+  let criticalCards = [];
+  let opportunityCards = [];
+  let conditionCards = [];
+  let planSteps = [];
   let selfThreats = 0;
-
-  const escapeSteps = [];
 
   for (const sObj of selfLeads) {
     for (const eObj of enemyLeads) {
@@ -3653,70 +5179,82 @@ function renderTurn1Simulator() {
 
       const sFaster = speS >= speE;
 
+      // Opportunity (Ventana de Eliminación)
       if (sFaster && atkS.mult >= 2) {
         momentum += (atkS.ohko || atkS.ohkoProb > 50) ? 15 : 8;
-        const moveName = t(atkS.move, "move") || atkS.move;
-        const typeMeta = TYPE_META[atkS.type] || { color: '#fff', name: atkS.type };
-        const iconUrl = `https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${atkS.type.toLowerCase()}.svg`;
-        const iconContrast = getContrastColor(typeMeta.color);
-
-        crossfireHtml.push(`
-          <div class="crossfire-card crossfire-card--advantage">
-            <div class="crossfire-sprites">
-              ${micro(s)} <i data-lucide="crosshair" style="color: var(--green);"></i> ${micro(e)}
+          const moveName = getTranslation(atkS.move, "move") || atkS.move;
+        
+        opportunityCards.push(`
+          <article class="opportunity-card opportunity-card--kill">
+            <div class="opportunity-card__accent"></div>
+            <div class="opportunity-card__header">
+              <div class="opportunity-card__eyebrow">Ventana de eliminación</div>
+              <h3 class="opportunity-card__title">${s.displayName} elimina a ${e.displayName}</h3>
             </div>
-            <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 2px;">
-              <span>Prioridad Letal: ${s.displayName} elimina a ${e.displayName}</span>
-              <div style="display:flex; align-items:center; gap: 4px; font-size: 0.75rem; color: var(--muted);">
-                <div class="type-icon-circle" style="position: static; width:12px; height:12px; background-color: ${typeMeta.color};">
-                  <div class="type-svg-mask" style="mask-image: url('${iconUrl}'); -webkit-mask-image: url('${iconUrl}'); background-color: ${iconContrast}; width: 8px; height: 8px;"></div>
-                </div>
-                con ${moveName} (${fmtMult(atkS.mult)}, ${atkS.minPct}–${atkS.maxPct}%)
+            <div class="opportunity-card__body">
+              <p class="opportunity-card__summary">Buen click si quieres convertir presión en ventaja inmediata.</p>
+            </div>
+            <div class="opportunity-card__footer">
+              <div class="opportunity-card__move">${moveName}</div>
+              <div class="opportunity-card__meta">
+                <span class="incident-card__multiplier">x${atkS.mult}</span>
+                <span class="incident-card__damage">${atkS.minPct}–${atkS.maxPct}%</span>
               </div>
+              <div class="opportunity-card__confidence">${(atkS.ohko || atkS.ohkoProb > 50) ? 'Confianza alta' : 'Posible KO'}</div>
             </div>
-          </div>
+          </article>
         `);
       }
 
+      // Critical Threat (Amenaza Inmediata)
       if (!sFaster && atkE.mult >= 2) {
         momentum -= (atkE.ohko || atkE.ohkoProb > 50) ? 15 : 8;
         selfThreats++;
-
-        const moveName = t(atkE.move, "move") || atkE.move;
-        const typeMeta = TYPE_META[atkE.type] || { color: '#fff', name: atkE.type };
-        const iconUrl = `https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${atkE.type.toLowerCase()}.svg`;
-        const iconContrast = getContrastColor(typeMeta.color);
-
-        crossfireHtml.push(`
-          <div class="crossfire-card crossfire-card--threat">
-            <div class="crossfire-sprites">
-              ${micro(e)} <i data-lucide="crosshair" style="color: var(--red);"></i> ${micro(s)}
+        const moveName = getTranslation(atkE.move, "move") || atkE.move;
+        
+        criticalCards.push(`
+          <article class="incident-card incident-card--danger">
+            <div class="incident-card__accent"></div>
+            <div class="incident-card__header">
+              <div class="incident-card__eyebrow">Amenaza inmediata</div>
+              <h3 class="incident-card__title">${e.displayName} supera y elimina a ${s.displayName}</h3>
             </div>
-            <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 2px;">
-              <span>Peligro Inminente: ${e.displayName} supera y destruye a ${s.displayName}</span>
-              <div style="display:flex; align-items:center; gap: 4px; font-size: 0.75rem; color: var(--muted);">
-                <div class="type-icon-circle" style="position: static; width:12px; height:12px; background-color: ${typeMeta.color};">
-                  <div class="type-svg-mask" style="mask-image: url('${iconUrl}'); -webkit-mask-image: url('${iconUrl}'); background-color: ${iconContrast}; width: 8px; height: 8px;"></div>
+            <div class="incident-card__body">
+              <div class="incident-card__actors">
+                <div class="incident-card__actor">
+                  <img class="incident-card__actor-sprite" src="${e.sprite}" />
+                  <span class="incident-card__actor-name">${e.displayName}</span>
                 </div>
-                con ${moveName} <span class="tiny-chip" style="background:var(--red); color:#fff; padding:0 4px; border:none; margin-left:4px;">${fmtMult(atkE.mult)}</span> (${atkE.minPct}–${atkE.maxPct}%)
+                <div class="incident-card__actor">
+                  <img class="incident-card__actor-sprite" src="${s.sprite}" />
+                  <span class="incident-card__actor-name">${s.displayName}</span>
+                </div>
+              </div>
+              <p class="incident-card__summary">El rival gana el cruce antes de que puedas estabilizar.</p>
+            </div>
+            <div class="incident-card__footer">
+              <div class="incident-card__move">${moveName}</div>
+              <div class="incident-card__meta">
+                <span class="incident-card__multiplier">x${atkE.mult}</span>
+                <span class="incident-card__damage">${atkE.minPct}–${atkE.maxPct}%</span>
+                <span class="incident-card__reason">Más rápido</span>
               </div>
             </div>
-          </div>
+          </article>
         `);
 
-        // Generate specific escape steps based on the threatened mon and partner
         const myMoves = (s.set?.moves || []).map(m => String(m).toLowerCase());
         const partner = selfLeads.find(x => x.mon.name !== s.name)?.mon;
         const partnerMoves = partner ? (partner.set?.moves || []).map(m => String(m).toLowerCase()) : [];
 
         if (myMoves.includes('protect') || myMoves.includes('detect') || myMoves.includes('protección')) {
-          escapeSteps.push(`Protege a ${s.displayName} (Protect) para esquivar ${moveName}.`);
+          planSteps.push(`Protege a ${s.displayName} (Protect) para esquivar ${moveName}.`);
         }
         if (partnerMoves.includes('follow me') || partnerMoves.includes('rage powder') || partnerMoves.includes('señuelo') || partnerMoves.includes('polvo ira')) {
-          escapeSteps.push(`Usa Redirección con ${partner.displayName} si esperas foco en ${s.displayName}.`);
+          planSteps.push(`Usa Redirección con ${partner.displayName} si esperas foco en ${s.displayName}.`);
         }
         if (myMoves.includes('u-turn') || myMoves.includes('volt switch') || myMoves.includes('parting shot') || myMoves.includes('ida y vuelta') || myMoves.includes('voltiocambio')) {
-          escapeSteps.push(`Considera pivot con ${s.displayName} si anticipas daño masivo.`);
+          planSteps.push(`Considera pivot con ${s.displayName} si anticipas daño masivo.`);
         }
       }
     }
@@ -3729,329 +5267,177 @@ function renderTurn1Simulator() {
   if (eMoves.some(m => m === 'tailwind' || m === 'trick room' || m === 'viento afín' || m === 'espacio raro')) momentum -= 8;
 
   momentum = Math.max(10, Math.min(90, momentum));
-  if (momentum < 35 || selfThreats >= 2) {
-    escapeRoute = true;
-  }
 
-  const momentumHtml = `
-    <div class="momentum-container">
-      <div class="momentum-labels">
-        <span style="color: var(--blue);">Tu Inercia</span>
-        <span style="color: var(--red);">Inercia Rival</span>
-      </div>
-      <div class="momentum-track">
-         <div class="momentum-fill" style="width: ${momentum}%"></div>
-         <div class="momentum-marker"></div>
-      </div>
-    </div>
-  `;
-
-  const crossfireSection = crossfireHtml.length > 0 ? `<div class="crossfire-radar">${crossfireHtml.join('')}</div>` : '';
-
-  let escapeList = escapeSteps.length > 0 ? escapeSteps : ['Considera usar Protección, Redirección o cambiar (Pivot) inmediatamente.'];
-  // Keep unique escape routes
-  escapeList = [...new Set(escapeList)];
-
-  const escapeRouteHtml = escapeRoute ? `
-    <div class="escape-route-card">
-      <div class="escape-route-icon"><i data-lucide="triangle-alert"></i></div>
-      <div class="escape-route-text">
-        <h4>Vía de Escape Recomendada</h4>
-        ${escapeList.map((step, i) => `<p>${i + 1}. ${step}</p>`).join('')}
-      </div>
-    </div>
-  ` : '';
-  // 1. Sistema de Detección Inmune a Formatos (Smogon / Traducciones PokeAPI)
-  const safeNorm = (str) =>
-    String(str || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
+  // Condiciones (Condition Cards)
+  const safeNorm = (str) => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const safeNormArray = (arr) => (arr || []).map(safeNorm);
 
   const FAKE_OUT = new Set(["fakeout", "sorpresa"]);
   const REDIRECTION = new Set(["followme", "ragepowder", "seuelo", "polvoira"]);
   const TAUNT = new Set(["taunt", "mofa"]);
   const TAILWIND = new Set(["tailwind", "vientoafin", "vientoafn"]);
-
-  const WEATHER_SETTERS = {
-    drizzle: { text: "Lluvia", icon: "cloud-rain" },
-    llovizna: { text: "Lluvia", icon: "cloud-rain" },
-    drought: { text: "Sol", icon: "sun" },
-    sequia: { text: "Sol", icon: "sun" },
-    sequía: { text: "Sol", icon: "sun" },
-    sandstream: { text: "Arena", icon: "wind" },
-    chorroarena: { text: "Arena", icon: "wind" },
-    snowwarning: { text: "Nieve", icon: "snowflake" },
-    nevada: { text: "Nieve", icon: "snowflake" },
-  };
-
-  const TERRAIN_SETTERS = {
-    psychicsurge: { text: "Terreno Psíquico", icon: "orbit" },
-    psicogenesis: { text: "Terreno Psíquico", icon: "orbit" },
-    grassysurge: { text: "Campo de Hierba", icon: "leaf" },
-    herbogenesis: { text: "Campo de Hierba", icon: "leaf" },
-    electricsurge: { text: "Campo Eléctrico", icon: "zap" },
-    electrogenesis: { text: "Campo Eléctrico", icon: "zap" },
-    mistysurge: { text: "Campo de Niebla", icon: "sparkles" },
-    neblogenesis: { text: "Campo de Niebla", icon: "sparkles" },
-    hadagenesis: { text: "Campo de Niebla", icon: "sparkles" },
-  };
-
+  
+  const WEATHER_SETTERS = { drizzle: "Lluvia", llovizna: "Lluvia", drought: "Sol", sequia: "Sol", sequía: "Sol", sandstream: "Arena", chorroarena: "Arena", snowwarning: "Nieve", nevada: "Nieve" };
+  const TERRAIN_SETTERS = { psychicsurge: "Terreno Psíquico", psicogenesis: "Terreno Psíquico", grassysurge: "Campo de Hierba", herbogenesis: "Campo de Hierba", electricsurge: "Campo Eléctrico", electrogenesis: "Campo Eléctrico", mistysurge: "Campo de Niebla", neblogenesis: "Campo de Niebla", hadagenesis: "Campo de Niebla" };
   const INTIMIDATE = new Set(["intimidate", "intimidacion"]);
-  const INTIMIDATE_IMMUNE = new Set([
-    "clearbody",
-    "cuerpopuro",
-    "innerfocus",
-    "focointerno",
-    "guarddog",
-    "perroguardian",
-    "oblivious",
-    "despiste",
-    "owntempo",
-    "ritmopropio",
-    "scrappy",
-    "intrepido",
-  ]);
-  const INTIMIDATE_PUNISH = new Set([
-    "defiant",
-    "competitivo",
-    "competitive",
-    "tenacidad",
-    "contrary",
-    "respondon",
-    "respondón",
-  ]);
-  const ANTI_PRIORITY = new Set([
-    "armortail",
-    "colaarmadura",
-    "dazzling",
-    "cuerpovivido",
-    "queenlymajesty",
-    "regiamajestad",
-  ]);
+  const INTIMIDATE_IMMUNE = new Set(["clearbody", "cuerpopuro", "innerfocus", "focointerno", "guarddog", "perroguardian", "oblivious", "despiste", "owntempo", "ritmopropio", "scrappy", "intrepido"]);
+  const INTIMIDATE_PUNISH = new Set(["defiant", "competitivo", "competitive", "tenacidad", "contrary", "respondon", "respondón"]);
+  const ANTI_PRIORITY = new Set(["armortail", "colaarmadura", "dazzling", "cuerpovivido", "queenlymajesty", "regiamajestad"]);
 
-  // Procesamiento previo por Lead
-  const fakeOutUsers = leads.filter((x) =>
-    safeNormArray(x.mon.set?.moves).some((m) => FAKE_OUT.has(m)),
-  );
-  const redirectionUsers = leads.filter((x) =>
-    safeNormArray(x.mon.set?.moves).some((m) => REDIRECTION.has(m)),
-  );
-  const weatherSetters = leads.filter(
-    (x) => WEATHER_SETTERS[safeNorm(x.mon.set?.ability)],
-  );
-  const terrainSetters = leads.filter(
-    (x) => TERRAIN_SETTERS[safeNorm(x.mon.set?.ability)],
-  );
-  const intimidators = leads.filter((x) =>
-    INTIMIDATE.has(safeNorm(x.mon.set?.ability)),
-  );
-  const tailwindUsers = leads.filter((x) =>
-    safeNormArray(x.mon.set?.moves).some((m) => TAILWIND.has(m)),
-  );
-  const tauntUsers = leads.filter((x) =>
-    safeNormArray(x.mon.set?.moves).some((m) => TAUNT.has(m)),
-  );
-  const antiPriorityUsers = leads.filter((x) =>
-    ANTI_PRIORITY.has(safeNorm(x.mon.set?.ability)),
-  );
+  const fakeOutUsers = leads.filter(x => safeNormArray(x.mon.set?.moves).some(m => FAKE_OUT.has(m)));
+  const redirectionUsers = leads.filter(x => safeNormArray(x.mon.set?.moves).some(m => REDIRECTION.has(m)));
+  const weatherSetters = leads.filter(x => WEATHER_SETTERS[safeNorm(x.mon.set?.ability)]);
+  const terrainSetters = leads.filter(x => TERRAIN_SETTERS[safeNorm(x.mon.set?.ability)]);
+  const intimidators = leads.filter(x => INTIMIDATE.has(safeNorm(x.mon.set?.ability)));
+  const tailwindUsers = leads.filter(x => safeNormArray(x.mon.set?.moves).some(m => TAILWIND.has(m)));
+  const tauntUsers = leads.filter(x => safeNormArray(x.mon.set?.moves).some(m => TAUNT.has(m)));
+  const antiPriorityUsers = leads.filter(x => ANTI_PRIORITY.has(safeNorm(x.mon.set?.ability)));
 
-  // Anti-Priority general insight
-  antiPriorityUsers.forEach((ap) => {
-    insights.push(
-      `<span class="tag-pill tag-pill--info"><i data-lucide="shield"></i> Bloqueo</span> ${micro(ap.mon)} anula prioridad (ej. Sorpresa).`,
-    );
-  });
+  const buildCondition = (type, title, text, chips) => `
+    <article class="condition-card condition-card--${type}">
+      <div class="condition-card__icon"><i data-lucide="info"></i></div>
+      <div class="condition-card__content">
+        <div class="condition-card__eyebrow">Condición de campo</div>
+        <h4 class="condition-card__title">${title}</h4>
+        <p class="condition-card__text">${text}</p>
+        ${chips.length ? `<div class="condition-card__chain">${chips.join('')}</div>` : ''}
+      </div>
+    </article>
+  `;
 
-  // 4. Lógica Avanzada: Prioridad Fake Out vs Redirección
-  const effectiveFakeOuts = fakeOutUsers.filter(
-    (fo) => !antiPriorityUsers.some((ap) => ap.side !== fo.side),
-  );
-
+  // Fake Out / Anti-priority
+  const effectiveFakeOuts = fakeOutUsers.filter(fo => !antiPriorityUsers.some(ap => ap.side !== fo.side));
   if (effectiveFakeOuts.length > 0) {
-    if (effectiveFakeOuts.length === 1) {
-      insights.push(
-        `<span class="tag-pill tag-pill--warning"><i data-lucide="hand"></i> Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} amenaza con Sorpresa.`,
-      );
-    } else {
-      insights.push(
-        `<span class="tag-pill tag-pill--warning"><i data-lucide="hand"></i> Prioridad +3</span> ${micro(effectiveFakeOuts[0].mon)} es el Sorpresa más rápido.`,
-      );
-    }
-
-    if (redirectionUsers.length > 0) {
-      insights.push(
-        `<span class="tag-pill tag-pill--info"><i data-lucide="info"></i> Prioridad</span> Sorpresa impactará antes que la redirección.`,
-      );
-    }
-  } else if (fakeOutUsers.length > 0) {
-    insights.push(
-      `<span class="tag-pill tag-pill--danger"><i data-lucide="ban"></i> Bloqueo</span> Sorpresa de ${fakeOutUsers.map((fo) => micro(fo.mon)).join("")} inútil ante inmunidad.`,
-    );
+    conditionCards.push(buildCondition('priority', 'Amenaza con Sorpresa', `${effectiveFakeOuts[0].mon.displayName} puede cortar tu tempo antes de que ataques.`, effectiveFakeOuts.map(x => `<span class="condition-card__chip"><img src="${x.mon.sprite}"> +3</span>`)));
+  }
+  
+  if (intimidators.length > 0) {
+    conditionCards.push(buildCondition('intimidate', 'Presión de entrada', `Intimidación activa, afecta atacantes físicos.`, intimidators.map(x => `<span class="condition-card__chip"><img src="${x.mon.sprite}"> Intimidación</span>`)));
   }
 
-  // 3. Lógica Avanzada: Inmunidades y Castigos a Intimidación
-  intimidators.forEach((intim) => {
-    const opponents = leads.filter(
-      (x) => x.side !== intim.side && isPhysicalAttacker(x.mon),
-    );
-    const affected = [];
-    const punished = [];
-
-    opponents.forEach((opp) => {
-      const ab = safeNorm(opp.mon.set?.ability);
-      if (INTIMIDATE_PUNISH.has(ab)) punished.push(opp);
-      else if (!INTIMIDATE_IMMUNE.has(ab)) affected.push(opp);
-    });
-
-    if (punished.length > 0) {
-      punished.forEach((p) => {
-        insights.push(
-          `<span class="tag-pill tag-pill--danger"><i data-lucide="alert-triangle"></i> Peligro</span> ${micro(intim.mon)} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="trending-up" style="color: var(--green);"></i> +2 Atk <i data-lucide="arrow-right" class="formula-arrow"></i> ${micro(p.mon)}`,
-        );
-      });
-    }
-
-    if (affected.length > 0) {
-      insights.push(
-        `<span class="tag-pill tag-pill--info"><i data-lucide="eye"></i> Intimidación</span> ${micro(intim.mon)} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="trending-down" style="color: var(--red);"></i> Atk <i data-lucide="arrow-right" class="formula-arrow"></i> ${affected.map((t) => micro(t.mon)).join(" ")}`,
-      );
-    } else if (punished.length === 0) {
-      insights.push(
-        `<span class="tag-pill tag-pill--info"><i data-lucide="eye"></i> Intimidación</span> ${micro(intim.mon)} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="help-circle"></i> Sin objetivos físicos.`,
-      );
-    }
-  });
-
-  // 2. Lógica Avanzada: Guerras de Clima y Terreno
   if (weatherSetters.length > 0) {
-    const fastestW = weatherSetters[0];
-    const slowestW = weatherSetters[weatherSetters.length - 1];
-    if (weatherSetters.length === 1) {
-      const wData = WEATHER_SETTERS[safeNorm(fastestW.mon.set?.ability)];
-      insights.push(
-        `<span class="tag-pill tag-pill--success"><i data-lucide="${wData.icon}"></i> Clima</span> ${micro(fastestW.mon)} establece ${wData.text}.`,
-      );
-    } else {
-      const wDataSlow = WEATHER_SETTERS[safeNorm(slowestW.mon.set?.ability)];
-      insights.push(
-        `<span class="tag-pill tag-pill--success"><i data-lucide="${wDataSlow.icon}"></i> Clima</span> ${micro(slowestW.mon)} gana a ${micro(fastestW.mon)} por ser más lento.`,
-      );
-    }
+    const prevailingWeather = weatherSetters[weatherSetters.length - 1];
+    const wData = WEATHER_SETTERS[safeNorm(prevailingWeather.mon.set?.ability)];
+    conditionCards.push(buildCondition('weather', 'Clima activo', `${wData} tomará el control del campo.`, weatherSetters.map(x => {
+      return `<span class="condition-card__chip"><img src="${x.mon.sprite}"> ${WEATHER_SETTERS[safeNorm(x.mon.set?.ability)]}</span>`;
+    })));
   }
 
   if (terrainSetters.length > 0) {
-    const fastestT = terrainSetters[0];
-    const slowestT = terrainSetters[terrainSetters.length - 1];
-    if (terrainSetters.length === 1) {
-      const tData = TERRAIN_SETTERS[safeNorm(fastestT.mon.set?.ability)];
-      insights.push(
-        `<span class="tag-pill tag-pill--success"><i data-lucide="${tData.icon}"></i> Terreno</span> ${micro(fastestT.mon)} establece ${tData.text}.`,
-      );
-    } else {
-      const tDataSlow = TERRAIN_SETTERS[safeNorm(slowestT.mon.set?.ability)];
-      insights.push(
-        `<span class="tag-pill tag-pill--success"><i data-lucide="${tDataSlow.icon}"></i> Terreno</span> ${micro(slowestT.mon)} gana a ${micro(fastestT.mon)} por ser más lento.`,
-      );
-    }
+    const prevailingTerrain = terrainSetters[terrainSetters.length - 1];
+    const tData = TERRAIN_SETTERS[safeNorm(prevailingTerrain.mon.set?.ability)];
+    conditionCards.push(buildCondition('weather', 'Terreno activo', `${tData} se establecerá.`, terrainSetters.map(x => {
+      return `<span class="condition-card__chip"><img src="${x.mon.sprite}"> ${TERRAIN_SETTERS[safeNorm(x.mon.set?.ability)]}</span>`;
+    })));
   }
-
-  // Otras Utilidades (Tailwind y Taunt)
-  tailwindUsers.forEach((tw) => {
-    insights.push(`
-      <div class="t1-event-card t1-event-card--info">
-        <div class="t1-event-icon" style="color: var(--blue);"><i data-lucide="wind"></i></div>
-        <div class="t1-event-content">
-          <strong>Viento Afín:</strong> ${micro(tw.mon)} amenaza control de velocidad.
-        </div>
-      </div>
-    `);
-  });
-
-  redirectionUsers.forEach((red) => {
-    insights.push(`
-      <div class="t1-event-card t1-event-card--info">
-        <div class="t1-event-icon" style="color: var(--blue);"><i data-lucide="shield"></i></div>
-        <div class="t1-event-content">
-          <strong>Redirección:</strong> ${micro(red.mon)} atraerá los ataques.
-        </div>
-      </div>
-    `);
-  });
-
-  tauntUsers.forEach((taunt) => {
-    insights.push(`
-      <div class="t1-event-card t1-event-card--warning">
-        <div class="t1-event-icon" style="color: var(--orange);"><i data-lucide="ban"></i></div>
-        <div class="t1-event-content">
-          <strong>Mofa:</strong> ${micro(taunt.mon)} amenaza movimientos de estado.
-        </div>
-      </div>
-    `);
-  });
-
-  // 8. Double Target
-  // const selfLeads = leads.filter((x) => x.side === "self").map((x) => x.mon);
-  // const enemyLeads = leads.filter((x) => x.side === "enemy").map((x) => x.mon);
-
+  
+  if (tailwindUsers.length > 0) {
+    conditionCards.push(buildCondition('speed', 'Control de velocidad', `Amenaza inminente de Viento Afín o Espacio Raro.`, tailwindUsers.map(x => `<span class="condition-card__chip"><img src="${x.mon.sprite}"> Speed</span>`)));
+  }
+  
+  if (redirectionUsers.length > 0) {
+    conditionCards.push(buildCondition('priority', 'Redirección', `Puede desviar ataques.`, redirectionUsers.map(x => `<span class="condition-card__chip"><img src="${x.mon.sprite}"> Señuelo</span>`)));
+  }
+  
+  // Double target
   if (selfLeads.length === 2 && enemyLeads.length === 2) {
-    selfLeads.forEach((myMon) => {
-      if (
-        bestAttack(enemyLeads[0], myMon).mult >= 2 &&
-        bestAttack(enemyLeads[1], myMon).mult >= 2
-      ) {
-        insights.push(`
-          <div class="t1-event-card t1-event-card--danger">
-            <div class="t1-event-icon" style="color: var(--red);"><i data-lucide="crosshair"></i></div>
-            <div class="t1-event-content">
-              <strong>Double Target:</strong> ${micro(enemyLeads[0])} + ${micro(enemyLeads[1])} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="swords"></i> Presión <i data-lucide="arrow-right" class="formula-arrow"></i> ${micro(myMon)}
-            </div>
-          </div>
-        `);
+    enemyLeads.forEach(eObj => {
+      if (bestAttack(selfLeads[0].mon, eObj.mon).mult >= 2 && bestAttack(selfLeads[1].mon, eObj.mon).mult >= 2) {
+        conditionCards.push(buildCondition('pressure', 'Foco de presión', `Ambos tuyos amenazan a ${eObj.mon.displayName}.`, []));
       }
     });
-    enemyLeads.forEach((enemyMon) => {
-      if (
-        bestAttack(selfLeads[0], enemyMon).mult >= 2 &&
-        bestAttack(selfLeads[1], enemyMon).mult >= 2
-      ) {
-        insights.push(`
-          <div class="t1-event-card t1-event-card--success">
-            <div class="t1-event-icon" style="color: var(--green);"><i data-lucide="crosshair"></i></div>
-            <div class="t1-event-content">
-              <strong>Foco:</strong> ${micro(selfLeads[0])} + ${micro(selfLeads[1])} <i data-lucide="arrow-right" class="formula-arrow"></i> <i data-lucide="swords"></i> Presión <i data-lucide="arrow-right" class="formula-arrow"></i> ${micro(enemyMon)}
+    selfLeads.forEach(sObj => {
+      if (bestAttack(enemyLeads[0].mon, sObj.mon).mult >= 2 && bestAttack(enemyLeads[1].mon, sObj.mon).mult >= 2) {
+        criticalCards.push(`
+          <article class="incident-card incident-card--danger">
+            <div class="incident-card__accent"></div>
+            <div class="incident-card__header">
+              <div class="incident-card__eyebrow">Foco de presión</div>
+              <h3 class="incident-card__title">Doble Target sobre ${sObj.mon.displayName}</h3>
             </div>
-          </div>
+            <div class="incident-card__body">
+              <p class="incident-card__summary">Ambos rivales pueden hacer daño supereficaz. Considera cambiar o proteger.</p>
+            </div>
+          </article>
         `);
       }
     });
   }
 
-  // UI: Línea de tiempo
-  const timelineHtml = `
-    <div style="display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 12px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 12px; overflow-x: auto;">
-      ${leads
-        .map(
-          (lead, idx) => `
-        <div class="sprite-sm" style="border: 1px solid ${lead.side === "self" ? "var(--blue)" : "var(--red)"}; flex-shrink: 0;" title="${lead.mon.displayName} - Spe: ${Math.abs(lead.spe)}">
-          <img src="${lead.mon.sprite}" alt="${lead.mon.displayName}" loading="lazy">
+  // Momentum Rail & Update
+  const mPanel = document.getElementById("momentumPanel");
+  const mFill = document.getElementById("momentumFill");
+  const mRail = document.getElementById("momentumRail");
+  
+  if (mPanel && mFill && mRail) {
+    mPanel.style.display = "flex";
+    mFill.style.width = `${momentum}%`;
+    
+    mRail.innerHTML = leads.map((lead, idx) => `
+      <div class="momentum-event">
+        <img class="momentum-event__sprite" src="${lead.mon.sprite}">
+      </div>
+      ${idx < leads.length - 1 ? '<i data-lucide="chevron-right" class="momentum-event__arrow"></i>' : ''}
+    `).join("");
+  }
+
+  // Plan Card
+  let planHtml = '';
+  planSteps = [...new Set(planSteps)];
+  if (planSteps.length === 0) planSteps.push('Mantén una salida estable antes de intentar el trade ofensivo.');
+  
+  if (momentum < 35 || selfThreats >= 2 || planSteps.length > 0) {
+    planHtml = `
+      <article class="plan-card">
+        <div class="plan-card__header">
+          <div class="plan-card__icon"><i data-lucide="shield-alert"></i></div>
+          <div>
+            <div class="plan-card__eyebrow">Plan recomendado</div>
+            <h3 class="plan-card__title">Vía de escape sugerida</h3>
+          </div>
         </div>
-        ${idx < leads.length - 1 ? `<i data-lucide="arrow-right" class="formula-arrow" style="flex-shrink: 0;"></i>` : ""}
-      `,
-        )
-        .join("")}
-    </div>
+        <div class="plan-card__body">
+          <ol class="plan-card__steps">
+            ${planSteps.map(step => `<li class="plan-card__step">${step}</li>`).join('')}
+          </ol>
+        </div>
+        <div class="plan-card__footer">Evalúa opciones defensivas si pierdes en velocidad.</div>
+      </article>
+    `;
+  }
+
+  // Render Feed
+  list.innerHTML = `
+    ${criticalCards.length ? `
+      <div class="tactical-feed__group tactical-feed__group--critical">
+        <div class="tactical-feed__group-title">Amenazas inmediatas</div>
+        ${criticalCards.join('')}
+      </div>
+    ` : ''}
+
+    ${opportunityCards.length ? `
+      <div class="tactical-feed__group tactical-feed__group--opportunity">
+        <div class="tactical-feed__group-title">Ventanas de eliminación</div>
+        ${opportunityCards.join('')}
+      </div>
+    ` : ''}
+
+    ${conditionCards.length ? `
+      <div class="tactical-feed__group tactical-feed__group--conditions">
+        <div class="tactical-feed__group-title">Condiciones activas</div>
+        <div class="condition-grid">
+          ${conditionCards.join('')}
+        </div>
+      </div>
+    ` : ''}
+
+    ${planHtml ? `
+      <div class="tactical-feed__group tactical-feed__group--plan">
+        ${planHtml}
+      </div>
+    ` : ''}
   `;
 
-  const insightsEventsHtml = insights.length 
-    ? insights.map(htmlStr => `
-        <div style="padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.02); margin-bottom: 6px;">
-          <div class="formula-row">${htmlStr}</div>
-        </div>
-      `).join("")
-    : `<div class="muted-small" style="margin-top: 12px; text-align: center;">Sin eventos de campo adicionales.</div>`;
-
-  list.innerHTML = momentumHtml + timelineHtml + crossfireSection + escapeRouteHtml + insightsEventsHtml;
   updateIcons();
 }
 
@@ -4062,22 +5448,64 @@ function updateIcons() {
 }
 
 // --- MAIN RENDER ---
-function renderAll() {
+let isBatchUpdating = false;
+let renderTimer = null;
+
+function renderAll(force = false) {
+  if (isBatchUpdating) return;
+  if (renderTimer) cancelAnimationFrame(renderTimer);
+  
+  renderTimer = requestAnimationFrame(() => {
+    _doRender(force);
+  });
+}
+
+function _doRender(force = false) {
+  renderUiMode();
   renderDock("self");
   renderDock("enemy");
-  const rows = getRows();
-  renderMatrix(rows);
-  renderThreats();
-  renderOpportunities(rows);
-  renderStrategies();
+  
+  const isQuick = state.uiMode === 'quick';
+  const isExpert = state.uiMode === 'expert';
+  const isLive = state.uiMode === 'live';
 
-  renderWeaknessSummary();
-  renderSpeedTiers();
-  renderDefensiveAlerts();
-  evaluateAllCombos();
-  renderTurn1Simulator();
-  renderQuickLayer();
-  renderUiMode();
+  if (isQuick || force) {
+    evaluateAllCombos();
+    renderTurn1Simulator();
+    renderQuickLayer();
+  }
+
+  if (isExpert || force) {
+    const rows = getRows();
+    renderMatrix(rows);
+    renderThreats();
+    renderOpportunities(rows);
+    renderStrategies();
+    if (typeof renderWeaknessSummary === 'function') renderWeaknessSummary();
+    renderSpeedTiers();
+    renderDefensiveAlerts();
+  }
+  
+  if (isLive || force) {
+    const rows = getRows();
+    renderMatrix(rows);
+    if (typeof renderLiveStatePanel === 'function') renderLiveStatePanel();
+    if (typeof renderLiveRecommendations === 'function') renderLiveRecommendations();
+  }
+
+  renderActiveMatchupStrip();
+  renderLiveBattleToolbar();
+
+  const strip = document.getElementById("activeMatchupStrip");
+  const toolbar = document.getElementById("liveBattleToolbar");
+  if (isBattleFocusActive()) {
+    if (strip) strip.style.display = "flex";
+    if (toolbar) toolbar.style.display = "flex";
+  } else {
+    if (strip) strip.style.display = "none";
+    if (toolbar) toolbar.style.display = "none";
+  }
+
   updateIcons();
 }
 
@@ -4121,6 +5549,23 @@ if (matrixModeToggleGroup) {
   });
 }
 
+const matrixDetailToggleGroup = document.getElementById("matrixDetailToggleGroup");
+if (matrixDetailToggleGroup) {
+  matrixDetailToggleGroup.addEventListener("click", (e) => {
+    const btn = e.target.closest(".segmented-btn");
+    if (btn && btn.dataset.detail) {
+      setMatrixDetailMode(btn.dataset.detail);
+    }
+  });
+}
+
+const matrixHelpToggleBtn = document.getElementById("matrixHelpToggleBtn");
+if (matrixHelpToggleBtn) {
+  matrixHelpToggleBtn.addEventListener("click", () => {
+    toggleMatrixHelp();
+  });
+}
+
 const matrixFieldControls = document.getElementById("matrixFieldControls");
 if (matrixFieldControls) {
   matrixFieldControls.addEventListener("click", (e) => {
@@ -4149,6 +5594,9 @@ document.getElementById("turn1PickZone").addEventListener("click", (e) => {
   const side = btn.dataset.side;
   const idx = Number(btn.dataset.idx);
   if (!state[side][idx]) return;
+  
+  if (side === "self") state.turn1Custom = true;
+  
   const arr = state.leads[side];
   const pos = arr.indexOf(idx);
   if (pos >= 0) arr.splice(pos, 1);
@@ -4157,7 +5605,8 @@ document.getElementById("turn1PickZone").addEventListener("click", (e) => {
     arr.shift();
     arr.push(idx);
   }
-  renderTurn1Simulator();
+  recalculateActiveField();
+  renderAll();
 });
 
 selfSlots.addEventListener("click", async (e) => {
@@ -4241,7 +5690,9 @@ document
 
 ratingSelect.value = state.rating;
 ratingSelect.addEventListener("change", async (e) => {
-  await loadSmogonMeta(e.target.value);
+  state.rating = e.target.value;
+  localStorage.setItem(RATING_STORAGE_KEY, String(state.rating));
+  alert('La carga por rating ha sido simplificada. La app usa el data-bundle.json cargado.');
 });
 
 window.addEventListener("keydown", (e) => {
@@ -4329,6 +5780,59 @@ function getQuickOptions(mon, kind) {
   return [];
 }
 
+function getTopSpreads(mon) {
+  if (!mon) return [];
+  const record = getMetaRecord(mon.name);
+  const entry = record?.entry || {};
+  const rawSpreads = entry.Spreads || entry["Spreads"] || {};
+  const rawCount = entry["Raw count"] || 1;
+  
+  const top = topEntries(rawSpreads, 3);
+  return top.map(sp => {
+    const spread = parseSpread(sp.key);
+    const pctVal = sp.value > 1 ? (sp.value / rawCount) : sp.value;
+    const pct = (pctVal * 100).toFixed(0);
+    
+    const evStr = Object.entries(spread.evs).filter(([k,v]) => v > 0).map(([k,v]) => `${v} ${k.toUpperCase()}`).join(' / ') || "Sin EVs";
+    const label = `${spread.nature || 'Neutral'} | ${evStr} (${pct}%)`;
+    
+    return { nature: spread.nature || '', evs: spread.evs, label };
+  });
+}
+
+function guessSpreadRole(evs) {
+  const hp = Number(evs.hp) || 0;
+  const atk = Number(evs.atk) || 0;
+  const def = Number(evs.def) || 0;
+  const spa = Number(evs.spa) || 0;
+  const spd = Number(evs.spd) || 0;
+  const spe = Number(evs.spe) || 0;
+
+  if (spe >= 200 && (atk >= 200 || spa >= 200)) return "Ofensivo Rápido";
+  if (hp >= 200 && (def >= 150 || spd >= 150)) return "Bulky Pivot / Muro";
+  if (hp >= 200 && (atk >= 150 || spa >= 150)) return "Bulky Ofensivo";
+  if (def >= 200 || spd >= 200) return "Defensivo";
+  return "Mixto / Específico";
+}
+
+function getMegaForm(baseSpecies, itemSlug) {
+  if (!itemSlug || !itemSlug.includes('ite')) return null;
+  
+  const cleanBase = normalizeText(baseSpecies);
+  let possibleMegaId = cleanBase + 'mega';
+  
+  // Casos especiales (Charizard X/Y, Mewtwo X/Y)
+  if (itemSlug.endsWith('itex')) possibleMegaId = cleanBase + 'megax';
+  if (itemSlug.endsWith('itey')) possibleMegaId = cleanBase + 'megay';
+  
+  const megaData = window.GameDB?.pokedex?.[possibleMegaId];
+  // Solo devolver si el objeto coincide con el nombre del Pokémon (evita que Pikachu con Venusaurita brille)
+  if (megaData && itemSlug.startsWith(cleanBase)) {
+    return megaData;
+  }
+  return null;
+}
+
 function renderSetEditor() {
   const mon = getEditorMon();
   if (!mon) {
@@ -4340,6 +5844,21 @@ function renderSetEditor() {
   const abilityOptions = getQuickOptions(mon, "ability");
   const itemOptions = getQuickOptions(mon, "item");
   const moveOptions = getQuickOptions(mon, "move");
+  const spreadOptions = getTopSpreads(mon);
+
+  const abiSlug = normalizeText(set.ability);
+  const itemSlug = normalizeText(set.item);
+  const abilityDesc = window.GameDB?.abilities?.[abiSlug]?.desc || "Sin descripción disponible.";
+  const itemDesc = window.GameDB?.items?.[itemSlug]?.desc || "Sin descripción disponible.";
+  const typesHtml = (mon.types || []).map(t => 
+    `<span class="type-pill" style="background-color: var(--${t.toLowerCase()});">${t}</span>`
+  ).join('');
+
+  const megaForm = getMegaForm(mon.name, itemSlug);
+  const megaHtml = megaForm 
+    ? `<div class="mega-badge">✨ Permite Megaevolucionar a ${megaForm.displayName}</div>` 
+    : '';
+  const megaClass = megaForm ? 'mega-active' : '';
 
   setEditorTitle.textContent = `Editar set · ${mon.displayName}`;
   setEditorSubtitle.textContent =
@@ -4406,32 +5925,28 @@ function renderSetEditor() {
           <div style="min-width:0">
             <div class="editor-name">${mon.displayName}</div>
             <div class="editor-sub">${summaryLines.join(" · ") || "Set personalizable desde aquí"}</div>
-            <div class="editor-chip-row">
-              ${typeChips}
-            </div>
+            <div style="margin-top: 4px; margin-bottom: 12px;">${typesHtml}</div>
           </div>
         </section>
 
         <section class="editor-grid-2">
           <article class="editor-section">
-            <div class="editor-section-head">
-              <div>
-                <strong>Habilidad</strong>
+            <button type="button" class="trait-card" data-action="edit-ability" style="text-align: left;">
+              <div class="trait-label">Habilidad</div>
+              <div class="trait-header">
+                <i data-lucide="star" style="width:14px;height:14px;color:var(--gold);"></i> 
+                ${getTranslation(set.ability, 'ability') || 'Toca para asignar'}
               </div>
-            </div>
-
-            <button type="button" class="edit-trigger-btn" data-action="edit-ability">
-              <span class="${set.ability ? 'val' : 'placeholder'}">${t(set.ability, 'ability') || 'Toca para asignar Habilidad'}</span>
-              <i data-lucide="chevron-right" style="width:16px;color:var(--muted);"></i>
+              <div class="flavor-text">${abilityDesc}</div>
             </button>
 
-            <div class="editor-pill-list" style="flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
+            <div class="editor-pill-list" style="flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; margin-top: 8px;">
               ${abilityOptions
                 .slice(0, 4)
                 .map(
                   (value) => `
                 <button class="editor-pill ${value === set.ability ? "active" : ""}" style="white-space: nowrap; flex-shrink: 0;" data-action="quick-ability" data-value="${value}">
-                  ${t(value, "ability")}
+                  ${getTranslation(value, "ability")}
                 </button>
               `,
                 )
@@ -4440,24 +5955,23 @@ function renderSetEditor() {
           </article>
 
           <article class="editor-section">
-            <div class="editor-section-head">
-              <div>
-                <strong>Objeto</strong>
+            <button type="button" class="trait-card ${megaClass}" data-action="edit-item" ${mon.name.includes("-mega") ? "disabled" : ""} style="text-align: left;">
+              <div class="trait-label">Objeto Equipado</div>
+              <div class="trait-header">
+                <i data-lucide="package" style="width:14px;height:14px;color:var(--blue);"></i> 
+                ${getTranslation(set.item, 'item') || 'Toca para asignar'}
               </div>
-            </div>
-
-            <button type="button" class="edit-trigger-btn" data-action="edit-item" ${mon.name.includes("-mega") ? "disabled" : ""}>
-              <span class="${set.item ? 'val' : 'placeholder'}">${t(set.item, 'item') || 'Toca para asignar Objeto'}</span>
-              <i data-lucide="chevron-right" style="width:16px;color:var(--muted);"></i>
+              <div class="flavor-text">${itemDesc}</div>
+              ${megaHtml}
             </button>
 
-            <div class="editor-pill-list" style="flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
+            <div class="editor-pill-list" style="flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; margin-top: 8px;">
               ${itemOptions
                 .slice(0, 4)
                 .map(
                   (value) => `
                 <button class="editor-pill ${value === set.item ? "active" : ""}" style="white-space: nowrap; flex-shrink: 0;" data-action="quick-item" data-value="${value}" ${mon.name.includes("-mega") ? "disabled" : ""}>
-                  ${t(value, "item")}
+                  ${getTranslation(value, "item")}
                 </button>
               `,
                 )
@@ -4477,6 +5991,14 @@ function renderSetEditor() {
             <span class="${set.nature ? 'val' : 'placeholder'}">${set.nature || 'Toca para asignar Naturaleza'}</span>
             <i data-lucide="chevron-right" style="width:16px;color:var(--muted);"></i>
           </button>
+
+          <div class="editor-pill-list" style="margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+            ${spreadOptions.map(sp => `
+              <button type="button" class="editor-pill" data-action="quick-spread" data-nature="${sp.nature}" data-evs='${JSON.stringify(sp.evs)}'>
+                ${sp.label}
+              </button>
+            `).join('')}
+          </div>
 
           <div class="ev-compact-grid" style="margin-top: 8px;">
             ${evStatMeta
@@ -4503,12 +6025,35 @@ function renderSetEditor() {
             ${(set.moves || [])
               .slice(0, 4)
               .map(
-                (move, idx) => `
-              <button type="button" class="move-btn ${move ? '' : 'empty'}" data-action="edit-move" data-index="${idx}">
-                <span class="val">${t(move, 'move') || '+ Añadir ataque'}</span>
-                ${move ? `<div class="move-btn-clear" data-action="clear-move" data-index="${idx}"><i data-lucide="x" style="width:14px;height:14px;"></i></div>` : ''}
+                (move, idx) => {
+                  const slug = normalizeText(move);
+                  const moveData = window.GameDB?.moves?.[slug];
+                  const powerStr = moveData?.power ? `${moveData.power} BP` : '-- BP';
+                  const typeColor = moveData ? `var(--${moveData.type})` : 'var(--muted)';
+                  
+                  let catIcon = '';
+                  if (moveData?.damageClass === 'physical') catIcon = '<i data-lucide="swords" style="width:12px;height:12px;"></i>';
+                  else if (moveData?.damageClass === 'special') catIcon = '<i data-lucide="orbit" style="width:12px;height:12px;"></i>';
+                  else if (moveData?.damageClass === 'status') catIcon = '<i data-lucide="shield" style="width:12px;height:12px;"></i>';
+
+                  const tooltip = moveData?.desc || 'Seleccionar movimiento';
+                  const moveName = getTranslation(move, 'move') || '+ Añadir ataque';
+
+                  return `
+              <button type="button" class="move-slot-btn ${move ? '' : 'empty'}" style="--move-color: ${typeColor};" title="${escapeHtml(tooltip)}" data-action="edit-move" data-index="${idx}">
+                <div class="move-slot-header">
+                  <span class="val">${moveName}</span>
+                  ${move ? `<span class="move-category-icon">${catIcon}</span>` : ''}
+                </div>
+                ${move ? `
+                <div class="move-slot-stats">
+                  <span>${powerStr}</span>
+                </div>
+                <div class="move-btn-clear" data-action="clear-move" data-index="${idx}"><i data-lucide="x" style="width:14px;height:14px;"></i></div>
+                ` : ''}
               </button>
-            `,
+            `;
+                }
               )
               .join("")}
           </div>
@@ -4585,40 +6130,126 @@ function renderSetChoiceList() {
 
   const set = ensureEditableSet(mon);
   const q = normalizeText(setChoiceSearch.value || "");
-  const options = (state.setChoice.options || [])
+  const kind = state.setChoice.kind;
+  
+  let options = [...(state.setChoice.options || [])];
+
+  // Si hay un texto de búsqueda, expandimos la búsqueda a la base de datos global (GameDB)
+  if (q && window.GameDB) {
+    const dbMap = kind === 'move' ? window.GameDB.moves :
+                  kind === 'ability' ? window.GameDB.abilities :
+                  kind === 'item' ? window.GameDB.items : null;
+
+    if (dbMap) {
+      const extraMatches = [];
+      for (const slug of Object.keys(dbMap)) {
+        const translated = getTranslation(slug, kind);
+        if (slug.includes(q) || normalizeText(translated).includes(q)) {
+          extraMatches.push(slug);
+        }
+        // Límite de 50 resultados para mantener un rendimiento óptimo
+        if (extraMatches.length >= 50) break;
+      }
+      options = uniqValues([...options, ...extraMatches]);
+    }
+  }
+
+  const finalOptions = options
     .filter(Boolean)
     .filter((value) => {
       if (!q) return true;
-      const translated = t(value, state.setChoice.kind);
+      const translated = getTranslation(value, kind);
       return (
         normalizeText(value).includes(q) ||
         normalizeText(translated).includes(q)
       );
     });
 
-  if (!options.length) {
+  if (!finalOptions.length) {
     setChoiceList.innerHTML = `<div class="empty">Sin coincidencias. Puedes usar el texto escrito arriba.</div>`;
     return;
   }
 
   const currentValue =
-    state.setChoice.kind === "ability"
+    kind === "ability"
       ? set.ability || ""
-      : state.setChoice.kind === "item"
+      : kind === "item"
         ? set.item || ""
         : set.moves[state.setChoice.moveIndex] || "";
 
-  setChoiceList.innerHTML = options
+  setChoiceList.innerHTML = finalOptions
     .map((value) => {
-      const translated = t(value, state.setChoice.kind);
+      let translated = getTranslation(value, kind);
+      
+      // Fallback para capitalizar slugs directos si no hay traducción (ej: "closecombat" -> "Closecombat")
+      if (translated === value && !value.includes(" ")) {
+         translated = formatName(value);
+      }
+      
+      const slug = normalizeText(value);
+
+      const moveData = window.GameDB?.moves?.[slug];
+      const abilityData = window.GameDB?.abilities?.[slug];
+      const itemData = window.GameDB?.items?.[slug];
+
+      let typeHtml = '';
+      let desc = '';
+      let styleAccent = '';
+      let catIcon = '';
+      let metricsHtml = '';
+      let tooltipText = '';
+
+      if (moveData) {
+        typeHtml = `<span class="type-pill" style="background-color: var(--${moveData.type});">${moveData.type}</span>`;
+        desc = moveData.desc || '';
+        styleAccent = `border-left: 4px solid var(--${moveData.type});`;
+
+        if (moveData.damageClass === 'physical') {
+          catIcon = '<i data-lucide="swords" style="width:14px;height:14px; margin-left:4px; color:var(--muted);"></i>';
+        } else if (moveData.damageClass === 'special') {
+          catIcon = '<i data-lucide="orbit" style="width:14px;height:14px; margin-left:4px; color:var(--muted);"></i>';
+        } else if (moveData.damageClass === 'status') {
+          catIcon = '<i data-lucide="shield" style="width:14px;height:14px; margin-left:4px; color:var(--muted);"></i>';
+        }
+
+        const bp = moveData.power ? `${moveData.power} BP` : '-- BP';
+        const acc = moveData.accuracy ? `${moveData.accuracy} Acc` : '-- Acc';
+        let extraInfo = [bp, acc];
+        if (moveData.hits > 1) extraInfo.push(`${moveData.hits} Golpes`);
+        if (moveData.isSpread) extraInfo.push(`Área`);
+
+        metricsHtml = `<div class="move-slot-stats" style="margin-top: 2px; margin-bottom: 4px;"><span>${extraInfo.join(' | ')}</span></div>`;
+        
+        const typeName = TYPE_META[moveData.type]?.name || moveData.type;
+        const className = moveData.damageClass === 'physical' ? 'Físico' : moveData.damageClass === 'special' ? 'Especial' : 'Estado';
+        tooltipText = `${typeName} | ${className}\n\n${desc}`;
+      } else if (abilityData) {
+        desc = abilityData.desc || '';
+        tooltipText = desc;
+      } else if (itemData) {
+        desc = itemData.desc || '';
+        tooltipText = desc;
+      }
+
+      const isCurrent = normalizeText(value) === normalizeText(currentValue);
+      const currentBadge = isCurrent ? '<span class="tiny-chip" style="background: var(--blue); color: #fff; padding: 2px 4px; font-size: 0.55rem; border: none; margin-left: 6px;">Actual</span>' : '';
+
       return `
-          <button class="choice-item ${value === currentValue ? "active" : ""}" data-action="apply-choice" data-value="${value}">
-            <strong>${translated}</strong>
-            <span>${value === currentValue ? "Valor actual" : "Tocar para aplicar"} ${translated !== value ? `(${value})` : ""}</span>
+          <button class="choice-item ${isCurrent ? "active" : ""}" data-action="apply-choice" data-value="${value}" style="${styleAccent}" title="${escapeHtml(tooltipText)}">
+            <div class="choice-item-header">
+              <span class="choice-item-name" style="display:flex; align-items:center;">${translated} ${catIcon} ${currentBadge}</span>
+              ${typeHtml}
+            </div>
+            ${metricsHtml}
+            ${desc ? `<div class="flavor-text" style="text-align: left;">${desc}</div>` : ''}
           </button>
         `;
     })
     .join("");
+
+  if (typeof lucide !== "undefined" && lucide.createIcons) {
+    lucide.createIcons({ root: setChoiceList });
+  }
 }
 
 function applySetChoice(value) {
@@ -4700,7 +6331,7 @@ function resetCurrentSetToMeta() {
   if (idx == null || !mon) return;
 
   if (typeof buildDefaultSetForSpecies === "function") {
-    mon.set = buildDefaultSetForSpecies(mon.name, "self", idx);
+        mon.set = buildDefaultSetForSpecies(mon.name, "self", idx, mon.types);
   } else {
     mon.set = {
       ability: "",
@@ -4815,6 +6446,16 @@ setEditorBody.addEventListener("click", (e) => {
     renderSetEditor();
   }
 
+  if (btn.dataset.action === "quick-spread") {
+    const nature = btn.dataset.nature || "";
+    const evs = JSON.parse(btn.dataset.evs || "{}");
+    set.nature = nature;
+    set.evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, ...evs };
+    if (typeof scheduleMoveWarmup === "function") scheduleMoveWarmup();
+    if (typeof renderAll === "function") renderAll();
+    renderSetEditor();
+  }
+
   if (btn.dataset.action === "quick-move-any") {
     const firstEmpty = (set.moves || []).findIndex(
       (x) => !String(x || "").trim(),
@@ -4895,18 +6536,30 @@ const UIMODE_KEY = 'offensive-matrix-ui-mode';
 function loadUiMode() {
   try {
     const saved = localStorage.getItem(UIMODE_KEY);
-    if (saved === 'quick' || saved === 'expert') state.uiMode = saved;
+    if (saved === 'quick' || saved === 'expert' || saved === 'live') state.uiMode = saved;
   } catch {}
 }
 
 function setUiMode(mode) {
   state.uiMode = mode;
   try { localStorage.setItem(UIMODE_KEY, mode); } catch {}
-  renderUiMode();
+  
+  // Sincronizar las selecciones de leads (Quick) con slots activos (Expert)
+  if (mode === 'expert' || mode === 'live') {
+    if (state.leads.self.length > 0) state.activeSelfSlots = [...state.leads.self];
+    if (state.leads.enemy.length > 0) state.activeEnemySlots = [...state.leads.enemy];
+  } else {
+    if (state.activeSelfSlots.length > 0) state.leads.self = [...state.activeSelfSlots];
+    if (state.activeEnemySlots.length > 0) state.leads.enemy = [...state.activeEnemySlots];
+  }
+  
+  recalculateActiveField();
+  renderAll();
 }
 
 function renderUiMode() {
   const isQuick = state.uiMode === 'quick';
+  const isLive = state.uiMode === 'live';
 
   // Toggle visual en el segmented
   document
@@ -4929,9 +6582,9 @@ function renderUiMode() {
   const insightGrid   = document.querySelector('.insight-grid');
   const dockAlerts    = document.getElementById('defensiveAlertFloat');
 
-  if (matrixSection) matrixSection.style.display = isQuick ? 'none' : 'block';
-  if (insightGrid)   insightGrid.style.display   = isQuick ? 'none' : 'grid';
-  if (dockAlerts)    dockAlerts.style.display    = isQuick ? 'none' : 'flex';
+  if (matrixSection) matrixSection.style.display = (isQuick || isLive) ? 'none' : 'block';
+  if (insightGrid)   insightGrid.style.display   = (isQuick || isLive) ? 'none' : 'grid';
+  if (dockAlerts)    dockAlerts.style.display    = (isQuick || isLive) ? 'none' : 'flex';
 }
 
 const uiModeToggle = document.getElementById('uiModeToggle');
@@ -4943,12 +6596,37 @@ if (uiModeToggle) {
   });
 }
 
+window.GameDB = null;
+
 async function initApp() {
   loadUiMode();
-  await loadSmogonMeta(state.rating);
-  await hydrateSavedState();
-  await warmupLocalizationCaches();
+  loadMatrixPreferences();
+  
+  try {
+    const res = await fetch('./data/data-bundle.json');
+    window.GameDB = await res.json();
+    
+    if (DEBUG_MODE) {
+      console.groupCollapsed(`📦 [DATABASE STARTUP] Inspección de data-bundle.json`);
+      console.log(`🔹 Pokémon Activos: ${Object.keys(window.GameDB?.pokedex || {}).length}`);
+      console.log(`🔹 Movimientos Cargados: ${Object.keys(window.GameDB?.moves || {}).length} (⚠️ Revisa si están los multi-palabra como 'flareblitz')`);
+      console.log(`🔹 Traducciones Listas: ${Object.keys(window.GameDB?.translations || {}).length}`);
+      console.groupEnd();
+    }
+  } catch (e) {
+    console.error("No se pudo cargar data-bundle.json", e);
+    return;
+  }
+  
+  Object.assign(i18nCache, window.GameDB.translations || {});
+  
+  state.smogonRaw = window.GameDB.smogon;
+  buildMetaIndex(state.smogonRaw);
+  
+  ensurePokedex();
+  await rehydrateCurrentTeamsSets();
   renderAll();
+  toggleMatrixHelp(state.matrixHelpOpen);
 }
 
 initApp();
@@ -4962,8 +6640,9 @@ matrixContainer.addEventListener("click", (e) => {
   if (!cell) return;
   const data = JSON.parse(decodeURIComponent(cell.dataset.tooltip));
 
-  const typeIcon = `https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${data.type.toLowerCase()}.svg`;
-  const typeColor = TYPE_META[data.type]?.color || '#fff';
+  const moveTypeStr = data.moveType || data.type || 'normal';
+  const typeIcon = `https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${moveTypeStr.toLowerCase()}.svg`;
+  const typeColor = TYPE_META[moveTypeStr]?.color || '#fff';
   const iconContrast = getContrastColor(typeColor);
 
   /* damageTooltipContainer.innerHTML = `
@@ -4994,6 +6673,95 @@ matrixContainer.addEventListener("click", (e) => {
     damageTooltipContainer.classList.remove('show');
   }, 3000);
 });
+
+const scoutTooltipContainer = document.createElement("div");
+scoutTooltipContainer.id = "scoutTooltip";
+document.body.appendChild(scoutTooltipContainer);
+
+function showScoutTooltip(slug, e) {
+  if (!slug) return;
+  const record = getMetaRecord(slug);
+  if (!record || !record.entry) return;
+
+  const formatNameSafe = (str, cat) => {
+    const clean = normalizeText(str);
+    return getTranslation(clean, cat) || formatName(clean);
+  };
+
+  const items = topEntries(record.entry.Items || {}, 3);
+  const moves = topEntries(record.entry.Moves || {}, 5);
+
+  if (!items.length && !moves.length) return;
+
+  let html = `<div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${record.slug === 'aegislash-blade' ? '10026' : record.entry.id || 0}.png" onerror="this.style.display='none'" style="width:24px; height:24px;">
+    <strong style="color: var(--gold); font-size: 0.9rem;">Scout: ${record.displayName}</strong>
+  </div>`;
+
+  if (items.length) {
+    html += `<div class="scout-section-title"><i data-lucide="package" style="width:12px;height:12px;"></i> Objetos probables</div>`;
+    items.forEach(i => {
+      const pct = (i.value * 100).toFixed(1);
+      html += `
+        <div class="scout-bar-row">
+          <div class="scout-bar-label">${formatNameSafe(i.key, 'item')}</div>
+          <div class="scout-bar-track"><div class="scout-bar-fill" style="width: ${pct}%; background: var(--purple);"></div></div>
+          <div class="scout-bar-pct">${pct}%</div>
+        </div>
+      `;
+    });
+  }
+
+  if (moves.length) {
+    html += `<div class="scout-section-title"><i data-lucide="crosshair" style="width:12px;height:12px;"></i> Ataques probables</div>`;
+    moves.forEach(m => {
+      const pct = (m.value * 100).toFixed(1);
+      html += `
+        <div class="scout-bar-row">
+          <div class="scout-bar-label">${formatNameSafe(m.key, 'move')}</div>
+          <div class="scout-bar-track"><div class="scout-bar-fill" style="width: ${pct}%; background: var(--blue);"></div></div>
+          <div class="scout-bar-pct">${pct}%</div>
+        </div>
+      `;
+    });
+  }
+
+  scoutTooltipContainer.innerHTML = html;
+  if (typeof lucide !== "undefined" && lucide.createIcons) {
+    lucide.createIcons({ root: scoutTooltipContainer });
+  }
+  
+  scoutTooltipContainer.classList.add('show');
+  
+  requestAnimationFrame(() => {
+    const bounds = scoutTooltipContainer.getBoundingClientRect();
+    let left = e.clientX + 15;
+    let top = e.clientY + 15;
+    if (left + bounds.width > window.innerWidth) left = e.clientX - bounds.width - 15;
+    if (top + bounds.height > window.innerHeight) top = e.clientY - bounds.height - 15;
+    
+    scoutTooltipContainer.style.left = `${Math.max(10, left)}px`;
+    scoutTooltipContainer.style.top = `${Math.max(10, top)}px`;
+  });
+  
+  clearTimeout(scoutTooltipContainer.timeout);
+  scoutTooltipContainer.timeout = setTimeout(() => {
+    scoutTooltipContainer.classList.remove('show');
+  }, 4000);
+}
+
+document.addEventListener("pointerenter", (e) => {
+  if (!e.target || typeof e.target.closest !== 'function') return;
+  const target = e.target.closest('[data-scout]');
+  if (!target) return;
+  showScoutTooltip(target.dataset.scout, e);
+}, true);
+
+document.addEventListener("pointerleave", (e) => {
+  if (!e.target || typeof e.target.closest !== 'function') return;
+  const target = e.target.closest('[data-scout]');
+  if (target) scoutTooltipContainer.classList.remove('show');
+}, true);
 
 // --- Team Config Drawer ---
 function renderTeamConfigDrawer(teamType) {
@@ -5134,6 +6902,8 @@ window.handleDrawerAction = async function(action, teamType, payload) {
   } else if (action === 'clear') {
     state[teamType] = Array(6).fill(null);
     state.leads[teamType] = [];
+    if (teamType === "self") state.activeSelfSlots = [0, 1];
+    if (teamType === "enemy") state.activeEnemySlots = [0, 1];
     renderAll();
     closeTeamDrawer();
   } else if (action === 'load-saved') {
@@ -5150,6 +6920,7 @@ window.handleDrawerAction = async function(action, teamType, payload) {
 };
 
 document.addEventListener('click', e => {
+  if (!e.target || typeof e.target.closest !== 'function') return;
   const btnLock = e.target.closest('#lockBestFourBtn');
   if (btnLock) {
     const preview = computeQuickPreview(getRows());
@@ -5167,7 +6938,7 @@ document.addEventListener('click', e => {
 // --- LIVE BATTLE CENTER EXPERT MODE ---
 
 function isBattleFocusActive() {
-  return state.uiMode === "expert" && state.battleFocus === "active";
+  return (state.uiMode === "expert" && state.battleFocus === "active") || state.uiMode === "live";
 }
 
 function getFilledIndices(side) {
@@ -5221,6 +6992,7 @@ function setActiveBattleSlot(side, activePosition, newTeamIndex) {
   current[activePosition] = newTeamIndex;
   state[activeKey] = current;
   closeBattleSheet();
+  recalculateActiveField();
   renderAll();
 }
 
@@ -5258,8 +7030,8 @@ function renderActiveMatchupStrip() {
     } else {
       btn.innerHTML = `<i data-lucide="plus" style="color:var(--muted);width:20px;height:20px;"></i>`;
       btn.className = `active-slot-btn empty`;
-      btn.onclick = null;
     }
+        btn.onclick = () => openBattleSheet({ side, activePosition: pos, isSelector: true });
   };
 
   renderSlotBtn("self", 0, state.activeSelfSlots[0]);
@@ -5320,6 +7092,113 @@ function closeBattleSheet() {
   document.querySelectorAll(".matrix-col-selected").forEach(el => el.classList.remove("matrix-col-selected"));
 }
 
+function getTacticalReasons(data) {
+   const reasons = [];
+   if (data.blocked) reasons.push("Prioridad anulada por campo o inmunidad.");
+   if (data.rawMult === 0 && !data.blocked) reasons.push("Inmunidad total por tipos o habilidad.");
+   if (data.rawMult > 1) reasons.push(`Golpe muy eficaz (x${data.rawMult}).`);
+   if (data.rawMult < 1 && data.rawMult > 0) reasons.push(`Golpe poco eficaz (x${data.rawMult}).`);
+   if (data.wMul > 1) reasons.push("Daño potenciado por el clima activo.");
+   if (data.wMul < 1) reasons.push("Daño reducido por el clima activo.");
+   if (data.terrMul > 1) reasons.push("Daño potenciado por el terreno activo.");
+   if (data.terrMul < 1) reasons.push("Daño reducido por el terreno activo.");
+   if (data.maxPct < 35 && !data.blocked && data.mult > 0) reasons.push("El daño base estimado es muy bajo.");
+   if (data.ohkoProb > 0) reasons.push(`Alta amenaza de KO directo (${data.ohkoProb}%).`);
+   if (!reasons.length) reasons.push("Cruce neutral. Sin modificadores especiales.");
+   return reasons;
+}
+
+function getTacticalMeaning(data) {
+  const mult = data.mult ?? data.rawMult ?? 1;
+  const attacker = data.attacker;
+  const moves = attacker?.set?.moves ?? [];
+  
+  const hasFakeOut = moves.some(m => String(m).toLowerCase().includes('fake out') || String(m).toLowerCase().includes('sorpresa'));
+  const hasProtect = moves.some(m => ['protect','detect','protección','detección'].includes(String(m).toLowerCase()));
+  
+  if (mult === 0 || data.blocked) return 'Inmune o bloqueado. Considera cambiar de objetivo o usar un ataque neutro.';
+  if (mult >= 4 || (data.ohkoProb >= 80)) return '¡KO casi garantizado! Presiona sin dudar este turno.';
+  if (mult >= 2) return 'Ventaja clara. Entra o ataca con confianza.';
+  if (mult <= 0.5) return 'Desventaja. Considera cambio seguro o usar soporte.';
+  if (hasFakeOut) return 'Fake Out disponible. Paraliza primero, luego decide.';
+  if (hasProtect) return 'Protect disponible. Scouting o stall si hay duda.';
+  return 'Cruce neutral. Evalúa velocidad y prioridad antes de comprometerte.';
+}
+
+function getActiveEnemyLeads(targetEnemyName) {
+    const activeIndices = getTurn1ResolvedLeadIndices("enemy");
+    let enemies = activeIndices.map(i => state.enemy[i]).filter(Boolean);
+    
+    const hasEnemy = enemies.some(e => e.name === targetEnemyName);
+    if (!hasEnemy) {
+        const specificEnemy = state.enemy.find(e => e && e.name === targetEnemyName);
+        if (specificEnemy) {
+            enemies = [specificEnemy, enemies.length > 0 ? enemies[0] : null].filter(Boolean);
+        }
+    }
+    return enemies;
+}
+
+function classifyReserve(candidate, activeEnemies) {
+    let worstPct = 0;
+    let worstMult = 0;
+    let ohkoRisk = false;
+
+    for (const enemy of activeEnemies) {
+        if (!enemy) continue;
+        const atk = bestAttack(enemy, candidate); 
+        if (atk.maxPct > worstPct) worstPct = atk.maxPct;
+        if (atk.mult > worstMult) worstMult = atk.mult;
+        if (atk.ohkoProb > 0) ohkoRisk = true;
+    }
+
+    let category = "unsafe";
+    let reason = "Recibe demasiado daño al entrar.";
+
+    if (!ohkoRisk && worstPct <= 35 && worstMult <= 0.5) {
+        category = "safe";
+        reason = "Absorbe bien la presión de los rivales en mesa.";
+    } else if (!ohkoRisk && worstPct <= 55 && worstMult <= 1) {
+        category = "pivot";
+        reason = "Aguanta el golpe para facilitar un reposicionamiento.";
+    } else if (ohkoRisk) {
+        category = "unsafe";
+        reason = "Se expone a un OHKO directo si entra ahora.";
+    } else {
+        category = "unsafe";
+        reason = "Desventaja letal. El daño recibido no compensa.";
+    }
+
+    return { candidate, category, reason, worstPct, worstMult };
+}
+
+function getSuggestedReserves(data) {
+    const selfTeam = state.self.filter(Boolean);
+    if (!selfTeam.length) return [];
+
+    const activeSelfIndices = getTurn1ResolvedLeadIndices("self");
+    const activeSelfNames = activeSelfIndices.map(i => state.self[i]?.name).filter(Boolean);
+    
+    const currentSelfName = data.offensive ? data.attacker : data.defender;
+    if (!activeSelfNames.includes(currentSelfName)) activeSelfNames.push(currentSelfName);
+
+    const bench = selfTeam.filter(m => !activeSelfNames.includes(m.name));
+    if (!bench.length) return [];
+
+    const targetEnemyName = data.offensive ? data.defender : data.attacker;
+    const activeEnemies = getActiveEnemyLeads(targetEnemyName);
+
+    const evaluated = bench.map(cand => classifyReserve(cand, activeEnemies));
+    
+    evaluated.sort((a, b) => {
+       const catScore = { "safe": 1, "pivot": 2, "unsafe": 3 };
+       if (catScore[a.category] !== catScore[b.category]) return catScore[a.category] - catScore[b.category];
+       return a.worstPct - b.worstPct;
+    });
+
+    return evaluated.slice(0, 3);
+}
+
 function renderBattleSheet() {
   const body = document.getElementById("battleSheetBody");
   const title = document.getElementById("battleSheetTitle");
@@ -5353,43 +7232,98 @@ function renderBattleSheet() {
   if (cell) {
     title.textContent = "Lectura Táctica";
     const data = JSON.parse(decodeURIComponent(cell.dataset.tooltip));
-    const attackerName = data.attacker;
-    const defenderName = data.defender;
-    const move = data.move;
-    const min = data.minPct;
-    const max = data.maxPct;
+    const attackerObj = data.attacker || {};
+    const defenderObj = data.defender || {};
     
-    const safeReserves = getFilledIndices("self")
-        .filter(idx => !state.activeSelfSlots.includes(idx))
-        .map(idx => state.self[idx]);
+    const attackerName = attackerObj.displayName ?? attackerObj.name ?? data.attackerName ?? 'Atacante';
+    const defenderName = defenderObj.displayName ?? defenderObj.name ?? data.defenderName ?? 'Defensor';
+    const attackerSprite = attackerObj.sprite ?? '';
+    const defenderSprite = defenderObj.sprite ?? '';
+    
+    const attackerTypes = attackerObj.types?.map(t => typeChip(t)).join('') ?? '';
+    const defenderTypes = defenderObj.types?.map(t => typeChip(t)).join('') ?? '';
+    
+    const moveName = data.moveName ?? data.move ?? 'Desconocido';
+    const moveType = data.moveType ?? data.type ?? 'normal';
+    const minPct = data.minPct ?? 0;
+    const maxPct = data.maxPct ?? 0;
+    const mult = data.mult ?? data.rawMult ?? null;
+    const multStr = mult !== null ? fmtMult(mult) : '';
+    
+    const reserves = getSuggestedReserves(data);
+    const reasons = getTacticalReasons(data);
+    const meaning = getTacticalMeaning(data);
 
     body.innerHTML = `
-      <div style="display:flex; align-items:center; justify-content:space-between;">
-        <div style="font-size:1.1rem; font-weight:900;">${attackerName} <i data-lucide="arrow-right" style="width:14px;color:var(--muted);margin:0 4px;"></i> ${defenderName}</div>
-      </div>
-      <div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:12px; margin-top:8px;">
-        <div style="color:var(--gold); font-weight:900; font-size:0.85rem; margin-bottom:4px;">Mejor Opción Estimada</div>
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
         <div style="display:flex; align-items:center; gap:8px;">
-          ${typeDot(data.type)}
-          <span style="font-size:1rem; font-weight:700;">${move}</span>
-        </div>
-        <div style="margin-top:8px; display:flex; gap:16px;">
-          <div><span style="color:var(--muted);font-size:0.75rem;">Daño Rango:</span> <strong>${min}% - ${max}%</strong></div>
-          ${data.ohkoProb > 0 ? `<div><span style="color:var(--muted);font-size:0.75rem;">OHKO Prob:</span> <strong style="color:var(--red);">${data.ohkoProb}%</strong></div>` : ''}
-        </div>
-      </div>
-      ${safeReserves.length > 0 ? `
-        <div style="margin-top:16px;">
-          <div class="sheet-tactical-label">Reservas Seguras Sugeridas</div>
-          <div style="display:flex; gap:8px; margin-top:8px;">
-            ${safeReserves.map(m => `
-              <div class="sheet-squad-btn">
-                <img src="${m.sprite}" alt="${m.displayName}">
-              </div>
-            `).join("")}
+          ${attackerSprite ? `<img src="${attackerSprite}" class="sprite-sm" alt="${attackerName}" style="width:40px;height:40px;object-fit:contain;border-radius:50%;background:rgba(0,0,0,0.3);">` : ''}
+          <div>
+            <div style="font-size:1.1rem; font-weight:900;">${attackerName}</div>
+            <div style="display:flex; gap:4px; margin-top:4px;">${attackerTypes}</div>
           </div>
         </div>
-      ` : ""}
+        <i data-lucide="arrow-right" style="color:var(--muted); font-size:1.2rem;"></i>
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${defenderSprite ? `<img src="${defenderSprite}" class="sprite-sm" alt="${defenderName}" style="width:40px;height:40px;object-fit:contain;border-radius:50%;background:rgba(0,0,0,0.3);">` : ''}
+          <div>
+            <div style="font-size:1.1rem; font-weight:900;">${defenderName}</div>
+            <div style="display:flex; gap:4px; margin-top:4px;">${defenderTypes}</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="sheet-tactical-block" style="margin-top: 16px;">
+         <div class="sheet-tactical-label">Mejor Opción Estimada</div>
+         <div class="sheet-tactical-val" style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+           ${typeDot(moveType)} <span style="font-size:1rem; font-weight:700;">${moveName}</span>
+         </div>
+         <div style="display:flex; gap:12px; font-size:0.8rem; color:var(--muted);">
+            <span>Daño: <strong style="color:#fff;">${minPct}% - ${maxPct}% ${multStr ? `(${multStr})` : ''}</strong></span>
+            ${data.ohkoProb > 0 ? `<span>Riesgo OHKO: <strong style="color:var(--red);">${data.ohkoProb}%</strong></span>` : ''}
+         </div>
+      </div>
+
+      <div class="sheet-tactical-block">
+         <div class="sheet-tactical-label">Por qué pasa</div>
+         <ul class="sheet-reasons-list">
+            ${reasons.map(r => `<li><i data-lucide="info"></i> ${r}</li>`).join('')}
+         </ul>
+      </div>
+
+      <div class="sheet-tactical-block">
+         <div class="sheet-tactical-label">Qué significa en mesa</div>
+         <div class="sheet-tactical-meaning">${meaning}</div>
+      </div>
+
+      <div class="sheet-tactical-block">
+         <div class="sheet-tactical-label">Banca Sugerida (Evaluada vs Rival Activo)</div>
+         ${reserves.length > 0 ? `
+           <div class="sheet-reserves-list">
+             ${reserves.map(r => `
+               <div class="sheet-reserve-item ${r.category === 'unsafe' ? 'sheet-reserve-item--unsafe' : ''}">
+                 <img src="${r.candidate.sprite}" alt="${r.candidate.displayName}">
+                 <div class="sheet-reserve-info">
+                   <strong>${r.candidate.displayName} <span class="tag-pill ${r.category === 'safe' ? 'tag-pill--success' : r.category === 'pivot' ? 'tag-pill--warning' : 'tag-pill--danger'}">${r.category === 'safe' ? 'Seguro' : r.category === 'pivot' ? 'Pivot' : 'Riesgo'}</span></strong>
+                   <span>${r.reason}</span>
+                 </div>
+               </div>
+             `).join('')}
+           </div>
+         ` : `<div class="muted-small">No tienes banca segura o disponible.</div>`}
+      </div>
+
+      ${data.debug ? `
+      <div class="sheet-tactical-block" style="border: 1px dashed var(--gold); padding: 8px; background: rgba(255,215,0,0.05); margin-top:12px; border-radius:8px;">
+         <div class="sheet-tactical-label" style="color: var(--gold);"><i data-lucide="bug" style="width:14px;height:14px;"></i> Debug Data</div>
+         <ul class="sheet-reasons-list" style="font-family: monospace; font-size: 0.75rem; color: var(--gold); margin-top:4px;">
+            <li>rawMult: ${data.debug.rawMult}</li>
+            <li>wMul: ${data.debug.wMul}</li>
+            <li>terrMul: ${data.debug.terrMul}</li>
+            ${(data.debug.registryExplain || []).map(r => `<li>${r}</li>`).join('')}
+         </ul>
+      </div>
+      ` : ''}
     `;
     updateIcons();
     return;
@@ -5412,6 +7346,7 @@ document.getElementById("battleSheetOverlay")?.addEventListener("click", closeBa
 
 document.addEventListener("click", e => {
   if (!isBattleFocusActive()) return;
+  if (!e.target || typeof e.target.closest !== 'function') return;
   const cell = e.target.closest(".clickable-cell[data-tooltip]");
   if (!cell) return;
 
@@ -5442,16 +7377,606 @@ document.addEventListener("click", e => {
   }
 });
 
-const _originalRenderAll = renderAll;
-renderAll = function() {
-  _originalRenderAll();
-  renderActiveMatchupStrip();
-  renderLiveBattleToolbar();
-  
-  if (isBattleFocusActive()) {
-    const strip = document.getElementById("activeMatchupStrip");
-    const toolbar = document.getElementById("liveBattleToolbar");
-    if (strip) strip.style.display = "flex";
-    if (toolbar) toolbar.style.display = "flex";
+/**
+ * @typedef {Object} Action
+ * @property {'move'|'switch'} kind
+ * @property {'self'|'enemy'} side
+ * @property {number} userIndex  índice en state[side]
+ * @property {string} [moveName]
+ * @property {('ally'|'foes'|'self'|number)} [target]  slot objetivo
+ * @property {number} [switchInIndex] índice de bench al que se hace switch
+ */
+
+function getCandidateActions(state, side) {
+  const team = state[side];
+  const enemyTeam = state[side === 'self' ? 'enemy' : 'self'];
+  const activeSlots = side === 'self' ? state.activeSelfSlots : state.activeEnemySlots;
+
+  const actions = [];
+
+  for (const userIndex of activeSlots) {
+    const mon = team[userIndex];
+    if (!mon) continue;
+
+    const moves = mon.set?.moves || [];
+    // 1) Mejor ataque ofensivo al target más amenazante
+    let bestOffense = null;
+    let bestOffenseTarget = null;
+    for (let i = 0; i < enemyTeam.length; i++) {
+      const enemy = enemyTeam[i];
+      if (!enemy) continue;
+      const best = bestAttack(mon, enemy);
+      if (!bestOffense || best.damage > bestOffense.damage) {
+        bestOffense = best;
+        bestOffenseTarget = i;
+      }
+    }
+    if (bestOffense && bestOffenseTarget !== null) {
+      actions.push({
+        kind: 'move',
+        side,
+        userIndex,
+        moveName: bestOffense.move,
+        target: bestOffenseTarget,
+      });
+    }
+
+    // 2) Movimiento de soporte “estrella”
+    const supportPriority = ['Trick Room', 'Tailwind', 'Follow Me', 'Rage Powder', 'Protect', 'Detect', 'Fake Out'];
+    const supportPick = supportPriority.find((name) => moves.includes(name));
+    if (supportPick) {
+      actions.push({
+        kind: 'move',
+        side,
+        userIndex,
+        moveName: supportPick,
+        target: 'foes',
+      });
+    }
+
+    // 3) Mejor cambio defensivo (bench más seguro)
+    const benchIndices = team
+      .map((m, idx) => (m && !activeSlots.includes(idx) ? idx : null))
+      .filter((x) => x !== null);
+
+    if (benchIndices.length) {
+      let bestBench = null;
+      let bestBenchScore = -Infinity;
+      for (const benchIdx of benchIndices) {
+        const candidate = team[benchIdx];
+        let worstThreat = 0;
+        for (const enemy of enemyTeam) {
+          if (!enemy) continue;
+          const atk = bestAttack(enemy, candidate);
+          worstThreat = Math.max(worstThreat, atk.maxPct || atk.damage || 0);
+        }
+        const score = -worstThreat; // queremos minimizar daño
+        if (score > bestBenchScore) {
+          bestBenchScore = score;
+          bestBench = benchIdx;
+        }
+      }
+      if (bestBench !== null) {
+        actions.push({
+          kind: 'switch',
+          side,
+          userIndex,
+          switchInIndex: bestBench,
+        });
+      }
+    }
   }
-};
+
+  return actions;
+}
+
+function simulateTurn(state, actionsSelf, actionsEnemy) {
+  // Clonar estado para no mutar directamente si quieres analizar "what-if"
+  const nextState = structuredClone(state);
+
+  const all = [...actionsSelf, ...actionsEnemy];
+
+  // Asignar prioridad base y velocidad para ordenar
+  const withOrder = all.map((a) => {
+    const team = nextState[a.side];
+    const mon = team[a.userIndex];
+    if (!mon) {
+      return { action: a, orderKey: -Infinity };
+    }
+
+    let prio = 0;
+    if (a.kind === 'move' && a.moveName) {
+      if (PRIORITY_MOVES.has(a.moveName)) prio = 1;
+      // Podrías extender a otras prioridades (Fake Out, Quick Guard, etc.)
+    }
+    const sideKey = a.side;
+    const spe = calculateSpeed(mon, sideKey); // ya usa TR y registry
+
+    // Mayor prioridad primero, luego más velocidad (o TR con signo)
+    const orderKey = prio * 10000 + spe;
+
+    return { action: a, orderKey };
+  });
+
+  withOrder.sort((a, b) => b.orderKey - a.orderKey);
+
+  const log = [];
+
+  // Helpers para aplicar daño
+  const applyDamage = (side, index, dmg) => {
+    const team = nextState[side];
+    const mon = team[index];
+    if (!mon) return;
+    ensureBattleState(mon);
+    const baseHP = calcMonHP(mon);
+    const currentHP = Math.max(1, Math.floor((baseHP * (mon.battle.hpPct ?? 100)) / 100));
+    const newHP = Math.max(0, currentHP - dmg);
+    mon.battle.hpPct = Math.max(0, Math.floor((newHP / baseHP) * 100));
+    if (mon.battle.hpPct <= 0) {
+      mon.fainted = true;
+    }
+  };
+
+  for (const { action } of withOrder) {
+    const team = nextState[action.side];
+    const enemySide = action.side === 'self' ? 'enemy' : 'self';
+    const enemyTeam = nextState[enemySide];
+
+    const mon = team[action.userIndex];
+    if (!mon || mon.fainted) continue;
+
+    if (action.kind === 'switch') {
+      const inMon = team[action.switchInIndex];
+      if (!inMon || inMon.fainted) continue;
+
+      // swap en el slot
+      const tmp = team[action.userIndex];
+      team[action.userIndex] = inMon;
+      team[action.switchInIndex] = tmp;
+
+      ensureBattleState(team[action.userIndex]);
+      applySwitchInEffects(team[action.userIndex], action.side); // ya actualiza campo
+      log.push({
+        type: 'switch',
+        side: action.side,
+        outIndex: action.switchInIndex,
+        inIndex: action.userIndex,
+      });
+      continue;
+    }
+
+    if (action.kind === 'move' && action.moveName) {
+      ensureMoveRegistry(action.moveName); // de Fase 3, para efectos de campo
+      ensureAbilityRegistry(mon.set?.ability);
+      ensureItemRegistry(mon.set?.item);
+
+      const moveName = action.moveName;
+      let targets = [];
+
+      if (typeof action.target === 'number') {
+        targets = [{ side: enemySide, index: action.target }];
+      } else if (action.target === 'foes') {
+        targets = enemyTeam
+          .map((em, idx) => (em && !em.fainted ? { side: enemySide, index: idx } : null))
+          .filter(Boolean);
+      } else if (action.target === 'ally') {
+        const allySlots = action.side === 'self' ? nextState.activeSelfSlots : nextState.activeEnemySlots;
+        targets = allySlots
+          .map((idx) => (idx !== action.userIndex && team[idx] ? { side: action.side, index: idx } : null))
+          .filter(Boolean);
+      }
+
+      for (const t of targets) {
+        const atkMon = mon;
+        const defMon = nextState[t.side][t.index];
+        if (!defMon || defMon.fainted) continue;
+
+        const info = state.moveTypeCache[moveName] || {};
+        const moveCandidate = {
+          move: moveName,
+          type: info.type || 'normal',
+          power: info.power || 0,
+          damageClass: info.damageClass || 'physical',
+          hits: info.hits || GUARANTEED_MULTI_HITS[moveName] || 1,
+          isSpread: info.isSpread || SPREAD_MOVES.has(moveName) || false
+        };
+
+        const { damage, blocked } = estimateMoveDamage(atkMon, defMon, moveCandidate, nextState.field);
+
+        if (!blocked && damage > 0) {
+          applyDamage(t.side, t.index, damage);
+          log.push({
+            type: 'hit',
+            side: action.side,
+            fromIndex: action.userIndex,
+            toSide: t.side,
+            toIndex: t.index,
+            move: moveName,
+            damage,
+          });
+        }
+      }
+
+      // Aplicar efectos secundarios de campo tras resolución
+      if (typeof applyMoveResolutionEffects === 'function') {
+        applyMoveResolutionEffects(mon, { name: moveName });
+      }
+
+      continue;
+    }
+  }
+
+  // Final de turno: decrementar duraciones
+  if (typeof tickField === 'function') {
+    tickField(nextState);
+  }
+
+  return { nextState, log };
+}
+
+function scoreBoard(state, side) {
+  const self = state[side];
+  const enemy = state[side === 'self' ? 'enemy' : 'self'];
+
+  let selfScore = 0;
+  let enemyScore = 0;
+
+  for (const mon of self) {
+    if (!mon) continue;
+    ensureBattleState(mon);
+    const baseHP = calcMonHP(mon);
+    const hpWeight = (mon.battle.hpPct ?? 100) / 100;
+    selfScore += baseHP * hpWeight;
+  }
+
+  for (const mon of enemy) {
+    if (!mon) continue;
+    ensureBattleState(mon);
+    const baseHP = calcMonHP(mon);
+    const hpWeight = (mon.battle.hpPct ?? 100) / 100;
+    enemyScore += baseHP * hpWeight;
+  }
+
+  // Lógica simple de amenaza actual
+  let threatPenalty = 0;
+  if (state.matrixMode === 'defensive') {
+    // Si matrixMode no es accesible directo sin getRows, se podría calcular un aproximado
+    for (const enemyMon of enemy) {
+      if (!enemyMon) continue;
+      for (const selfMon of self) {
+        if (!selfMon) continue;
+        const atk = bestAttack(enemyMon, selfMon);
+        if (atk.mult >= 2 && (atk.maxPct || 0) >= 50) threatPenalty += 50;
+      }
+    }
+  }
+
+  // Bonus si TR activo y tienes abusers vivos
+  let tempoBonus = 0;
+  if (state.field && state.field.trickRoom) {
+    const slowAbusers = self.filter((m) => m && calculateSpeed(m, side) < 0);
+    tempoBonus += slowAbusers.length * 500;
+  }
+
+  return selfScore - enemyScore - threatPenalty + tempoBonus;
+}
+
+function suggestBestAction(state, side) {
+  const actionsSelf = getCandidateActions(state, side);
+  const actionsEnemy = getCandidateActions(state, side === 'self' ? 'enemy' : 'self');
+
+  if (!actionsSelf.length) return [];
+
+  const evaluatedActions = [];
+
+  for (const aSelf of actionsSelf) {
+    // Supón que el rival elige una de sus acciones; usa un criterio simple
+    let worstOutcome = Infinity;
+
+    for (const aEnemy of actionsEnemy.length ? actionsEnemy : [{ kind: 'none' }]) {
+      const { nextState } = simulateTurn(state, [aSelf], aEnemy.kind === 'none' ? [] : [aEnemy]);
+      const score = scoreBoard(nextState, side);
+      // Queremos ser conservadores: peor caso
+      if (score < worstOutcome) worstOutcome = score;
+    }
+
+    evaluatedActions.push({ action: aSelf, score: worstOutcome });
+  }
+
+  evaluatedActions.sort((a, b) => b.score - a.score);
+  return evaluatedActions.slice(0, 3);
+}
+
+function renderLiveRecommendations() {
+  if (state.uiMode !== 'live') return;
+
+  const suggestion = suggestBestAction(state, 'self');
+  const mount = document.getElementById('liveRecommendations');
+  if (!mount) return;
+
+  if (!suggestion || !suggestion.action) {
+    mount.innerHTML = '<div class="muted-small">Sin recomendación clara.</div>';
+    return;
+  }
+
+  const a = suggestion.action;
+  const team = state.self;
+  const mon = team[a.userIndex];
+  
+  if (!mon) return;
+
+  let text = '';
+
+  if (a.kind === 'move' && a.moveName === 'Protect') {
+    // Busca partner con Trick Room
+    const allyIdx = state.activeSelfSlots.find((i) => i !== a.userIndex);
+    const ally = state.self[allyIdx];
+    const hasTR = ally?.set?.moves?.includes('Trick Room');
+    if (hasTR) {
+      text = `Turno actual: proteger a ${mon.displayName} mientras ${ally.displayName} activa Trick Room. Al siguiente turno tendrás prioridad de velocidad con tus sweepers lentos.`;
+    } else {
+      text = `Proteger a ${mon.displayName} este turno reduce el riesgo de perderlo ante la presión rival.`;
+    }
+  } else if (a.kind === 'move') {
+    text = `Recomendación: atacar con ${mon.displayName} usando ${a.moveName}.`;
+  } else if (a.kind === 'switch') {
+    const inMon = state.self[a.switchInIndex];
+    text = `Recomendación: cambiar a ${mon.displayName} por ${inMon ? inMon.displayName : 'otro'} para mejorar el cruce defensivo.`;
+  }
+
+  mount.innerHTML = `<p>${text}</p>`;
+}
+
+function renderLiveStatePanel() {
+  const panel = document.getElementById('liveStatePanel');
+  const selfMount = document.getElementById('liveStateSelfSlots');
+  const enemyMount = document.getElementById('liveStateEnemySlots');
+  const fieldMount = document.getElementById('liveFieldControls');
+
+  if (!panel || !selfMount || !enemyMount || !fieldMount) return;
+
+  const isLive = state.uiMode === 'live';
+  panel.style.display = isLive ? 'block' : 'none';
+  if (!isLive) return;
+
+  const renderMonControls = (mon, side, idx) => {
+    if (!mon) {
+      return `
+        <div class="live-slot-card live-slot-card--empty">
+          <div class="live-slot-title">Slot ${idx + 1}</div>
+          <div class="muted-small">Vacío</div>
+        </div>
+      `;
+    }
+
+    ensureBattleState(mon);
+
+    const b = mon.battle;
+    const hp = b.hpPct ?? 100;
+    const stages = b.stages || {};
+    const status = b.status || '';
+
+    const stageSelect = (statKey, label) => {
+      const val = stages[statKey] ?? 0;
+      const options = [];
+      for (let s = -6; s <= 6; s++) {
+        options.push(
+          `<option value="${s}" ${s === val ? 'selected' : ''}>${s > 0 ? '+' + s : s}</option>`
+        );
+      }
+      return `
+        <label class="live-stat-stage">
+          <span>${label}</span>
+          <select
+            data-live="stage"
+            data-side="${side}"
+            data-index="${idx}"
+            data-stat="${statKey}"
+          >
+            ${options.join('')}
+          </select>
+        </label>
+      `;
+    };
+
+    return `
+      <div class="live-slot-card">
+        <div class="live-slot-title">
+          <img src="${mon.sprite}" alt="${mon.displayName}" class="sprite-micro" />
+          <span>${mon.displayName}</span>
+        </div>
+
+        <label class="live-hp-control">
+          <span>HP %</span>
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value="${hp}"
+            data-live="hp"
+            data-side="${side}"
+            data-index="${idx}"
+          />
+        </label>
+
+        <div class="live-stages-row">
+          ${stageSelect('atk', 'Atk')}
+          ${stageSelect('def', 'Def')}
+          ${stageSelect('spa', 'SpA')}
+          ${stageSelect('spd', 'SpD')}
+          ${stageSelect('spe', 'Spe')}
+        </div>
+
+        <label class="live-status-control">
+          <span>Estado</span>
+          <select
+            data-live="status"
+            data-side="${side}"
+            data-index="${idx}"
+          >
+            <option value="" ${status === '' ? 'selected' : ''}>Ninguno</option>
+            <option value="brn" ${status === 'brn' ? 'selected' : ''}>Quemado</option>
+            <option value="par" ${status === 'par' ? 'selected' : ''}>Parálisis</option>
+            <option value="slp" ${status === 'slp' ? 'selected' : ''}>Sueño</option>
+            <option value="psn" ${status === 'psn' ? 'selected' : ''}>Veneno</option>
+            <option value="tox" ${status === 'tox' ? 'selected' : ''}>Tóxico</option>
+            <option value="frz" ${status === 'frz' ? 'selected' : ''}>Congelado</option>
+          </select>
+        </label>
+      </div>
+    `;
+  };
+
+  selfMount.innerHTML = state.self
+    .map((mon, idx) => renderMonControls(mon, 'self', idx))
+    .join('');
+
+  enemyMount.innerHTML = state.enemy
+    .map((mon, idx) => renderMonControls(mon, 'enemy', idx))
+    .join('');
+
+  const f = state.field;
+
+  fieldMount.innerHTML = `
+    <div class="live-field-row">
+      <label>
+        <span>Clima</span>
+        <select data-live="field-weather">
+          <option value="" ${!f.weather ? 'selected' : ''}>Ninguno</option>
+          <option value="sun" ${f.weather === 'sun' ? 'selected' : ''}>Sol</option>
+          <option value="rain" ${f.weather === 'rain' ? 'selected' : ''}>Lluvia</option>
+          <option value="sand" ${f.weather === 'sand' ? 'selected' : ''}>Arena</option>
+          <option value="snow" ${f.weather === 'snow' ? 'selected' : ''}>Nieve</option>
+        </select>
+      </label>
+      <label>
+        <span>Turnos clima</span>
+        <input type="number" min="0" max="8"
+          value="${f.weatherTurns || 0}"
+          data-live="field-weatherTurns"
+        />
+      </label>
+    </div>
+
+    <div class="live-field-row">
+      <label>
+        <span>Terreno</span>
+        <select data-live="field-terrain">
+          <option value="" ${!f.terrain ? 'selected' : ''}>Ninguno</option>
+          <option value="electric" ${f.terrain === 'electric' ? 'selected' : ''}>Eléctrico</option>
+          <option value="grassy" ${f.terrain === 'grassy' ? 'selected' : ''}>Hierba</option>
+          <option value="psychic" ${f.terrain === 'psychic' ? 'selected' : ''}>Psíquico</option>
+          <option value="misty" ${f.terrain === 'misty' ? 'selected' : ''}>Niebla</option>
+        </select>
+      </label>
+      <label>
+        <span>Turnos terreno</span>
+        <input type="number" min="0" max="8"
+          value="${f.terrainTurns || 0}"
+          data-live="field-terrainTurns"
+        />
+      </label>
+    </div>
+
+    <div class="live-field-row">
+      <label>
+        <input type="checkbox" data-live="field-trickRoom" ${f.trickRoom ? 'checked' : ''} />
+        Trick Room (${f.trickRoomTurns || 0} turnos)
+      </label>
+    </div>
+
+    <div class="live-field-row">
+      <label>
+        <input type="checkbox" data-live="field-tailwindSelf" ${f.tailwindSelf ? 'checked' : ''} />
+        Tailwind (self) (${f.tailwindSelfTurns || 0})
+      </label>
+      <label>
+        <input type="checkbox" data-live="field-tailwindEnemy" ${f.tailwindEnemy ? 'checked' : ''} />
+        Tailwind (enemy) (${f.tailwindEnemyTurns || 0})
+      </label>
+    </div>
+  `;
+
+  attachLiveStateListeners();
+}
+
+function attachLiveStateListeners() {
+  const root = document.getElementById('liveStatePanel');
+  if (!root) return;
+
+  const updateLive = () => {
+    if (typeof renderLiveStatePanel === 'function') renderLiveStatePanel();
+    if (typeof renderLiveRecommendations === 'function') renderLiveRecommendations();
+    const rows = getRows();
+    renderMatrix(rows);
+    renderLiveBattleToolbar();
+    updateIcons();
+  };
+
+  root.querySelectorAll('[data-live]').forEach((el) => {
+    const kind = el.getAttribute('data-live');
+
+    if (kind === 'hp') {
+      el.onchange = (e) => {
+        const side = el.dataset.side;
+        const idx = Number(el.dataset.index);
+        const mon = state[side][idx];
+        if (!mon) return;
+        ensureBattleState(mon);
+        const v = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+        mon.battle.hpPct = v;
+        updateLive();
+      };
+    }
+
+    if (kind === 'stage') {
+      el.onchange = (e) => {
+        const side = el.dataset.side;
+        const idx = Number(el.dataset.index);
+        const statKey = el.dataset.stat;
+        const mon = state[side][idx];
+        if (!mon) return;
+        ensureBattleState(mon);
+        const v = Math.max(-6, Math.min(6, Number(e.target.value) || 0));
+        mon.battle.stages[statKey] = v;
+        updateLive();
+      };
+    }
+
+    if (kind === 'status') {
+      el.onchange = (e) => {
+        const side = el.dataset.side;
+        const idx = Number(el.dataset.index);
+        const mon = state[side][idx];
+        if (!mon) return;
+        ensureBattleState(mon);
+        mon.battle.status = e.target.value || null;
+        updateLive();
+      };
+    }
+
+    if (kind.startsWith('field-')) {
+      el.onchange = (e) => {
+        const key = kind.replace('field-', '');
+        const f = state.field;
+
+        if (key === 'weather' || key === 'terrain') {
+          f[key] = e.target.value || null;
+        } else if (key === 'trickRoom') {
+          f.trickRoom = e.target.checked;
+          if (f.trickRoom && f.trickRoomTurns === 0) f.trickRoomTurns = 5;
+          if (!f.trickRoom) f.trickRoomTurns = 0;
+        } else if (key === 'tailwindSelf' || key === 'tailwindEnemy') {
+          f[key] = e.target.checked;
+          const turnsKey = key + 'Turns';
+          if (f[key] && f[turnsKey] === 0) f[turnsKey] = 4;
+          if (!f[key]) f[turnsKey] = 0;
+        } else if (key === 'weatherTurns' || key === 'terrainTurns') {
+          f[key] = Math.max(0, Math.min(8, Number(e.target.value) || 0));
+        }
+
+        updateLive();
+      };
+    }
+  });
+}

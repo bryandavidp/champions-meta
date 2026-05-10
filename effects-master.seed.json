@@ -1,0 +1,3313 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-05-09T23:57:24Z",
+  "sourcePolicy": {
+    "raw_source": "PokeAPI",
+    "engine_source_of_truth": "local_effect_registry",
+    "manual_patch_rule": "If PokeAPI only provides prose, fill triggers/effects manually.",
+    "normalization_rule": "All keys use normalized slugs compatible with getPapiSlug()."
+  },
+  "contracts": {
+    "entry": {
+      "slug": "normalized key",
+      "name": "English display name",
+      "name_es": "Spanish display name when available",
+      "source": {
+        "pokeapi": "source URL",
+        "effect_text_en": "raw prose from PokeAPI",
+        "generated_from_pokeapi": true,
+        "manual_patch_required": true
+      },
+      "tags": [
+        "behavior tags"
+      ],
+      "triggers": [
+        "engine hook names"
+      ],
+      "effects": [
+        {
+          "kind": "typed effect",
+          "...": "payload"
+        }
+      ],
+      "battle": {
+        "kind-specific fields": true
+      },
+      "notes": [
+        "freeform implementation notes"
+      ]
+    },
+    "supportedEffectKinds": [
+      "set_weather",
+      "set_terrain",
+      "speed_multiplier",
+      "attack_multiplier",
+      "special_attack_multiplier",
+      "special_defense_multiplier",
+      "stat_multiplier",
+      "final_damage_multiplier",
+      "move_type_multiplier",
+      "move_type_multiplier_taken",
+      "grant_immunity",
+      "block_priority",
+      "block_status_moves",
+      "block_secondary_effects",
+      "block_stat_drop",
+      "modify_stat_stage",
+      "heal_fraction",
+      "damage_fraction",
+      "recoil_fraction",
+      "choice_lock",
+      "forbid_status_moves",
+      "ignore_weather_damage",
+      "ignore_entry_hazards",
+      "survive_at_1hp",
+      "restore_negative_stages_once",
+      "force_form",
+      "self_switch_after_resolution",
+      "set_side_condition",
+      "toggle_room",
+      "self_protect",
+      "set_redirection",
+      "set_status",
+      "set_flag",
+      "form_change",
+      "protect_side_from_spread",
+      "protect_side_from_priority"
+    ],
+    "supportedTriggers": [
+      "on_switch_in",
+      "on_field_check",
+      "on_speed_calc",
+      "on_attack_calc",
+      "on_damage_calc",
+      "on_damage_calc_taken",
+      "on_defense_calc",
+      "on_try_hit",
+      "on_try_status",
+      "on_try_hit_taken",
+      "on_secondary_effect_attempt",
+      "on_stat_drop_attempt",
+      "on_stat_drop_applied",
+      "on_lethal_hit",
+      "on_contact_taken",
+      "on_after_hit",
+      "after_damage",
+      "on_move_select",
+      "on_move_selected",
+      "on_move_resolution",
+      "on_hp_threshold",
+      "on_mega_resolve",
+      "on_residual",
+      "on_flinch_attempt"
+    ]
+  },
+  "registries": {
+    "abilities": {
+      "drought": {
+        "slug": "drought",
+        "name": "Drought",
+        "name_es": "Sequía",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/drought",
+          "effect_text_en": "Summons strong sunlight that lasts indefinitely upon entering battle.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "weather-setter",
+          "switch-in"
+        ],
+        "triggers": [
+          "on_switch_in"
+        ],
+        "effects": [
+          {
+            "kind": "set_weather",
+            "value": "sun",
+            "priority": 100
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 5
+        }
+      },
+      "drizzle": {
+        "slug": "drizzle",
+        "name": "Drizzle",
+        "name_es": "Llovizna",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/drizzle",
+          "effect_text_en": "Summons rain that lasts indefinitely upon entering battle.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "weather-setter",
+          "switch-in"
+        ],
+        "triggers": [
+          "on_switch_in"
+        ],
+        "effects": [
+          {
+            "kind": "set_weather",
+            "value": "rain",
+            "priority": 100
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 3
+        }
+      },
+      "sand-stream": {
+        "slug": "sand-stream",
+        "name": "Sand Stream",
+        "name_es": "Chorro Arena",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/sand-stream",
+          "effect_text_en": "Summons a sandstorm that lasts indefinitely upon entering battle.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "weather-setter",
+          "switch-in"
+        ],
+        "triggers": [
+          "on_switch_in"
+        ],
+        "effects": [
+          {
+            "kind": "set_weather",
+            "value": "sand",
+            "priority": 100
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 5
+        }
+      },
+      "snow-warning": {
+        "slug": "snow-warning",
+        "name": "Snow Warning",
+        "name_es": "Nevada",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/snow-warning",
+          "effect_text_en": "Summons hail that lasts indefinitely upon entering battle.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "weather-setter",
+          "switch-in"
+        ],
+        "triggers": [
+          "on_switch_in"
+        ],
+        "effects": [
+          {
+            "kind": "set_weather",
+            "value": "snow",
+            "priority": 100
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iv",
+          "pokemon_count": 9
+        }
+      },
+      "swift-swim": {
+        "slug": "swift-swim",
+        "name": "Swift Swim",
+        "name_es": "Nado Rápido",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/swift-swim",
+          "effect_text_en": "Doubles Speed during rain.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "speed-mod"
+        ],
+        "triggers": [
+          "on_speed_calc"
+        ],
+        "effects": [
+          {
+            "kind": "speed_multiplier",
+            "value": 2,
+            "when": {
+              "weather": "rain"
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 48
+        }
+      },
+      "chlorophyll": {
+        "slug": "chlorophyll",
+        "name": "Chlorophyll",
+        "name_es": "Clorofila",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/chlorophyll",
+          "effect_text_en": "Doubles Speed during strong sunlight.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "speed-mod"
+        ],
+        "triggers": [
+          "on_speed_calc"
+        ],
+        "effects": [
+          {
+            "kind": "speed_multiplier",
+            "value": 2,
+            "when": {
+              "weather": "sun"
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 39
+        }
+      },
+      "sand-rush": {
+        "slug": "sand-rush",
+        "name": "Sand Rush",
+        "name_es": "Ímpetu Arena",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/sand-rush",
+          "effect_text_en": "Doubles Speed during a sandstorm.  Protects against sandstorm damage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "speed-mod"
+        ],
+        "triggers": [
+          "on_speed_calc"
+        ],
+        "effects": [
+          {
+            "kind": "speed_multiplier",
+            "value": 2,
+            "when": {
+              "weather": "sand"
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-v",
+          "pokemon_count": 10
+        }
+      },
+      "slush-rush": {
+        "slug": "slush-rush",
+        "name": "Slush Rush",
+        "name_es": "Quitanieves",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/slush-rush",
+          "effect_text_en": "During Hail, this Pokémon has double Speed.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "speed-mod"
+        ],
+        "triggers": [
+          "on_speed_calc"
+        ],
+        "effects": [
+          {
+            "kind": "speed_multiplier",
+            "value": 2,
+            "when": {
+              "weather": "snow"
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-vii",
+          "pokemon_count": 7
+        }
+      },
+      "intimidate": {
+        "slug": "intimidate",
+        "name": "Intimidate",
+        "name_es": "Intimidación",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/intimidate",
+          "effect_text_en": "Lowers opponents' Attack one stage upon entering battle.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "switch-in",
+          "atk-drop"
+        ],
+        "triggers": [
+          "on_switch_in"
+        ],
+        "effects": [
+          {
+            "kind": "modify_stat_stage",
+            "target": "foes_adjacent",
+            "stat": "atk",
+            "delta": -1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 46
+        }
+      },
+      "inner-focus": {
+        "slug": "inner-focus",
+        "name": "Inner Focus",
+        "name_es": "Foco Interno",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/inner-focus",
+          "effect_text_en": "Prevents flinching.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "fake-out-counter"
+        ],
+        "triggers": [
+          "on_flinch_attempt"
+        ],
+        "effects": [
+          {
+            "kind": "block_flinch"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 38
+        }
+      },
+      "clear-body": {
+        "slug": "clear-body",
+        "name": "Clear Body",
+        "name_es": "Cuerpo Puro",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/clear-body",
+          "effect_text_en": "Prevents stats from being lowered by other Pokémon.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "drop-protection"
+        ],
+        "triggers": [
+          "on_stat_drop_attempt"
+        ],
+        "effects": [
+          {
+            "kind": "block_stat_drop",
+            "except": "self_inflicted"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 19
+        }
+      },
+      "armor-tail": {
+        "slug": "armor-tail",
+        "name": "Armor Tail",
+        "name_es": "Cola Armadura",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/armor-tail",
+          "effect_text_en": "Prevents the opponent from using any moves that have priority, such as Quick Attack.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "priority-block"
+        ],
+        "triggers": [
+          "on_try_hit"
+        ],
+        "effects": [
+          {
+            "kind": "block_priority",
+            "target": "allies"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 1
+        }
+      },
+      "good-as-gold": {
+        "slug": "good-as-gold",
+        "name": "Good as Gold",
+        "name_es": "Cuerpo Áureo",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/good-as-gold",
+          "effect_text_en": "Gives immunity to status moves.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "status-immunity"
+        ],
+        "triggers": [
+          "on_try_hit"
+        ],
+        "effects": [
+          {
+            "kind": "block_status_moves",
+            "target": "self"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 1
+        }
+      },
+      "purifying-salt": {
+        "slug": "purifying-salt",
+        "name": "Purifying Salt",
+        "name_es": "Sal Purificadora",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/purifying-salt",
+          "effect_text_en": "Protects from status conditions and halves damage from Ghost-type moves.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "ghost-resist",
+          "status-resist"
+        ],
+        "triggers": [
+          "on_try_status",
+          "on_damage_calc"
+        ],
+        "effects": [
+          {
+            "kind": "major_status_immunity_subset",
+            "value": [
+              "burn",
+              "poison",
+              "toxic",
+              "paralysis",
+              "sleep"
+            ]
+          },
+          {
+            "kind": "move_type_multiplier_taken",
+            "move_type": "ghost",
+            "value": 0.5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 3
+        }
+      },
+      "rough-skin": {
+        "slug": "rough-skin",
+        "name": "Rough Skin",
+        "name_es": "Piel Tosca",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/rough-skin",
+          "effect_text_en": "Damages attacking Pokémon for 1/8 their max HP on contact.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "contact-punish"
+        ],
+        "triggers": [
+          "on_contact_taken"
+        ],
+        "effects": [
+          {
+            "kind": "damage_fraction",
+            "target": "attacker",
+            "value": 0.125
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 6
+        }
+      },
+      "supreme-overlord": {
+        "slug": "supreme-overlord",
+        "name": "Supreme Overlord",
+        "name_es": "General Supremo",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/supreme-overlord",
+          "effect_text_en": "Attack and Special Attack are boosted for each party Pokémon that has been defeated.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "late-game-boost"
+        ],
+        "triggers": [
+          "on_damage_calc"
+        ],
+        "effects": [
+          {
+            "kind": "dynamic_multiplier",
+            "value": "1 + 0.1 * fainted_allies",
+            "max": 1.5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 1
+        }
+      },
+      "flash-fire": {
+        "slug": "flash-fire",
+        "name": "Flash Fire",
+        "name_es": "Absorbe Fuego",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/flash-fire",
+          "effect_text_en": "Protects against Fire moves.  Once one has been blocked, the Pokémon's own Fire moves inflict 1.5× damage until it leaves battle.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "immunity",
+          "fire-boost"
+        ],
+        "triggers": [
+          "on_try_hit",
+          "on_after_absorb"
+        ],
+        "effects": [
+          {
+            "kind": "grant_immunity",
+            "move_type": "fire"
+          },
+          {
+            "kind": "set_flag",
+            "flag": "flash_fire_armed"
+          },
+          {
+            "kind": "move_type_multiplier",
+            "move_type": "fire",
+            "value": 1.5,
+            "when": {
+              "flag": "flash_fire_armed"
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 29
+        }
+      },
+      "water-absorb": {
+        "slug": "water-absorb",
+        "name": "Water Absorb",
+        "name_es": "Absorbe Agua",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/water-absorb",
+          "effect_text_en": "Absorbs Water moves, healing for 1/4 max HP.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "immunity",
+          "heal"
+        ],
+        "triggers": [
+          "on_try_hit"
+        ],
+        "effects": [
+          {
+            "kind": "grant_immunity",
+            "move_type": "water"
+          },
+          {
+            "kind": "heal_fraction",
+            "value": 0.25
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 30
+        }
+      },
+      "volt-absorb": {
+        "slug": "volt-absorb",
+        "name": "Volt Absorb",
+        "name_es": "Absorbe Elec",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/volt-absorb",
+          "effect_text_en": "Absorbs Electric moves, healing for 1/4 max HP.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "immunity",
+          "heal"
+        ],
+        "triggers": [
+          "on_try_hit"
+        ],
+        "effects": [
+          {
+            "kind": "grant_immunity",
+            "move_type": "electric"
+          },
+          {
+            "kind": "heal_fraction",
+            "value": 0.25
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 13
+        }
+      },
+      "levitate": {
+        "slug": "levitate",
+        "name": "Levitate",
+        "name_es": "Levitación",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/levitate",
+          "effect_text_en": "Evades Ground moves.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "immunity"
+        ],
+        "triggers": [
+          "on_try_hit"
+        ],
+        "effects": [
+          {
+            "kind": "grant_immunity",
+            "move_type": "ground",
+            "unless": [
+              "iron-ball",
+              "gravity",
+              "smack-down",
+              "thousand-arrows"
+            ]
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 44
+        }
+      },
+      "well-baked-body": {
+        "slug": "well-baked-body",
+        "name": "Well-Baked Body",
+        "name_es": "Cuerpo Horneado",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/well-baked-body",
+          "effect_text_en": "Immune to Fire-type moves, and Defense is sharply boosted.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "immunity",
+          "def-boost"
+        ],
+        "triggers": [
+          "on_try_hit"
+        ],
+        "effects": [
+          {
+            "kind": "grant_immunity",
+            "move_type": "fire"
+          },
+          {
+            "kind": "modify_stat_stage",
+            "target": "self",
+            "stat": "def",
+            "delta": 2
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 1
+        }
+      },
+      "huge-power": {
+        "slug": "huge-power",
+        "name": "Huge Power",
+        "name_es": "Potencia",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/huge-power",
+          "effect_text_en": "Doubles Attack in battle.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "attack-mod"
+        ],
+        "triggers": [
+          "on_attack_calc"
+        ],
+        "effects": [
+          {
+            "kind": "stat_multiplier",
+            "stat": "atk",
+            "value": 2
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 7
+        }
+      },
+      "pure-power": {
+        "slug": "pure-power",
+        "name": "Pure Power",
+        "name_es": "Energía Pura",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/pure-power",
+          "effect_text_en": "Doubles Attack in battle.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "attack-mod"
+        ],
+        "triggers": [
+          "on_attack_calc"
+        ],
+        "effects": [
+          {
+            "kind": "stat_multiplier",
+            "stat": "atk",
+            "value": 2
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iii",
+          "pokemon_count": 3
+        }
+      },
+      "magic-guard": {
+        "slug": "magic-guard",
+        "name": "Magic Guard",
+        "name_es": "Muro Mágico",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/magic-guard",
+          "effect_text_en": "Protects against damage not directly caused by a move.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "residual-immunity"
+        ],
+        "triggers": [
+          "on_residual"
+        ],
+        "effects": [
+          {
+            "kind": "ignore_indirect_damage"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-iv",
+          "pokemon_count": 10
+        }
+      },
+      "quark-drive": {
+        "slug": "quark-drive",
+        "name": "Quark Drive",
+        "name_es": "Carga Cuark",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/quark-drive",
+          "effect_text_en": "Raises highest stat on Electric Terrain, or if holding Booster Energy.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "booster-engine"
+        ],
+        "triggers": [
+          "on_field_check"
+        ],
+        "effects": [
+          {
+            "kind": "activate_proto_quark",
+            "field": "electric_terrain",
+            "item": "booster-energy"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 10
+        }
+      },
+      "hadron-engine": {
+        "slug": "hadron-engine",
+        "name": "Hadron Engine",
+        "name_es": "Motor Hadrónico",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/hadron-engine",
+          "effect_text_en": "Creates an Electric Terrain when entering battle, and boosts Special Attack while active.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "terrain-setter",
+          "spa-boost"
+        ],
+        "triggers": [
+          "on_switch_in",
+          "on_field_check"
+        ],
+        "effects": [
+          {
+            "kind": "set_terrain",
+            "value": "electric",
+            "priority": 100
+          },
+          {
+            "kind": "special_attack_multiplier",
+            "value": 1.333,
+            "when": {
+              "terrain": "electric"
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 5
+        }
+      },
+      "orichalcum-pulse": {
+        "slug": "orichalcum-pulse",
+        "name": "Orichalcum Pulse",
+        "name_es": "Latido Oricalco",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/orichalcum-pulse",
+          "effect_text_en": "Turns the sunlight harsh when entering battle, and boosts Attack while active.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "weather-setter",
+          "atk-boost"
+        ],
+        "triggers": [
+          "on_switch_in",
+          "on_field_check"
+        ],
+        "effects": [
+          {
+            "kind": "set_weather",
+            "value": "sun",
+            "priority": 100
+          },
+          {
+            "kind": "attack_multiplier",
+            "value": 1.333,
+            "when": {
+              "weather": "sun"
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 5
+        }
+      },
+      "sword-of-ruin": {
+        "slug": "sword-of-ruin",
+        "name": "Sword of Ruin",
+        "name_es": "Espada Debacle",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/sword-of-ruin",
+          "effect_text_en": "Lowers Defense of all Pokémon except itself.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "aura-debuff"
+        ],
+        "triggers": [
+          "on_field_check"
+        ],
+        "effects": [
+          {
+            "kind": "stat_field_multiplier",
+            "target": "foes",
+            "stat": "def",
+            "value": 0.75
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 1
+        }
+      },
+      "beads-of-ruin": {
+        "slug": "beads-of-ruin",
+        "name": "Beads of Ruin",
+        "name_es": "Abalorio Debacle",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/beads-of-ruin",
+          "effect_text_en": "Lowers Special Defense of all Pokémon except itself.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "aura-debuff"
+        ],
+        "triggers": [
+          "on_field_check"
+        ],
+        "effects": [
+          {
+            "kind": "stat_field_multiplier",
+            "target": "foes",
+            "stat": "spd",
+            "value": 0.75
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 1
+        }
+      },
+      "vessel-of-ruin": {
+        "slug": "vessel-of-ruin",
+        "name": "Vessel of Ruin",
+        "name_es": "Caldero Debacle",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/vessel-of-ruin",
+          "effect_text_en": "Lowers Special Attack of all Pokémon except itself.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "aura-debuff"
+        ],
+        "triggers": [
+          "on_field_check"
+        ],
+        "effects": [
+          {
+            "kind": "stat_field_multiplier",
+            "target": "foes",
+            "stat": "spa",
+            "value": 0.75
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 1
+        }
+      },
+      "tablets-of-ruin": {
+        "slug": "tablets-of-ruin",
+        "name": "Tablets of Ruin",
+        "name_es": "Tablilla Debacle",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/tablets-of-ruin",
+          "effect_text_en": "Lowers Attack of all Pokémon except itself.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "aura-debuff"
+        ],
+        "triggers": [
+          "on_field_check"
+        ],
+        "effects": [
+          {
+            "kind": "stat_field_multiplier",
+            "target": "foes",
+            "stat": "atk",
+            "value": 0.75
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-ix",
+          "pokemon_count": 1
+        }
+      },
+      "stance-change": {
+        "slug": "stance-change",
+        "name": "Stance Change",
+        "name_es": "Cambio Táctico",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/ability/stance-change",
+          "effect_text_en": "Changes Aegislash to Blade Forme before using a damaging move, or Shield Forme before using King’s Shield.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "form-change"
+        ],
+        "triggers": [
+          "on_move_selected"
+        ],
+        "effects": [
+          {
+            "kind": "form_change",
+            "value": "aegislash-blade",
+            "when": {
+              "move_damage_class": [
+                "physical",
+                "special"
+              ]
+            }
+          },
+          {
+            "kind": "form_change",
+            "value": "aegislash-shield",
+            "when": {
+              "move": "kings-shield"
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "generation": "generation-vi",
+          "pokemon_count": 2
+        }
+      }
+    },
+    "items": {
+      "choice-scarf": {
+        "slug": "choice-scarf",
+        "name": "Choice Scarf",
+        "name_es": "Pañuelo Elección",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/choice-scarf",
+          "effect_text_en": "Held: Increases Speed by 50%, but restricts the holder to only one move.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "choice",
+          "speed-mod"
+        ],
+        "triggers": [
+          "on_speed_calc"
+        ],
+        "effects": [
+          {
+            "kind": "speed_multiplier",
+            "value": 1.5
+          },
+          {
+            "kind": "choice_lock"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "choice",
+          "attributes": [
+            "holdable",
+            "holdable-active"
+          ],
+          "fling_power": 10,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "choice-specs": {
+        "slug": "choice-specs",
+        "name": "Choice Specs",
+        "name_es": "Gafas Elección",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/choice-specs",
+          "effect_text_en": "Held: Increases Special Attack by 50%, but restricts the holder to only one move.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "choice",
+          "spa-mod"
+        ],
+        "triggers": [
+          "on_damage_calc"
+        ],
+        "effects": [
+          {
+            "kind": "special_attack_multiplier",
+            "value": 1.5
+          },
+          {
+            "kind": "choice_lock"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "choice",
+          "attributes": [
+            "holdable",
+            "holdable-active"
+          ],
+          "fling_power": 10,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "choice-band": {
+        "slug": "choice-band",
+        "name": "Choice Band",
+        "name_es": "Cinta Elección",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/choice-band",
+          "effect_text_en": "Held: Increases Attack by 50%, but restricts the holder to only one move.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "choice",
+          "atk-mod"
+        ],
+        "triggers": [
+          "on_damage_calc"
+        ],
+        "effects": [
+          {
+            "kind": "attack_multiplier",
+            "value": 1.5
+          },
+          {
+            "kind": "choice_lock"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "choice",
+          "attributes": [
+            "holdable",
+            "holdable-active"
+          ],
+          "fling_power": 10,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "life-orb": {
+        "slug": "life-orb",
+        "name": "Life Orb",
+        "name_es": "Vidasfera",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/life-orb",
+          "effect_text_en": "Held: Holder’s moves inflict 30% extra damage, but cost 10% max HP.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "damage-boost",
+          "recoil"
+        ],
+        "triggers": [
+          "on_damage_calc",
+          "after_damage"
+        ],
+        "effects": [
+          {
+            "kind": "final_damage_multiplier",
+            "value": 1.3
+          },
+          {
+            "kind": "recoil_fraction",
+            "value": 0.1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [
+            "holdable",
+            "holdable-active"
+          ],
+          "fling_power": 30,
+          "fling_effect": null,
+          "held_by_pokemon_count": 2
+        }
+      },
+      "assault-vest": {
+        "slug": "assault-vest",
+        "name": "Assault Vest",
+        "name_es": "Chaleco Asalto",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/assault-vest",
+          "effect_text_en": "Raises the holder’s Special Defense to 1.5×.  Prevents the holder from selecting a status move.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "spd-mod",
+          "move-lock"
+        ],
+        "triggers": [
+          "on_defense_calc",
+          "on_move_select"
+        ],
+        "effects": [
+          {
+            "kind": "special_defense_multiplier",
+            "value": 1.5
+          },
+          {
+            "kind": "forbid_status_moves"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [],
+          "fling_power": 80,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "focus-sash": {
+        "slug": "focus-sash",
+        "name": "Focus Sash",
+        "name_es": "Banda Focus",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/focus-sash",
+          "effect_text_en": "Held: Holder survives any single-hit attack at 1 HP if at max HP, then the item is consumed.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "survival"
+        ],
+        "triggers": [
+          "on_lethal_hit"
+        ],
+        "effects": [
+          {
+            "kind": "survive_at_1hp",
+            "when": {
+              "hp_full": true
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [
+            "holdable",
+            "holdable-active"
+          ],
+          "fling_power": 10,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "clear-amulet": {
+        "slug": "clear-amulet",
+        "name": "Clear Amulet",
+        "name_es": null,
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/clear-amulet",
+          "effect_text_en": null,
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "drop-protection"
+        ],
+        "triggers": [
+          "on_stat_drop_attempt"
+        ],
+        "effects": [
+          {
+            "kind": "block_stat_drop",
+            "except": "self_inflicted"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [],
+          "fling_power": null,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "covert-cloak": {
+        "slug": "covert-cloak",
+        "name": "Covert Cloak",
+        "name_es": null,
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/covert-cloak",
+          "effect_text_en": null,
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "secondary-protection"
+        ],
+        "triggers": [
+          "on_secondary_effect_attempt"
+        ],
+        "effects": [
+          {
+            "kind": "block_secondary_effects"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [],
+          "fling_power": null,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "booster-energy": {
+        "slug": "booster-energy",
+        "name": "Booster Energy",
+        "name_es": null,
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/booster-energy",
+          "effect_text_en": null,
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "quark-proto"
+        ],
+        "triggers": [
+          "on_switch_in"
+        ],
+        "effects": [
+          {
+            "kind": "consume_for_proto_quark_activation"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [],
+          "fling_power": null,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "safety-goggles": {
+        "slug": "safety-goggles",
+        "name": "Safety Goggles",
+        "name_es": "Gafa Protectora",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/safety-goggles",
+          "effect_text_en": "Held: Prevents damage from powder moves and the damage from Hail and Sandstorm.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "powder-immunity",
+          "weather-chip-immunity"
+        ],
+        "triggers": [
+          "on_try_hit",
+          "on_residual"
+        ],
+        "effects": [
+          {
+            "kind": "block_move_tag",
+            "value": "powder"
+          },
+          {
+            "kind": "ignore_weather_damage"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [],
+          "fling_power": 80,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "expert-belt": {
+        "slug": "expert-belt",
+        "name": "Expert Belt",
+        "name_es": "Cinta Experto",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/expert-belt",
+          "effect_text_en": "Held: Holder’s Super Effective moves do 20% extra damage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "damage-boost"
+        ],
+        "triggers": [
+          "on_damage_calc"
+        ],
+        "effects": [
+          {
+            "kind": "final_damage_multiplier",
+            "value": 1.2,
+            "when": {
+              "effectiveness_gt": 1
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [
+            "holdable",
+            "holdable-active"
+          ],
+          "fling_power": 10,
+          "fling_effect": null,
+          "held_by_pokemon_count": 2
+        }
+      },
+      "black-glasses": {
+        "slug": "black-glasses",
+        "name": "Black Glasses",
+        "name_es": "Gafas de Sol",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/black-glasses",
+          "effect_text_en": "Held: Dark-Type moves from holder do 20% more damage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "type-boost"
+        ],
+        "triggers": [
+          "on_damage_calc"
+        ],
+        "effects": [
+          {
+            "kind": "move_type_multiplier",
+            "move_type": "dark",
+            "value": 1.2
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "type-enhancement",
+          "attributes": [
+            "holdable",
+            "holdable-active"
+          ],
+          "fling_power": 30,
+          "fling_effect": null,
+          "held_by_pokemon_count": 4
+        }
+      },
+      "dragon-fang": {
+        "slug": "dragon-fang",
+        "name": "Dragon Fang",
+        "name_es": "Colmillo Dragón",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/dragon-fang",
+          "effect_text_en": "Held: Dragon-Type moves from holder do 20% more damage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "type-boost"
+        ],
+        "triggers": [
+          "on_damage_calc"
+        ],
+        "effects": [
+          {
+            "kind": "move_type_multiplier",
+            "move_type": "dragon",
+            "value": 1.2
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "type-enhancement",
+          "attributes": [
+            "holdable",
+            "holdable-active"
+          ],
+          "fling_power": 70,
+          "fling_effect": null,
+          "held_by_pokemon_count": 9
+        }
+      },
+      "loaded-dice": {
+        "slug": "loaded-dice",
+        "name": "Loaded Dice",
+        "name_es": null,
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/loaded-dice",
+          "effect_text_en": null,
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "multihit"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "multi_hit_distribution",
+            "value": "4-5 preferred"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [],
+          "fling_power": null,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "heavy-duty-boots": {
+        "slug": "heavy-duty-boots",
+        "name": "Heavy-Duty Boots",
+        "name_es": "Botas Gruesas",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/heavy-duty-boots",
+          "effect_text_en": null,
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "hazard-immunity"
+        ],
+        "triggers": [
+          "on_switch_in"
+        ],
+        "effects": [
+          {
+            "kind": "ignore_entry_hazards"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [],
+          "fling_power": 80,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "rocky-helmet": {
+        "slug": "rocky-helmet",
+        "name": "Rocky Helmet",
+        "name_es": "Casco Dentado",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/rocky-helmet",
+          "effect_text_en": "Held: When the holder is hit by a contact move, the attacking Pokémon takes 1/6 its max HP in damage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "contact-punish"
+        ],
+        "triggers": [
+          "on_contact_taken"
+        ],
+        "effects": [
+          {
+            "kind": "damage_fraction",
+            "target": "attacker",
+            "value": 0.166667
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [],
+          "fling_power": 60,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "sitrus-berry": {
+        "slug": "sitrus-berry",
+        "name": "Sitrus Berry",
+        "name_es": "Baya Zidra",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/sitrus-berry",
+          "effect_text_en": "Held: Consumed at 1/2 max HP to recover 1/4 max HP.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "berry",
+          "healing"
+        ],
+        "triggers": [
+          "on_hp_threshold"
+        ],
+        "effects": [
+          {
+            "kind": "heal_fraction",
+            "value": 0.25,
+            "when": {
+              "hp_lte": 0.5
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "medicine",
+          "attributes": [
+            "holdable-active"
+          ],
+          "fling_power": 10,
+          "fling_effect": "berry-effect",
+          "held_by_pokemon_count": 11
+        }
+      },
+      "colbur-berry": {
+        "slug": "colbur-berry",
+        "name": "Colbur Berry",
+        "name_es": "Baya Dillo",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/colbur-berry",
+          "effect_text_en": "Held: Consumed when struck by a super-effective Dark-type attack to halve the damage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "berry",
+          "type-resist"
+        ],
+        "triggers": [
+          "on_damage_calc_taken"
+        ],
+        "effects": [
+          {
+            "kind": "move_type_multiplier_taken",
+            "move_type": "dark",
+            "value": 0.5,
+            "consume": true,
+            "when": {
+              "effectiveness_gt": 1
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "type-protection",
+          "attributes": [
+            "holdable-active"
+          ],
+          "fling_power": 10,
+          "fling_effect": null,
+          "held_by_pokemon_count": 2
+        }
+      },
+      "shuca-berry": {
+        "slug": "shuca-berry",
+        "name": "Shuca Berry",
+        "name_es": "Baya Acardo",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/shuca-berry",
+          "effect_text_en": "Held: Consumed when struck by a super-effective Ground-type attack to halve the damage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "berry",
+          "type-resist"
+        ],
+        "triggers": [
+          "on_damage_calc_taken"
+        ],
+        "effects": [
+          {
+            "kind": "move_type_multiplier_taken",
+            "move_type": "ground",
+            "value": 0.5,
+            "consume": true,
+            "when": {
+              "effectiveness_gt": 1
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "type-protection",
+          "attributes": [
+            "holdable-active"
+          ],
+          "fling_power": 10,
+          "fling_effect": null,
+          "held_by_pokemon_count": 2
+        }
+      },
+      "chople-berry": {
+        "slug": "chople-berry",
+        "name": "Chople Berry",
+        "name_es": "Baya Pomaro",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/chople-berry",
+          "effect_text_en": "Held: Consumed when struck by a super-effective Fighting-type attack to halve the damage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "berry",
+          "type-resist"
+        ],
+        "triggers": [
+          "on_damage_calc_taken"
+        ],
+        "effects": [
+          {
+            "kind": "move_type_multiplier_taken",
+            "move_type": "fighting",
+            "value": 0.5,
+            "consume": true,
+            "when": {
+              "effectiveness_gt": 1
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "type-protection",
+          "attributes": [
+            "holdable-active"
+          ],
+          "fling_power": 10,
+          "fling_effect": null,
+          "held_by_pokemon_count": 2
+        }
+      },
+      "white-herb": {
+        "slug": "white-herb",
+        "name": "White Herb",
+        "name_es": "Hierba Blanca",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/white-herb",
+          "effect_text_en": "Held: Resets all lowered stats to normal at end of turn. Consumed after use.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "restore-drops"
+        ],
+        "triggers": [
+          "on_stat_drop_applied"
+        ],
+        "effects": [
+          {
+            "kind": "restore_negative_stages_once",
+            "consume": true
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "held-items",
+          "attributes": [
+            "holdable",
+            "holdable-active"
+          ],
+          "fling_power": 10,
+          "fling_effect": "herb-effect",
+          "held_by_pokemon_count": 0
+        }
+      },
+      "charizardite-x": {
+        "slug": "charizardite-x",
+        "name": "Charizardite X",
+        "name_es": "Charizardita X",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/charizardite-x",
+          "effect_text_en": "Held: Allows Charizard to Mega Evolve into Mega Charizard X.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "mega-stone"
+        ],
+        "triggers": [
+          "on_mega_resolve"
+        ],
+        "effects": [
+          {
+            "kind": "force_form",
+            "value": "charizard-mega-x"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "mega-stones",
+          "attributes": [],
+          "fling_power": 80,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "charizardite-y": {
+        "slug": "charizardite-y",
+        "name": "Charizardite Y",
+        "name_es": "Charizardita Y",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/charizardite-y",
+          "effect_text_en": "Held: Allows Charizard to Mega Evolve into Mega Charizard Y.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "mega-stone"
+        ],
+        "triggers": [
+          "on_mega_resolve"
+        ],
+        "effects": [
+          {
+            "kind": "force_form",
+            "value": "charizard-mega-y"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "mega-stones",
+          "attributes": [],
+          "fling_power": 80,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "tyranitarite": {
+        "slug": "tyranitarite",
+        "name": "Tyranitarite",
+        "name_es": "Tyranitarita",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/tyranitarite",
+          "effect_text_en": "Held: Allows Tyranitar to Mega Evolve into Mega Tyranitar.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "mega-stone"
+        ],
+        "triggers": [
+          "on_mega_resolve"
+        ],
+        "effects": [
+          {
+            "kind": "force_form",
+            "value": "tyranitar-mega"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "mega-stones",
+          "attributes": [],
+          "fling_power": 80,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      },
+      "garchompite": {
+        "slug": "garchompite",
+        "name": "Garchompite",
+        "name_es": "Garchompita",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/item/garchompite",
+          "effect_text_en": "Held: Allows Garchomp to Mega Evolve into Mega Garchomp.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "mega-stone"
+        ],
+        "triggers": [
+          "on_mega_resolve"
+        ],
+        "effects": [
+          {
+            "kind": "force_form",
+            "value": "garchomp-mega"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "category": "mega-stones",
+          "attributes": [],
+          "fling_power": 80,
+          "fling_effect": null,
+          "held_by_pokemon_count": 0
+        }
+      }
+    },
+    "moves": {
+      "fake-out": {
+        "slug": "fake-out",
+        "name": "Fake Out",
+        "name_es": "Sorpresa",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/fake-out",
+          "effect_text_en": "Can only be used as the first move after the user enters battle.  Causes the target to flinch.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "priority",
+          "flinch",
+          "first-turn-only"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "flinch",
+            "chance": 100,
+            "when": {
+              "first_turn_active": true
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "normal",
+          "power": 40,
+          "accuracy": 100,
+          "priority": 3,
+          "damage_class": "physical",
+          "target": "selected-pokemon",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 100,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "tailwind": {
+        "slug": "tailwind",
+        "name": "Tailwind",
+        "name_es": "Viento Afín",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/tailwind",
+          "effect_text_en": "For three turns, friendly Pokémon have doubled Speed.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "speed-control"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_side_condition",
+            "value": "tailwind",
+            "turns": 4
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "flying",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "users-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "trick-room": {
+        "slug": "trick-room",
+        "name": "Trick Room",
+        "name_es": "Espacio Raro",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/trick-room",
+          "effect_text_en": "For five turns, slower Pokémon will act before faster Pokémon.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "speed-control"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "toggle_room",
+            "value": "trick_room",
+            "turns": 5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "psychic",
+          "power": null,
+          "accuracy": null,
+          "priority": -7,
+          "damage_class": "status",
+          "target": "entire-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "helping-hand": {
+        "slug": "helping-hand",
+        "name": "Helping Hand",
+        "name_es": "Refuerzo",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/helping-hand",
+          "effect_text_en": "Ally’s next move inflicts half more damage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "priority",
+          "ally-boost"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_flag",
+            "target": "ally",
+            "flag": "helping_hand",
+            "turns": 1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "normal",
+          "power": null,
+          "accuracy": null,
+          "priority": 5,
+          "damage_class": "status",
+          "target": "ally",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "follow-me": {
+        "slug": "follow-me",
+        "name": "Follow Me",
+        "name_es": "Señuelo",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/follow-me",
+          "effect_text_en": "Redirects the target’s single-target effects to the user for this turn.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "priority",
+          "redirection"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_redirection",
+            "target": "self_side",
+            "turns": 1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "normal",
+          "power": null,
+          "accuracy": null,
+          "priority": 2,
+          "damage_class": "status",
+          "target": "user",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "rage-powder": {
+        "slug": "rage-powder",
+        "name": "Rage Powder",
+        "name_es": "Polvo Ira",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/rage-powder",
+          "effect_text_en": "Redirects the target’s single-target effects to the user for this turn.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "priority",
+          "redirection",
+          "powder"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_redirection",
+            "target": "self_side",
+            "turns": 1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "bug",
+          "power": null,
+          "accuracy": null,
+          "priority": 2,
+          "damage_class": "status",
+          "target": "user",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "wide-guard": {
+        "slug": "wide-guard",
+        "name": "Wide Guard",
+        "name_es": "Vastaguardia",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/wide-guard",
+          "effect_text_en": "Prevents any multi-target moves from hitting friendly Pokémon this turn.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "priority",
+          "protection"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "protect_side_from_spread",
+            "turns": 1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "rock",
+          "power": null,
+          "accuracy": null,
+          "priority": 3,
+          "damage_class": "status",
+          "target": "users-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "quick-guard": {
+        "slug": "quick-guard",
+        "name": "Quick Guard",
+        "name_es": "Anticipo",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/quick-guard",
+          "effect_text_en": "Prevents any priority moves from hitting friendly Pokémon this turn.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "priority",
+          "protection"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "protect_side_from_priority",
+            "turns": 1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "fighting",
+          "power": null,
+          "accuracy": null,
+          "priority": 3,
+          "damage_class": "status",
+          "target": "users-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "protect": {
+        "slug": "protect",
+        "name": "Protect",
+        "name_es": "Protección",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/protect",
+          "effect_text_en": "Prevents any moves from hitting the user this turn.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "protection"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "self_protect",
+            "turns": 1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "normal",
+          "power": null,
+          "accuracy": null,
+          "priority": 4,
+          "damage_class": "status",
+          "target": "user",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "detect": {
+        "slug": "detect",
+        "name": "Detect",
+        "name_es": "Detección",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/detect",
+          "effect_text_en": "Prevents any moves from hitting the user this turn.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "protection"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "self_protect",
+            "turns": 1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "fighting",
+          "power": null,
+          "accuracy": null,
+          "priority": 4,
+          "damage_class": "status",
+          "target": "user",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "parting-shot": {
+        "slug": "parting-shot",
+        "name": "Parting Shot",
+        "name_es": "Última Palabra",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/parting-shot",
+          "effect_text_en": "Lowers all targets’ Attack and Special Attack by one stage.  Makes the user switch out.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "pivot",
+          "stat-drop"
+        ],
+        "triggers": [
+          "on_after_hit"
+        ],
+        "effects": [
+          {
+            "kind": "modify_stat_stage",
+            "target": "target",
+            "stat": "atk",
+            "delta": -1
+          },
+          {
+            "kind": "modify_stat_stage",
+            "target": "target",
+            "stat": "spa",
+            "delta": -1
+          },
+          {
+            "kind": "self_switch_after_resolution"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "dark",
+          "power": null,
+          "accuracy": 100,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "selected-pokemon",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": [
+            {
+              "change": -1,
+              "stat": {
+                "name": "attack",
+                "url": "https://pokeapi.co/api/v2/stat/2/"
+              }
+            },
+            {
+              "change": -1,
+              "stat": {
+                "name": "special-attack",
+                "url": "https://pokeapi.co/api/v2/stat/4/"
+              }
+            }
+          ]
+        }
+      },
+      "volt-switch": {
+        "slug": "volt-switch",
+        "name": "Volt Switch",
+        "name_es": "Voltiocambio",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/volt-switch",
+          "effect_text_en": "User must switch out after attacking.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "pivot"
+        ],
+        "triggers": [
+          "on_after_hit"
+        ],
+        "effects": [
+          {
+            "kind": "self_switch_after_resolution"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "electric",
+          "power": 70,
+          "accuracy": 100,
+          "priority": 0,
+          "damage_class": "special",
+          "target": "selected-pokemon",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "u-turn": {
+        "slug": "u-turn",
+        "name": "U-turn",
+        "name_es": "Ida y Vuelta",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/u-turn",
+          "effect_text_en": "User must switch out after attacking.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "pivot",
+          "contact"
+        ],
+        "triggers": [
+          "on_after_hit"
+        ],
+        "effects": [
+          {
+            "kind": "self_switch_after_resolution"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "bug",
+          "power": 70,
+          "accuracy": 100,
+          "priority": 0,
+          "damage_class": "physical",
+          "target": "selected-pokemon",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "flip-turn": {
+        "slug": "flip-turn",
+        "name": "Flip Turn",
+        "name_es": "Viraje",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/flip-turn",
+          "effect_text_en": "Inflicts regular damage with no additional effect.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "pivot",
+          "contact"
+        ],
+        "triggers": [
+          "on_after_hit"
+        ],
+        "effects": [
+          {
+            "kind": "self_switch_after_resolution"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "water",
+          "power": 60,
+          "accuracy": 100,
+          "priority": 0,
+          "damage_class": "physical",
+          "target": "selected-pokemon",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "snarl": {
+        "slug": "snarl",
+        "name": "Snarl",
+        "name_es": "Alarido",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/snarl",
+          "effect_text_en": "Has a chance to lower the target’s Special Attack by one stage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "spread",
+          "stat-drop"
+        ],
+        "triggers": [
+          "on_after_hit"
+        ],
+        "effects": [
+          {
+            "kind": "modify_stat_stage",
+            "target": "targets",
+            "stat": "spa",
+            "delta": -1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "dark",
+          "power": 55,
+          "accuracy": 95,
+          "priority": 0,
+          "damage_class": "special",
+          "target": "all-opponents",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": [
+            {
+              "change": -1,
+              "stat": {
+                "name": "special-attack",
+                "url": "https://pokeapi.co/api/v2/stat/4/"
+              }
+            }
+          ]
+        }
+      },
+      "taunt": {
+        "slug": "taunt",
+        "name": "Taunt",
+        "name_es": "Mofa",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/taunt",
+          "effect_text_en": "For the next few turns, the target can only use damaging moves.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "disruption"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_volatile",
+            "value": "taunt",
+            "turns": 3
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "dark",
+          "power": null,
+          "accuracy": 100,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "selected-pokemon",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "thunder-wave": {
+        "slug": "thunder-wave",
+        "name": "Thunder Wave",
+        "name_es": "Onda Trueno",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/thunder-wave",
+          "effect_text_en": "Paralyzes the target.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "speed-control",
+          "status"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_status",
+            "value": "paralysis"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "electric",
+          "power": null,
+          "accuracy": 90,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "selected-pokemon",
+          "ailment": "paralysis",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "icy-wind": {
+        "slug": "icy-wind",
+        "name": "Icy Wind",
+        "name_es": "Viento Hielo",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/icy-wind",
+          "effect_text_en": "Has a chance to lower the target’s Speed by one stage.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "spread",
+          "speed-control"
+        ],
+        "triggers": [
+          "on_after_hit"
+        ],
+        "effects": [
+          {
+            "kind": "modify_stat_stage",
+            "target": "targets",
+            "stat": "spe",
+            "delta": -1
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "ice",
+          "power": 55,
+          "accuracy": 95,
+          "priority": 0,
+          "damage_class": "special",
+          "target": "all-opponents",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": [
+            {
+              "change": -1,
+              "stat": {
+                "name": "speed",
+                "url": "https://pokeapi.co/api/v2/stat/6/"
+              }
+            }
+          ]
+        }
+      },
+      "will-o-wisp": {
+        "slug": "will-o-wisp",
+        "name": "Will-O-Wisp",
+        "name_es": "Fuego Fatuo",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/will-o-wisp",
+          "effect_text_en": "Burns the target.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "status"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_status",
+            "value": "burn"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "fire",
+          "power": null,
+          "accuracy": 85,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "selected-pokemon",
+          "ailment": "burn",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "spore": {
+        "slug": "spore",
+        "name": "Spore",
+        "name_es": "Espora",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/spore",
+          "effect_text_en": "Puts the target to sleep.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "status",
+          "powder"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_status",
+            "value": "sleep"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "grass",
+          "power": null,
+          "accuracy": 100,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "selected-pokemon",
+          "ailment": "sleep",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "sleep-powder": {
+        "slug": "sleep-powder",
+        "name": "Sleep Powder",
+        "name_es": "Somnífero",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/sleep-powder",
+          "effect_text_en": "Puts the target to sleep.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "status",
+          "powder"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_status",
+            "value": "sleep"
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "grass",
+          "power": null,
+          "accuracy": 75,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "selected-pokemon",
+          "ailment": "sleep",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "reflect": {
+        "slug": "reflect",
+        "name": "Reflect",
+        "name_es": "Reflejo",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/reflect",
+          "effect_text_en": "Reduces damage from physical attacks by half.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "screen"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_side_condition",
+            "value": "reflect",
+            "turns": 5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "psychic",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "users-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "light-screen": {
+        "slug": "light-screen",
+        "name": "Light Screen",
+        "name_es": "Pantalla de Luz",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/light-screen",
+          "effect_text_en": "Reduces damage from special attacks by 50% for five turns.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "screen"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_side_condition",
+            "value": "light_screen",
+            "turns": 5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "psychic",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "users-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "aurora-veil": {
+        "slug": "aurora-veil",
+        "name": "Aurora Veil",
+        "name_es": "Velo Aurora",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/aurora-veil",
+          "effect_text_en": "Reduces damage five turns, but must be used during hail.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "screen"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_side_condition",
+            "value": "aurora_veil",
+            "turns": 5,
+            "when": {
+              "weather": "snow"
+            }
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "ice",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "users-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "rain-dance": {
+        "slug": "rain-dance",
+        "name": "Rain Dance",
+        "name_es": "Danza Lluvia",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/rain-dance",
+          "effect_text_en": "Changes the weather to rain for five turns.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "weather"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_weather",
+            "value": "rain",
+            "turns": 5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "water",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "entire-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "sunny-day": {
+        "slug": "sunny-day",
+        "name": "Sunny Day",
+        "name_es": "Día Soleado",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/sunny-day",
+          "effect_text_en": "Changes the weather to sunny for five turns.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "weather"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_weather",
+            "value": "sun",
+            "turns": 5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "fire",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "entire-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "sandstorm": {
+        "slug": "sandstorm",
+        "name": "Sandstorm",
+        "name_es": "Tormenta Arena",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/sandstorm",
+          "effect_text_en": "Changes the weather to a sandstorm for five turns.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "weather"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_weather",
+            "value": "sand",
+            "turns": 5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "rock",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "entire-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "electric-terrain": {
+        "slug": "electric-terrain",
+        "name": "Electric Terrain",
+        "name_es": "Campo Eléctrico",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/electric-terrain",
+          "effect_text_en": "For five turns, prevents all Pokémon on the ground from sleeping and strengthens their Electric moves to 1.5× their power.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "terrain"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_terrain",
+            "value": "electric",
+            "turns": 5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "electric",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "entire-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "grassy-terrain": {
+        "slug": "grassy-terrain",
+        "name": "Grassy Terrain",
+        "name_es": "Campo de Hierba",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/grassy-terrain",
+          "effect_text_en": "For five turns, heals all Pokémon on the ground for 1/16 max HP each turn and strengthens their Grass moves to 1.5× their power.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "terrain"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_terrain",
+            "value": "grassy",
+            "turns": 5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "grass",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "entire-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "psychic-terrain": {
+        "slug": "psychic-terrain",
+        "name": "Psychic Terrain",
+        "name_es": "Campo Psíquico",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/psychic-terrain",
+          "effect_text_en": "Protects Pokémon on the ground from priority moves and increases the power of their  Psychic moves by 50%.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "terrain"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_terrain",
+            "value": "psychic",
+            "turns": 5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "psychic",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "entire-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      },
+      "misty-terrain": {
+        "slug": "misty-terrain",
+        "name": "Misty Terrain",
+        "name_es": "Campo de Niebla",
+        "source": {
+          "pokeapi": "https://pokeapi.co/api/v2/move/misty-terrain",
+          "effect_text_en": "For five turns, protects all Pokémon on the ground from major status ailments and confusion, and halves the power of incoming Dragon moves.",
+          "generated_from_pokeapi": true,
+          "manual_patch_required": true
+        },
+        "tags": [
+          "terrain"
+        ],
+        "triggers": [
+          "on_move_resolution"
+        ],
+        "effects": [
+          {
+            "kind": "set_terrain",
+            "value": "misty",
+            "turns": 5
+          }
+        ],
+        "notes": [],
+        "battle": {
+          "type": "fairy",
+          "power": null,
+          "accuracy": null,
+          "priority": 0,
+          "damage_class": "status",
+          "target": "entire-field",
+          "ailment": "none",
+          "crit_rate": 0,
+          "drain": 0,
+          "flinch_chance": 0,
+          "healing": 0,
+          "max_hits": null,
+          "min_hits": null,
+          "stat_changes": []
+        }
+      }
+    }
+  }
+}
