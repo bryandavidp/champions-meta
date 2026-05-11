@@ -4314,10 +4314,13 @@ function renderQuickCombos() {
     return;
   }
 
-  const predictedEnemyLeads = enemyTeam.map(mon => ({ mon, threat: scoreThreat(mon) }))
+  const predictedEnemyFull = enemyTeam.map(mon => ({ mon, threat: scoreThreat(mon) }))
                                        .sort((a, b) => b.threat.score - a.threat.score)
-                                       .slice(0, 2)
-                                       .map(item => item.mon);
+                                       .slice(0, 4)
+                                       .map(item => ({ mon: item.mon, threat: item.threat }));
+                                       
+  const predictedEnemyLeads = predictedEnemyFull.slice(0, 2);
+  const predictedEnemyBack = predictedEnemyFull.slice(2, 4);
 
   const isActiveCombo = (comboArr) => {
     if (state.activeComboKey && state.activeComboKey === comboArr.join(',')) return true;
@@ -4330,50 +4333,81 @@ function renderQuickCombos() {
   section.innerHTML = combos.map((combo, idx) => {
     const mons = combo.orderedIdx.map(i => state.self[i]).filter(Boolean);
     const allyLeads = mons.slice(0, 2);
+    const allyBack = mons.slice(2, 4);
     const active = isActiveCombo(combo.orderedIdx);
 
-    const getPlanIcon = (type) => {
-      if (type === 'agresivo') return { icon: 'swords', color: 'var(--red)' };
-      if (type === 'defensivo') return { icon: 'shield', color: 'var(--blue)' };
-      if (type === 'tempo') return { icon: 'timer', color: 'var(--purple)' };
-      return { icon: 'scale', color: 'var(--gold)' };
-    };
-    const pIcon = getPlanIcon(combo.planType);
+    const ourPlan = combo.planDescription || "Presionar desde el primer turno.";
+    const topThreatLevel = predictedEnemyLeads[0]?.threat?.level;
+    const topThreatReason = predictedEnemyLeads[0]?.threat?.reasons?.[0] || 'potencial ofensivo';
+    const enemyRisk = predictedEnemyLeads[0] 
+        ? `Peligro de ${topThreatReason} por parte de ${predictedEnemyLeads[0].mon.displayName}` 
+        : 'Amenaza desconocida';
 
     return `
-      <button class="btn combo-card clash-layout ${active ? 'combo-card--active' : ''}" data-combo="${combo.orderedIdx.join(',')}" style="${active ? 'background: rgba(255, 215, 0, 0.04); box-shadow: var(--shadow-md); border-left: 4px solid var(--gold); border-color: var(--gold);' : ''}">
-        <div class="clash-header">
-          <span class="rank-badge">#${idx + 1} ${active ? ' - ACTIVO' : ''}</span>
-          <div class="matchup-indicator ${combo.score >= 100 ? 'favorable' : ''}">Score: ${combo.score}</div>
+      <div class="match-setter-card ${active ? 'active' : ''}" data-combo="${combo.orderedIdx.join(',')}">
+        <div class="match-header">
+          <div class="match-badge">SIMULACIÓN #${idx + 1}${active ? ' - ACTIVA' : ''}</div>
+          <div class="match-score">Ventaja: <span class="${combo.score >= 80 ? 'text-green' : 'text-gold'}">+${combo.score}</span></div>
         </div>
 
-        <div class="ally-zone">
-          <div class="sprites-container">
-            ${allyLeads[0] ? `<img src="${allyLeads[0].sprite}" class="poke-sprite ally" />` : ''}
-            ${allyLeads[1] ? `<img src="${allyLeads[1].sprite}" class="poke-sprite ally" />` : ''}
+        <div class="clash-main-grid">
+          <div class="clash-side ally">
+            <div class="side-label">TU EQUIPO</div>
+            <div class="pokemon-quad">
+              <div class="quad-row leads">
+                <div class="slot">${allyLeads[0] ? `<img src="${allyLeads[0].sprite}">` : ''}<span class="tag">LEAD</span></div>
+                <div class="slot">${allyLeads[1] ? `<img src="${allyLeads[1].sprite}">` : ''}<span class="tag">LEAD</span></div>
+              </div>
+              <div class="quad-row back">
+                <div class="slot">${allyBack[0] ? `<img src="${allyBack[0].sprite}">` : ''}<span class="tag">BACK</span></div>
+                <div class="slot">${allyBack[1] ? `<img src="${allyBack[1].sprite}">` : ''}<span class="tag">BACK</span></div>
+              </div>
+            </div>
           </div>
-          <div class="action-tags">
-            <span class="action-tag green"><i data-lucide="sword"></i> Ofensiva ${combo.offCoverage}</span>
-            <span class="action-tag blue"><i data-lucide="shield"></i> Defensa ${combo.defSafety}</span>
-            <span class="action-tag red"><i data-lucide="wrench"></i> Utilidad ${combo.toolsScore}</span>
+
+          <div class="vs-center">VS</div>
+
+          <div class="clash-side enemy">
+            <div class="side-label">RIVAL (PREDICCIÓN)</div>
+            <div class="pokemon-quad">
+              <div class="quad-row leads">
+                <div class="slot">${predictedEnemyLeads[0]?.mon ? `<img src="${predictedEnemyLeads[0].mon.sprite}">` : ''}<span class="tag">LEAD</span></div>
+                <div class="slot">${predictedEnemyLeads[1]?.mon ? `<img src="${predictedEnemyLeads[1].mon.sprite}">` : ''}<span class="tag">LEAD</span></div>
+              </div>
+              <div class="quad-row back">
+                <div class="slot">${predictedEnemyBack[0]?.mon ? `<img src="${predictedEnemyBack[0].mon.sprite}">` : ''}<span class="tag">BACK</span></div>
+                <div class="slot">${predictedEnemyBack[1]?.mon ? `<img src="${predictedEnemyBack[1].mon.sprite}">` : ''}<span class="tag">BACK</span></div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="vs-divider">
-          <hr><span>VS Previsto</span><hr>
-        </div>
-
-        <div class="enemy-zone">
-          <div class="sprites-container enemy-predicted">
-            ${predictedEnemyLeads[0] ? `<img src="${predictedEnemyLeads[0].sprite}" class="poke-sprite enemy" />` : ''}
-            ${predictedEnemyLeads[1] ? `<img src="${predictedEnemyLeads[1].sprite}" class="poke-sprite enemy" />` : ''}
+        <div class="tactical-briefing">
+          <div class="plan-box">
+            <i data-lucide="target"></i>
+            <p><strong>Nuestra Estrategia:</strong> ${ourPlan}</p>
           </div>
-          <div class="enemy-reason-text">Lead más probable por Threat Score</div>
+          <div class="risk-box">
+            <i data-lucide="zap"></i>
+            <p><strong>Riesgo Rival:</strong> ${enemyRisk}</p>
+          </div>
         </div>
-      </button>
+      </div>
     `;
   }).join('');
   
+  // Agregar event listeners a las cards
+  const cards = section.querySelectorAll('.match-setter-card');
+  cards.forEach(card => {
+    card.addEventListener('click', () => {
+      const comboRaw = card.getAttribute('data-combo');
+      if (comboRaw) {
+        const comboIndices = comboRaw.split(',').map(Number);
+        applyQuickCombo(comboIndices);
+      }
+    });
+  });
+
   if (typeof lucide !== "undefined" && lucide.createIcons) {
     lucide.createIcons();
   }

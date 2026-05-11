@@ -4418,72 +4418,214 @@ tbody th {
   100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0); }
 }
 
-/* --- CLASH LAYOUT REDESIGN --- */
+/* --- MATCH 4VS4 SIMULATOR --- */
 #quickCombosList {
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: 400px; /* Ensure there is a limit for scrolling if needed */
-  padding-right: 4px; /* Scrollbar spacing */
-}
-
-.combo-card.clash-layout {
-  display: flex; 
-  flex-direction: column; 
-  gap: 12px;
-  background: var(--panel2); 
-  border: 1px solid var(--line); 
-  border-radius: 12px; 
-  padding: 16px;
-  position: relative; 
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: scroll;
+  max-height: 500px;
   width: 100%;
+  box-sizing: border-box;
+}
+
+.match-setter-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.match-setter-card:hover {
+  border-color: var(--line2);
+  transform: translateY(-2px);
+}
+
+.match-setter-card.active {
+  background: rgba(255, 215, 0, 0.04);
+  box-shadow: var(--shadow-md);
+  border-left: 4px solid var(--gold);
+  border-color: var(--gold);
+}
+
+.match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.match-badge {
+  background: var(--panel3);
+  color: var(--gold);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.match-score {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--soft);
+}
+
+.match-score span {
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(48,209,88,0.15); /* default if text-green is used */
+}
+
+.match-score span.text-gold {
+  color: var(--gold);
+  background: rgba(255, 215, 0, 0.15);
+}
+
+.clash-main-grid {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.clash-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0; /* allows flex children to shrink */
+}
+
+.side-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.pokemon-quad {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  width: 100%;
+}
+
+.quad-row {
+  display: contents; /* Allows children to participate in the grid */
+}
+
+.slot {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  aspect-ratio: 1; /* Keep it square */
+  min-height: 48px;
+  overflow: hidden;
+}
+
+.clash-side.ally .slot {
+  border-bottom: 2px solid rgba(48, 209, 88, 0.5); /* sutil neon verde */
+}
+
+.clash-side.enemy .slot {
+  border-bottom: 2px solid rgba(255, 69, 58, 0.5); /* sutil neon rojo */
+}
+
+.slot img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.slot .tag {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 7px;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 1px 3px;
+  border-radius: 3px;
+  line-height: 1;
+  letter-spacing: 0.5px;
+}
+
+.vs-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 900;
+  font-size: 1.2rem;
+  color: var(--line2);
+  padding: 0 4px;
+  font-style: italic;
+}
+
+.tactical-briefing {
+  margin-top: 8px;
+  background: var(--panel3);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plan-box, .risk-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+.plan-box i, .risk-box i {
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
+  margin-top: 1px;
 }
 
-.clash-layout .clash-header {
-  display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;
-}
-.clash-layout .rank-badge {
-  background: var(--panel3); color: var(--gold); font-family: 'Rajdhani', sans-serif; font-weight: bold; padding: 4px 10px; border-radius: 8px;
-}
-.clash-layout .matchup-indicator {
-  font-size: 0.8rem; font-weight: 600;
-}
-.clash-layout .matchup-indicator.favorable {
-  color: var(--green); background: rgba(48,209,88,0.15); padding: 2px 6px; border-radius: 4px;
+.plan-box i { color: var(--green); }
+.risk-box i { color: var(--red); }
+
+.plan-box p, .risk-box p {
+  margin: 0;
+  color: var(--text);
 }
 
-.clash-layout .sprites-container {
-  display: flex; justify-content: center; align-items: flex-end; gap: 8px;
-}
-.clash-layout .poke-sprite.ally {
-  max-width: 80px; max-height: 80px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
-}
-.clash-layout .poke-sprite.enemy {
-  max-width: 64px; max-height: 64px; object-fit: contain; opacity: 0.85; filter: grayscale(10%) drop-shadow(0 2px 8px rgba(255, 59, 48, 0.3));
+.plan-box strong, .risk-box strong {
+  color: var(--soft);
 }
 
-.clash-layout .action-tags {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 8px;
-}
-.clash-layout .action-tag {
-  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 100px; font-size: 0.75rem; font-family: 'Satoshi', sans-serif; font-weight: 600; white-space: nowrap;
-}
-.clash-layout .action-tag.green { color: var(--green); background: rgba(48,209,88,0.15); }
-.clash-layout .action-tag.blue { color: var(--blue); background: rgba(10,132,255,0.15); }
-.clash-layout .action-tag.red { color: var(--red); background: rgba(255,69,58,0.15); }
-.clash-layout .action-tag i { width: 14px; height: 14px; }
-
-.clash-layout .vs-divider {
-  display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.6;
-}
-.clash-layout .vs-divider hr {
-  flex-grow: 1; border: none; border-top: 1px dashed var(--line2);
-}
-
-.clash-layout .enemy-zone {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-}
-.clash-layout .enemy-reason-text {
-  font-size: 0.7rem; color: var(--soft); text-align: center; max-width: 90%; line-height: 1.2;
+@media (max-width: 480px) {
+  .slot img {
+    width: 36px;
+    height: 36px;
+  }
+  .vs-center {
+    font-size: 1rem;
+    padding: 0 2px;
+  }
 }
