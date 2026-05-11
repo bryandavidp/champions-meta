@@ -4314,6 +4314,11 @@ function renderQuickCombos() {
     return;
   }
 
+  const predictedEnemyLeads = enemyTeam.map(mon => ({ mon, threat: scoreThreat(mon) }))
+                                       .sort((a, b) => b.threat.score - a.threat.score)
+                                       .slice(0, 2)
+                                       .map(item => item.mon);
+
   const isActiveCombo = (comboArr) => {
     if (state.activeComboKey && state.activeComboKey === comboArr.join(',')) return true;
     if (!state.chosenFour || state.chosenFour.length !== 4) return false;
@@ -4324,6 +4329,7 @@ function renderQuickCombos() {
 
   section.innerHTML = combos.map((combo, idx) => {
     const mons = combo.orderedIdx.map(i => state.self[i]).filter(Boolean);
+    const allyLeads = mons.slice(0, 2);
     const active = isActiveCombo(combo.orderedIdx);
 
     const getPlanIcon = (type) => {
@@ -4335,57 +4341,34 @@ function renderQuickCombos() {
     const pIcon = getPlanIcon(combo.planType);
 
     return `
-      <button class="btn combo-card ${active ? 'combo-card--active' : ''}" data-combo="${combo.orderedIdx.join(',')}" style="${active ? 'background: rgba(255, 215, 0, 0.04); box-shadow: var(--shadow-md); border-left: 4px solid var(--gold); border-color: var(--gold);' : ''}">
-        <div class="combo-header">
-          <div style="display:flex; align-items:center; gap: 8px;">
-            <span class="combo-rank">#${idx + 1}</span>
-            ${active ? '<span class="tiny-chip" style="background: var(--gold); color: #000; border: none; font-weight: 900;">ACTIVO</span>' : ''}
-            ${active && state.turn1Custom ? '<span class="tiny-chip" style="background: var(--bg); color: var(--gold); border: 1px solid var(--gold); margin-left: 4px;">Leads Modificados</span>' : ''}
+      <button class="btn combo-card clash-layout ${active ? 'combo-card--active' : ''}" data-combo="${combo.orderedIdx.join(',')}" style="${active ? 'background: rgba(255, 215, 0, 0.04); box-shadow: var(--shadow-md); border-left: 4px solid var(--gold); border-color: var(--gold);' : ''}">
+        <div class="clash-header">
+          <span class="rank-badge">#${idx + 1} ${active ? ' - ACTIVO' : ''}</span>
+          <div class="matchup-indicator ${combo.score >= 100 ? 'favorable' : ''}">Score: ${combo.score}</div>
+        </div>
+
+        <div class="ally-zone">
+          <div class="sprites-container">
+            ${allyLeads[0] ? `<img src="${allyLeads[0].sprite}" class="poke-sprite ally" />` : ''}
+            ${allyLeads[1] ? `<img src="${allyLeads[1].sprite}" class="poke-sprite ally" />` : ''}
           </div>
-          <div style="display:flex; align-items:center; gap: 8px;">
-            <div class="tiny-chip" style="color: ${pIcon.color}; border-color: ${pIcon.color}55;"><i data-lucide="${pIcon.icon}" style="width:12px;height:12px;"></i></div>
-            <span class="combo-score" title="Cobertura ${combo.offCoverage} · Defensa ${combo.defSafety} · Tempo ${combo.speedControl} · Redundancia -${combo.redundancyPen}">${combo.score}</span>
+          <div class="action-tags">
+            <span class="action-tag green"><i data-lucide="sword"></i> Ofensiva ${combo.offCoverage}</span>
+            <span class="action-tag blue"><i data-lucide="shield"></i> Defensa ${combo.defSafety}</span>
+            <span class="action-tag red"><i data-lucide="wrench"></i> Utilidad ${combo.toolsScore}</span>
           </div>
         </div>
-        <div class="combo-sprites" style="display:flex; gap:8px; margin: 12px 0;">
-          ${mons.map((m, mIdx) => {
-            const isLead = mIdx < 2;
-            const badgeLabel = isLead ? `L${mIdx + 1}` : `R${mIdx - 1}`;
-            const badgeColor = isLead ? 'var(--blue)' : 'var(--muted)';
-            return `
-            <div class="combo-sprite" style="position:relative; width: 48px; height: 48px; border: 1px solid var(--line2); border-radius: 8px; background: rgba(255,255,255,0.05); display: flex; flex-direction:column; align-items:center; justify-content:center;">
-              <span style="position:absolute; top:-6px; left:-6px; background:${badgeColor}; color:#fff; font-size:0.6rem; font-weight:900; padding:2px 4px; border-radius:4px; line-height:1;">${badgeLabel}</span>
-              <img src="${m.sprite}" alt="${m.displayName}" style="width: 100%; height: 100%; object-fit: contain;">
-            </div>`;
-          }).join('')}
+
+        <div class="vs-divider">
+          <hr><span>VS Previsto</span><hr>
         </div>
-        <div class="combo-metrics" style="display:flex; gap:6px; flex-wrap:wrap;">
-          <span class="tiny-chip" style="color: var(--orange); border-color: var(--orange)55;"><i data-lucide="sword" style="width:12px;height:12px;margin-right:4px;"></i> Cobertura ${combo.offCoverage}</span>
-          <span class="tiny-chip" style="color: var(--blue); border-color: var(--blue)55;"><i data-lucide="shield" style="width:12px;height:12px;margin-right:4px;"></i> Defensa ${combo.defSafety}</span>
-          <span class="tiny-chip" style="color: var(--purple); border-color: var(--purple)55; opacity:0.8;"><i data-lucide="wrench" style="width:12px;height:12px;margin-right:4px;"></i> Utilidad ${combo.toolsScore}</span>
-        </div>
-        <div class="combo-plan" style="text-align: left; margin-top: 12px; display:flex; flex-direction:column; gap:8px;">
-          <div class="combo-plan-row" style="display:flex; gap:8px; align-items:flex-start;">
-            <i data-lucide="crosshair" style="width:14px;height:14px; margin-top:2px; color:var(--muted);"></i>
-            <div>
-              <div class="combo-plan-label" style="font-size:0.72rem; text-transform:uppercase; font-weight:900; color:var(--text); opacity:0.9;">Lectura del Matchup</div>
-              <div class="combo-plan-text" style="font-size:0.75rem; color:var(--muted);">${combo.planDescription}</div>
-            </div>
+
+        <div class="enemy-zone">
+          <div class="sprites-container enemy-predicted">
+            ${predictedEnemyLeads[0] ? `<img src="${predictedEnemyLeads[0].sprite}" class="poke-sprite enemy" />` : ''}
+            ${predictedEnemyLeads[1] ? `<img src="${predictedEnemyLeads[1].sprite}" class="poke-sprite enemy" />` : ''}
           </div>
-          <div class="combo-plan-row" style="display:flex; gap:8px; align-items:flex-start;">
-            <i data-lucide="key" style="width:14px;height:14px; margin-top:2px; color:var(--gold);"></i>
-            <div>
-              <div class="combo-plan-label" style="font-size:0.72rem; text-transform:uppercase; font-weight:900; color:var(--gold); opacity:0.9;">Clave</div>
-              <div class="combo-plan-text" style="font-size:0.75rem; color:var(--text);">${combo.keyLine}</div>
-            </div>
-          </div>
-          <div class="combo-plan-row" style="display:flex; gap:8px; align-items:flex-start;">
-            <i data-lucide="wrench" style="width:14px;height:14px; margin-top:2px; color:var(--muted);"></i>
-            <div>
-              <div class="combo-plan-label" style="font-size:0.72rem; text-transform:uppercase; font-weight:900; color:var(--text); opacity:0.9;">Herramientas</div>
-              <div class="combo-plan-text" style="font-size:0.75rem; color:var(--muted);">${combo.toolsStr}</div>
-            </div>
-          </div>
+          <div class="enemy-reason-text">Lead más probable por Threat Score</div>
         </div>
       </button>
     `;

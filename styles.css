@@ -3424,9 +3424,10 @@ tbody th {
 }
 .battle-sheet {
   position: fixed; bottom: 0; left: 0; width: 100%; z-index: 1001; background: linear-gradient(180deg, rgba(28, 28, 35, 0.98) 0%, rgba(18, 18, 24, 1) 100%); border-top: 1px solid rgba(255, 255, 255, 0.1); border-radius: 32px 32px 0 0; padding: 12px 24px calc(24px + env(safe-area-inset-bottom)) 24px; transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  display: flex; flex-direction: column; max-height: 85vh;
 }
 .battle-sheet.open { transform: translateY(0) !important; }
-.battle-sheet-body { display: flex; flex-direction: column; gap: 16px; }
+.battle-sheet-body { display: flex; flex-direction: column; gap: 16px; flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: env(safe-area-inset-bottom, 24px); padding-top: 8px; }
 .sheet-tactical-label { font-size: 0.8rem; font-weight: 900; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
 .sheet-squad-row { display: flex; gap: 8px; }
 .sheet-squad-btn { width: 56px; height: 56px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--line); display: grid; place-items: center; cursor: pointer; }
@@ -4415,4 +4416,74 @@ tbody th {
   0% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.4); }
   70% { box-shadow: 0 0 0 4px rgba(167, 139, 250, 0); }
   100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0); }
+}
+
+/* --- CLASH LAYOUT REDESIGN --- */
+#quickCombosList {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 400px; /* Ensure there is a limit for scrolling if needed */
+  padding-right: 4px; /* Scrollbar spacing */
+}
+
+.combo-card.clash-layout {
+  display: flex; 
+  flex-direction: column; 
+  gap: 12px;
+  background: var(--panel2); 
+  border: 1px solid var(--line); 
+  border-radius: 12px; 
+  padding: 16px;
+  position: relative; 
+  overflow: hidden;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.clash-layout .clash-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;
+}
+.clash-layout .rank-badge {
+  background: var(--panel3); color: var(--gold); font-family: 'Rajdhani', sans-serif; font-weight: bold; padding: 4px 10px; border-radius: 8px;
+}
+.clash-layout .matchup-indicator {
+  font-size: 0.8rem; font-weight: 600;
+}
+.clash-layout .matchup-indicator.favorable {
+  color: var(--green); background: rgba(48,209,88,0.15); padding: 2px 6px; border-radius: 4px;
+}
+
+.clash-layout .sprites-container {
+  display: flex; justify-content: center; align-items: flex-end; gap: 8px;
+}
+.clash-layout .poke-sprite.ally {
+  max-width: 80px; max-height: 80px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+}
+.clash-layout .poke-sprite.enemy {
+  max-width: 64px; max-height: 64px; object-fit: contain; opacity: 0.85; filter: grayscale(10%) drop-shadow(0 2px 8px rgba(255, 59, 48, 0.3));
+}
+
+.clash-layout .action-tags {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 8px;
+}
+.clash-layout .action-tag {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 100px; font-size: 0.75rem; font-family: 'Satoshi', sans-serif; font-weight: 600; white-space: nowrap;
+}
+.clash-layout .action-tag.green { color: var(--green); background: rgba(48,209,88,0.15); }
+.clash-layout .action-tag.blue { color: var(--blue); background: rgba(10,132,255,0.15); }
+.clash-layout .action-tag.red { color: var(--red); background: rgba(255,69,58,0.15); }
+.clash-layout .action-tag i { width: 14px; height: 14px; }
+
+.clash-layout .vs-divider {
+  display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.6;
+}
+.clash-layout .vs-divider hr {
+  flex-grow: 1; border: none; border-top: 1px dashed var(--line2);
+}
+
+.clash-layout .enemy-zone {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.clash-layout .enemy-reason-text {
+  font-size: 0.7rem; color: var(--soft); text-align: center; max-width: 90%; line-height: 1.2;
 }
