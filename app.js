@@ -23,7 +23,7 @@ function runDebugScenarios() {
   });
 
   for (const sc of scenarios) {
-    const s = sc.setup();
+    sc.setup();
     const rows = getRows();
     console.log('[SCENARIO]', sc.name, rows);
   }
@@ -560,6 +560,7 @@ const state = {
   leads: { self: [], enemy: [] },
   uiMode: 'quick',
   chosenFour: [],
+  chosenEnemyFour: [],
   battleFocus: 'active',
   activeSelfSlots: [0, 1],
   activeEnemySlots: [0, 1],
@@ -816,6 +817,32 @@ function parseSpread(spreadKey = "") {
   };
 }
 
+function getNatureSpeModifier(nature) {
+  if (["Timid", "Hasty", "Jolly", "Naive"].includes(nature)) return 1.1;
+  if (["Brave", "Relaxed", "Quiet", "Sassy"].includes(nature)) return 0.9;
+  return 1;
+}
+
+function getSpeedModifier(field, side, ability) {
+  let modifier = 1;
+  if ((side === "self" && field.tailwindSelf) || (side === "enemy" && field.tailwindEnemy)) {
+    modifier *= 2;
+  }
+  if (field.weather === "rain" && ability === "Swift Swim") modifier *= 2;
+  if (field.weather === "sun" && ability === "Chlorophyll") modifier *= 2;
+  if (field.weather === "sand" && ability === "Sand Rush") modifier *= 2;
+  return modifier;
+}
+
+function logSpeedCalc(mon, side, baseSpe, evsSpe, nature, modifier, trickRoom, finalSpe) {
+  if (!DEBUG_MODE) return;
+  console.groupCollapsed(`🚀 [SPEED CALC] ${mon.name} (${side})`);
+  console.log(`📊 Stats -> Base: ${baseSpe} | EVs: ${evsSpe} | Naturaleza: ${nature}`);
+  console.log(`⚙️ Modificadores -> Multiplicador Final: x${modifier} | Trick Room: ${trickRoom ? 'SÍ' : 'NO'}`);
+  console.log(`🏁 Velocidad Efectiva: ${trickRoom ? -finalSpe : finalSpe}`);
+  console.groupEnd();
+}
+
 // CORE ENGINE: calcula la velocidad efectiva de un mon (Tailwind/TR/registry).
 function calculateSpeed(mon, side) {
   if (!mon) return 0;
@@ -824,26 +851,13 @@ function calculateSpeed(mon, side) {
   const nature = mon.set?.nature || "";
 
   // Level 50 stat calculation
-  let spe =
-    Math.floor(((2 * baseSpe + 31 + Math.floor(evsSpe / 4)) * 50) / 100) + 5;
-
-  if (["Timid", "Hasty", "Jolly", "Naive"].includes(nature)) {
-    spe = Math.floor(spe * 1.1);
-  } else if (["Brave", "Relaxed", "Quiet", "Sassy"].includes(nature)) {
-    spe = Math.floor(spe * 0.9);
-  }
+  let spe = Math.floor(((2 * baseSpe + 31 + Math.floor(evsSpe / 4)) * 50) / 100) + 5;
+  spe = Math.floor(spe * getNatureSpeModifier(nature));
 
   // Modifier logic
-  let modifier = 1;
   const field = state.field;
-  if (side === "self" && field.tailwindSelf) modifier *= 2;
-  if (side === "enemy" && field.tailwindEnemy) modifier *= 2;
-  // Other modifiers like Choice Scarf can go here
-
   const ab = mon.set?.ability || "";
-  if (field.weather === "rain" && ab === "Swift Swim") modifier *= 2;
-  if (field.weather === "sun" && ab === "Chlorophyll") modifier *= 2;
-  if (field.weather === "sand" && ab === "Sand Rush") modifier *= 2;
+  let modifier = getSpeedModifier(field, side, ab);
 
   if (window.EffectsRegistryBridge) {
     const regSpeed = window.EffectsRegistryBridge.resolveSpeedModifiers(mon, {
@@ -854,15 +868,8 @@ function calculateSpeed(mon, side) {
     modifier *= regSpeed.modifiers.speed;
   }
 
-  let finalSpe = Math.floor(spe * modifier);
-
-  if (DEBUG_MODE) {
-    console.groupCollapsed(`🚀 [SPEED CALC] ${mon.name} (${side})`);
-    console.log(`📊 Stats -> Base: ${baseSpe} | EVs: ${evsSpe} | Naturaleza: ${nature}`);
-    console.log(`⚙️ Modificadores -> Multiplicador Final: x${modifier} | Trick Room: ${field.trickRoom ? 'SÍ' : 'NO'}`);
-    console.log(`🏁 Velocidad Efectiva: ${field.trickRoom ? -finalSpe : finalSpe}`);
-    console.groupEnd();
-  }
+  const finalSpe = Math.floor(spe * modifier);
+  logSpeedCalc(mon, side, baseSpe, evsSpe, nature, modifier, field.trickRoom, finalSpe);
   
   return field.trickRoom ? -finalSpe : finalSpe;
 }
@@ -979,6 +986,101 @@ const GUARANTEED_MULTI_HITS = {
   'Population Bomb': 10, // placeholder, a ajustar cuando uses PokeAPI
 };
 
+function calculateEffectiveStats(attacker, defender, dmgClass) {
+  const natA = attacker.set?.nature || "";
+  const natD = defender.set?.nature || "";
+  const evA = attacker.set?.evs || {};
+  const evD = defender.set?.evs || {};
+  const stagesA = attacker.battle?.stages || {};
+  const stagesD = defender.battle?.stages || {};
+
+  if (dmgClass === "physical") {
+    return {
+      atkS: calcOtherStatLv50(getBaseStatRaw(attacker, "attack"), evA.atk, natureMod(natA, "atk"), stagesA.atk || 0),
+      defS: calcOtherStatLv50(getBaseStatRaw(defender, "defense"), evD.def, natureMod(natD, "def"), stagesD.def || 0)
+    };
+  }
+  return {
+    atkS: calcOtherStatLv50(getBaseStatRaw(attacker, "special-attack"), evA.spa, natureMod(natA, "spa"), stagesA.spa || 0),
+    defS: calcOtherStatLv50(getBaseStatRaw(defender, "special-defense"), evD.spd, natureMod(natD, "spd"), stagesD.spd || 0)
+  };
+}
+
+function getWeatherAndTerrainMultipliers(field, candType, candMove) {
+  let wMul = 1;
+  const w = field.weather;
+  if (w === "sun") {
+    if (candType === "fire") wMul *= 1.5;
+    if (candType === "water") wMul *= 0.5;
+  } else if (w === "rain") {
+    if (candType === "water") wMul *= 1.5;
+    if (candType === "fire") wMul *= 0.5;
+  }
+
+  let terrMul = 1;
+  if (field.terrain === "electric" && candType === "electric") terrMul *= 1.3;
+  if (field.terrain === "grassy" && candMove === "Earthquake") terrMul *= 0.5;
+
+  return { wMul, terrMul };
+}
+
+function applyRegistryDamageModifiers(attacker, defender, cand, fieldSnapshot, eff, dmgClass, stats) {
+  let registry = null;
+  let registryDamageMul = 1;
+  let blockedByRegistry = false;
+  let { atkS, defS } = stats;
+
+  if (!window.EffectsRegistryBridge) {
+    return { registry, registryDamageMul, blockedByRegistry, atkS, defS };
+  }
+
+  try {
+    registry = window.EffectsRegistryBridge.resolveDamageModifiers(
+      attacker, defender, cand, { field: fieldSnapshot, effectiveness: eff }
+    );
+
+    if (registry?.final) {
+      if (Number.isFinite(registry.final.damageMultiplier)) registryDamageMul *= registry.final.damageMultiplier;
+      if (Number.isFinite(registry.final.attackMultiplier) && dmgClass === 'physical') atkS = Math.floor(atkS * registry.final.attackMultiplier);
+      if (Number.isFinite(registry.final.specialAttackMultiplier) && dmgClass === 'special') atkS = Math.floor(atkS * registry.final.specialAttackMultiplier);
+      if (Number.isFinite(registry.final.specialDefenseMultiplier) && dmgClass === 'special') defS = Math.max(1, Math.floor(defS * registry.final.specialDefenseMultiplier));
+
+      const prev = registry.prevention?.final || {};
+      if (prev.immune || prev.blockedByPriority || prev.blockedByStatus || prev.blockedBySecondaryShield) {
+        blockedByRegistry = true;
+      }
+    }
+  } catch (e) {
+    console.warn('[DEBUG] resolveDamageModifiers error', e);
+  }
+
+  return { registry, registryDamageMul, blockedByRegistry, atkS, defS };
+}
+
+function calculateDamageRolls(baseTotal) {
+  const rolls = [];
+  for (let i = 0; i < 16; i++) {
+    rolls.push(Math.floor(baseTotal * (0.85 + (i / 15) * 0.15)));
+  }
+  return { maxDamage: Math.max(...rolls), minDamage: Math.min(...rolls), critDamage: Math.floor(baseTotal * 1.5) };
+}
+
+function logDamageCalcInfo(attacker, defender, cand, dmgClass, atkS, defSafe, eff, wMul, terrMul, registryDamageMul, isSpread, hits, minDamage, maxDamage) {
+  if (!DEBUG_MODE) return;
+  const atkStatRaw = getBaseStatRaw(attacker, dmgClass === 'physical' ? 'attack' : 'special-attack');
+  const defStatRaw = getBaseStatRaw(defender, dmgClass === 'physical' ? 'defense' : 'special-defense');
+  const stab = (attacker.types || []).includes(cand.type) ? 1.5 : 1;
+
+  console.groupCollapsed(`⚔️ [DAMAGE CALC] ${attacker.name} usa ${cand.move} vs ${defender.name}`);
+  console.log(`🔹 Movimiento -> Poder Base: ${cand.power || 0} | Tipo: ${cand.type} | Clase: ${dmgClass.toUpperCase()}`);
+  console.log(`🔹 Stats Base Brutos -> Atk/SpA Base: ${atkStatRaw} | Def/SpD Base: ${defStatRaw}`);
+  console.log(`🔹 Stats Reales (Nv50+EVs) -> Atacante: ${atkS} | Defensor: ${defSafe}`);
+  console.log(`🔹 Multiplicadores -> STAB: ${stab} | Eficacia: x${eff} | Clima: x${wMul} | Terreno: x${terrMul} | Registro: x${registryDamageMul}`);
+  console.log(`🔹 Golpes Múltiples: ${hits} | Penalización por Spread: ${isSpread ? 'SÍ (x0.75)' : 'NO'}`);
+  console.log(`🏁 Rango de Daño Resultante: ${minDamage} - ${maxDamage} HP`);
+  console.groupEnd();
+}
+
 // CORE ENGINE: calcula el daño base de un movimiento entre dos mons.
 // TODO(registry): extender para incorporar todos los modificadores de daño
 // de abilities/items/campo vía EffectsRegistryBridge.resolveDamageModifiers.
@@ -992,121 +1094,24 @@ function estimateMoveDamage(attacker, defender, cand, field) {
   const isSpread = !!cand.isSpread || SPREAD_MOVES.has(moveName);
   const hits = cand.hits || GUARANTEED_MULTI_HITS[moveName] || 1;
 
-  const natA = attacker.set?.nature || "";
-  const natD = defender.set?.nature || "";
-  const evA = attacker.set?.evs || {};
-  const evD = defender.set?.evs || {};
-
-  const stagesA = attacker.battle?.stages || {};
-  const stagesD = defender.battle?.stages || {};
-
-  let atkS;
-  let defS;
-  if (dmgClass === "physical") {
-    atkS = calcOtherStatLv50(
-      getBaseStatRaw(attacker, "attack"),
-      evA.atk,
-      natureMod(natA, "atk"),
-      stagesA.atk || 0
-    );
-    defS = calcOtherStatLv50(
-      getBaseStatRaw(defender, "defense"),
-      evD.def,
-      natureMod(natD, "def"),
-      stagesD.def || 0
-    );
-  } else {
-    atkS = calcOtherStatLv50(
-      getBaseStatRaw(attacker, "special-attack"),
-      evA.spa,
-      natureMod(natA, "spa"),
-      stagesA.spa || 0
-    );
-    defS = calcOtherStatLv50(
-      getBaseStatRaw(defender, "special-defense"),
-      evD.spd,
-      natureMod(natD, "spd"),
-      stagesD.spd || 0
-    );
-  }
-
   const eff = effectiveness(cand.type, defender.types || []);
-  let wMul = 1;
-  const w = field.weather;
-  if (w === "sun") {
-    if (cand.type === "fire") wMul *= 1.5;
-    if (cand.type === "water") wMul *= 0.5;
-  } else if (w === "rain") {
-    if (cand.type === "water") wMul *= 1.5;
-    if (cand.type === "fire") wMul *= 0.5;
-  }
-
-  let terrMul = 1;
-  if (field.terrain === "electric" && cand.type === "electric") terrMul *= 1.3;
-  if (field.terrain === "grassy" && cand.move === "Earthquake") terrMul *= 0.5;
+  const { wMul, terrMul } = getWeatherAndTerrainMultipliers(field, cand.type, cand.move);
+  let { atkS, defS } = calculateEffectiveStats(attacker, defender, dmgClass);
 
   const fieldSnapshot =
     window.EffectsRegistryBridge
       ? window.EffectsRegistryBridge.createCurrentFieldSnapshot(state)
       : field;
 
-  let registry = null;
-  let registryDamageMul = 1;
-  let blockedByRegistry = false;
-
-  if (window.EffectsRegistryBridge) {
-    try {
-      registry = window.EffectsRegistryBridge.resolveDamageModifiers(
-        attacker,
-        defender,
-        cand,
-        {
-          field: fieldSnapshot,
-          effectiveness: eff,
-        }
-      );
-
-      if (registry && registry.final) {
-        // Multiplicador final de daño (ofensivo * defensivo)
-        if (Number.isFinite(registry.final.damageMultiplier)) {
-          registryDamageMul *= registry.final.damageMultiplier;
-        }
-
-        // Multiplicadores de stats (para stats crudos o ya aplicados como Choice Band o Burn)
-        if (Number.isFinite(registry.final.attackMultiplier) && dmgClass === 'physical') {
-          atkS = Math.floor(atkS * registry.final.attackMultiplier);
-        }
-        if (Number.isFinite(registry.final.specialAttackMultiplier) && dmgClass === 'special') {
-          atkS = Math.floor(atkS * registry.final.specialAttackMultiplier);
-        }
-        if (Number.isFinite(registry.final.specialDefenseMultiplier) && dmgClass === 'special') {
-          defS = Math.max(1, Math.floor(defS * registry.final.specialDefenseMultiplier));
-        }
-
-        // Bloqueos e inmunidades
-        const prev = registry.prevention?.final || {};
-        if (prev.immune || prev.blockedByPriority || prev.blockedByStatus || prev.blockedBySecondaryShield) {
-          blockedByRegistry = true;
-        }
-      }
-    } catch (e) {
-      console.warn('[DEBUG] resolveDamageModifiers error', e);
-    }
-  }
+  const regResult = applyRegistryDamageModifiers(attacker, defender, cand, fieldSnapshot, eff, dmgClass, { atkS, defS });
+  atkS = regResult.atkS;
+  defS = regResult.defS;
 
   const stab = (attacker.types || []).includes(cand.type) ? 1.5 : 1;
   const defSafe = Math.max(1, defS);
 
   // Bloqueo por Psychic Terrain + prioridad
-  let blocked = false;
-  if (field.terrain === 'psychic' && PRIORITY_MOVES.has(cand.move)) {
-    blocked = true;
-  }
-
-  // Si el registry dice que está bloqueado/inmune, respetamos eso
-  if (blockedByRegistry) {
-    blocked = true;
-  }
+  const blocked = (field.terrain === 'psychic' && PRIORITY_MOVES.has(cand.move)) || regResult.blockedByRegistry;
 
   if (blocked) {
     return {
@@ -1116,56 +1121,27 @@ function estimateMoveDamage(attacker, defender, cand, field) {
       blocked: true,
       wMul,
       terrMul,
-      registry,
+      registry: regResult.registry,
     };
   }
 
   // Daño base sin RNG
-  let basePerHit =
-    (((((22 * power * atkS) / defSafe) / 50) + 2) *
-      stab *
-      eff *
-      wMul *
-      terrMul *
-      registryDamageMul);
+  let basePerHit = (((((22 * power * atkS) / defSafe) / 50) + 2) * stab * eff * wMul * terrMul * regResult.registryDamageMul);
+  if (isSpread) basePerHit *= 0.75;
 
-  if (isSpread) {
-    basePerHit *= 0.75;
-  }
+  const { maxDamage, minDamage, critDamage } = calculateDamageRolls(basePerHit * hits);
 
-  const baseTotal = basePerHit * hits;
-
-  // Simular los 16 rolls (0.85 .. 1.00)
-  const rolls = [];
-  for (let i = 0; i < 16; i++) {
-    const roll = 0.85 + (i / 15) * 0.15;
-    rolls.push(Math.floor(baseTotal * roll));
-  }
-
-  const maxDamage = Math.max(...rolls);
-  const minDamage = Math.min(...rolls);
-  const critDamage = Math.floor(baseTotal * 1.5);
-
-  if (DEBUG_MODE) {
-    console.groupCollapsed(`⚔️ [DAMAGE CALC] ${attacker.name} usa ${cand.move} vs ${defender.name}`);
-    console.log(`🔹 Movimiento -> Poder Base: ${power} | Tipo: ${cand.type} | Clase: ${dmgClass.toUpperCase()}`);
-    console.log(`🔹 Stats Base Brutos -> Atk/SpA Base: ${getBaseStatRaw(attacker, dmgClass === 'physical' ? 'attack' : 'special-attack')} | Def/SpD Base: ${getBaseStatRaw(defender, dmgClass === 'physical' ? 'defense' : 'special-defense')}`);
-    console.log(`🔹 Stats Reales (Nv50+EVs) -> Atacante: ${atkS} | Defensor: ${defSafe}`);
-    console.log(`🔹 Multiplicadores -> STAB: ${stab} | Eficacia: x${eff} | Clima: x${wMul} | Terreno: x${terrMul} | Registro: x${registryDamageMul}`);
-    console.log(`🔹 Golpes Múltiples: ${hits} | Penalización por Spread: ${isSpread ? 'SÍ (x0.75)' : 'NO'}`);
-    console.log(`🏁 Rango de Daño Resultante: ${minDamage} - ${maxDamage} HP`);
-    console.groupEnd();
-  }
+  logDamageCalcInfo(attacker, defender, cand, dmgClass, atkS, defSafe, eff, wMul, terrMul, regResult.registryDamageMul, isSpread, hits, minDamage, maxDamage);
 
   return {
-    damage: maxDamage,      // compat con código existente
+    damage: maxDamage, // compat con código existente
     minDamage,
     maxDamage,
     critDamage,
     blocked: false,
     wMul,
     terrMul,
-    registry,
+    registry: regResult.registry,
   };
 }
 
@@ -3612,6 +3588,12 @@ async function pickPokemonIntoSlot(side, index, name) {
   }
 }
 
+function resetQuickCombosLock() {
+  state.chosenFour = [];
+  state.chosenEnemyFour = [];
+  state.turn1Custom = false;
+}
+
 function clearAll() {
   state.self = Array(6).fill(null);
   state.enemy = Array(6).fill(null);
@@ -3620,6 +3602,8 @@ function clearAll() {
   state.leads = { self: [], enemy: [] };
   state.activeSelfSlots = [0, 1];
   state.activeEnemySlots = [0, 1];
+  
+  resetQuickCombosLock();
   
   recalculateActiveField();
   renderAll();
@@ -3638,6 +3622,8 @@ function swapTeams() {
   const tempActive = state.activeSelfSlots;
   state.activeSelfSlots = state.activeEnemySlots;
   state.activeEnemySlots = tempActive;
+  
+  resetQuickCombosLock();
   
   recalculateActiveField();
   renderAll();
@@ -3841,14 +3827,97 @@ function getSelfCombos() {
   return combos;
 }
 
+function scoreAntiStrategy(selfMons, enemyMons) {
+  const enemyStrategies = inferStrategies(enemyMons);
+  let score = 0;
+  let notes = [];
+
+  for (const strat of enemyStrategies) {
+    if (strat.title === "Trick Room") {
+      if (hasMoveInTeam(selfMons, ["Taunt", "Mofa", "Imprison"]) || selfMons.some(m => calculateSpeed(m, 'self') < 60)) {
+        score += 20;
+        notes.push("Frena Espacio Raro");
+      } else {
+        score -= 10;
+      }
+    }
+    if (strat.title === "Viento Afín") {
+      if (hasMoveInTeam(selfMons, ["Tailwind", "Trick Room", "Icy Wind", "Onda Trueno", "Viento Afín"])) {
+        score += 15;
+        notes.push("Compite en Tempo");
+      }
+    }
+    if (strat.title === "Lluvia" || strat.title === "Sol" || strat.title === "Arena") {
+      if (hasMoveInTeam(selfMons, ["Rain Dance", "Sunny Day", "Sandstorm", "Snowscape", "Danza Lluvia", "Día Soleado", "Tormenta Arena"]) ||
+          selfMons.some(m => ["Drizzle", "Drought", "Sand Stream", "Snow Warning", "Cloud Nine", "Llovizna", "Sequía", "Chorro Arena", "Nevada"].includes(m.set?.ability))) {
+        score += 25;
+        notes.push("Interrumpe Clima");
+      }
+    }
+    if (strat.title === "Soporte" || strat.title === "Pivot") {
+      if (hasMoveInTeam(selfMons, ["Fake Out", "Sorpresa", "Protect", "Protección"])) {
+        score += 10;
+        notes.push("Frena Setup Inicial");
+      }
+    }
+  }
+  return { score, notes };
+}
+
+function scoreEnemyThreatVsCombo(enemyMon, comboMons) {
+  if (!comboMons.length) return { score: 0, maxEnemyPressure: 1 };
+  const enemyVsSelf = comboMons.map(selfMon => bestAttack(enemyMon, selfMon));
+  const maxEnemyPressure = Math.max(...enemyVsSelf.map(x => x.mult), 1);
+  const strongAnswers = comboMons.filter(selfMon => bestAttack(selfMon, enemyMon).mult >= 2);
+
+  const setMoves = enemyMon?.set?.moves || [];
+  let score = 30;
+
+  score += maxEnemyPressure >= 4 ? 28 : maxEnemyPressure >= 2 ? 16 : 6;
+  if (setMoves.includes("Tailwind") || setMoves.includes("Viento Afín")) score += 14;
+  if (setMoves.includes("Trick Room") || setMoves.includes("Espacio Raro")) score += 14;
+  if (setMoves.includes("Fake Out") || setMoves.includes("Sorpresa")) score += 10;
+  if (setMoves.includes("Follow Me") || setMoves.includes("Rage Powder") || setMoves.includes("Señuelo") || setMoves.includes("Polvo Ira")) score += 10;
+  if (setMoves.includes("Parting Shot") || setMoves.includes("Snarl") || setMoves.includes("Encore") || setMoves.includes("Última Palabra") || setMoves.includes("Alarido") || setMoves.includes("Otra Vez")) score += 8;
+  if ((enemyMon.set?.ability || "").includes("Intimidat") || (enemyMon.set?.ability || "").includes("Intimidac")) score += 8;
+
+  score -= Math.min(18, strongAnswers.length * 7);
+  if (strongAnswers.some(x => bestAttack(x, enemyMon).mult >= 4)) score -= 6;
+
+  return { score: Math.max(0, Math.min(100, score)), maxEnemyPressure };
+}
+
 function buildQuickCombos() {
   const combos = getSelfCombos();
   const evaluated = combos.map(indices => evaluateCombo(indices));
-  const sorted = evaluated
+  const validCombos = evaluated
     .filter(c => !Number.isNaN(c.score))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
-  return sorted;
+    .sort((a, b) => b.score - a.score);
+
+  const selected = [];
+  const usedPlans = new Set();
+
+  for (const combo of validCombos) {
+    const isDifferent = selected.every(sel => {
+       const sharedCount = combo.indices.filter(i => sel.indices.includes(i)).length;
+       return sharedCount <= 2 || !usedPlans.has(combo.planType);
+    });
+
+    if (isDifferent) {
+      selected.push(combo);
+      usedPlans.add(combo.planType);
+    }
+    if (selected.length === 3) break;
+  }
+
+  if (selected.length < 3) {
+    for (const combo of validCombos) {
+      if (!selected.includes(combo)) selected.push(combo);
+      if (selected.length === 3) break;
+    }
+  }
+
+  return selected;
 }
 
 function hasMoveInTeam(team, moveNames) {
@@ -4144,13 +4213,15 @@ function evaluateCombo(indices) {
   const speedControl  = scoreSpeedAndTempo(selfMons, enemyMons);
   const toolsScore    = scoreTools(selfMons);
   const redundancyPen = scoreRedundancyPenalty(selfMons, enemyMons);
+  const antiStrat     = scoreAntiStrategy(selfMons, enemyMons);
 
   const rawScore =
-      offCoverage   * 0.35 +
+      offCoverage   * 0.30 +
       defSafety     * 0.25 +
-      speedControl  * 0.20 +
-      toolsScore    * 0.20 -
-      redundancyPen * 0.40;
+      speedControl  * 0.15 +
+      toolsScore    * 0.15 +
+      antiStrat.score * 0.25 -
+      redundancyPen * 0.35;
 
   const normalizedScore = Math.round(Math.max(0, Math.min(100, rawScore)));
 
@@ -4170,6 +4241,7 @@ function evaluateCombo(indices) {
     speedControl,
     toolsScore,
     redundancyPen,
+    antiStratNotes: antiStrat.notes,
     planType,
     planTitle,
     planDescription,
@@ -4277,12 +4349,25 @@ function lockBestFour(preview) {
     }
   }
   
+  const comboEnemyScores = state.enemy.map((enemyMon, idx) => {
+    if (!enemyMon) return null;
+    return { idx, cScore: scoreEnemyThreatVsCombo(enemyMon, best).score };
+  }).filter(Boolean).sort((a, b) => b.cScore - a.cScore);
+
+  if (comboEnemyScores.length > 0) {
+    const topFour = comboEnemyScores.slice(0, 4);
+    state.chosenEnemyFour = topFour.map(item => item.idx);
+    state.leads.enemy = topFour.slice(0, 2).map(item => item.idx);
+  }
+  
   recalculateActiveField();
   renderAll();
 }
 
 function applyQuickCombo(comboIndices) {
   state.chosenFour = comboIndices;
+  const selfMons = comboIndices.map(i => state.self[i]).filter(Boolean);
+
   if (state.combos) {
     const combo = state.combos.find(c => [...c.indices].sort().join(',') === [...comboIndices].sort().join(','));
     if (combo && combo.leads) {
@@ -4290,6 +4375,18 @@ function applyQuickCombo(comboIndices) {
       state.turn1Custom = false;
     }
   }
+
+  const comboEnemyScores = state.enemy.map((enemyMon, idx) => {
+    if (!enemyMon) return null;
+    return { idx, cScore: scoreEnemyThreatVsCombo(enemyMon, selfMons).score };
+  }).filter(Boolean).sort((a, b) => b.cScore - a.cScore);
+
+  if (comboEnemyScores.length > 0) {
+    const topFour = comboEnemyScores.slice(0, 4);
+    state.chosenEnemyFour = topFour.map(item => item.idx);
+    state.leads.enemy = topFour.slice(0, 2).map(item => item.idx);
+  }
+
   recalculateActiveField();
   renderAll();
 }
@@ -4314,13 +4411,8 @@ function renderQuickCombos() {
     return;
   }
 
-  const predictedEnemyFull = enemyTeam.map(mon => ({ mon, threat: scoreThreat(mon) }))
-                                       .sort((a, b) => b.threat.score - a.threat.score)
-                                       .slice(0, 4)
-                                       .map(item => ({ mon: item.mon, threat: item.threat }));
-                                       
-  const predictedEnemyLeads = predictedEnemyFull.slice(0, 2);
-  const predictedEnemyBack = predictedEnemyFull.slice(2, 4);
+  const enemyPlan = inferStrategies(enemyTeam);
+  const enemyStratText = enemyPlan.length > 0 ? enemyPlan[0].title : 'Ofensiva directa';
 
   const isActiveCombo = (comboArr) => {
     if (state.activeComboKey && state.activeComboKey === comboArr.join(',')) return true;
@@ -4336,11 +4428,22 @@ function renderQuickCombos() {
     const allyBack = mons.slice(2, 4);
     const active = isActiveCombo(combo.orderedIdx);
 
-    const ourPlan = combo.planDescription || "Presionar desde el primer turno.";
-    const topThreatLevel = predictedEnemyLeads[0]?.threat?.level;
-    const topThreatReason = predictedEnemyLeads[0]?.threat?.reasons?.[0] || 'potencial ofensivo';
-    const enemyRisk = predictedEnemyLeads[0] 
-        ? `Peligro de ${topThreatReason} por parte de ${predictedEnemyLeads[0].mon.displayName}` 
+    // Predicción del rival específica y reevaluada VS este combo
+    const comboEnemyScores = enemyTeam.map(enemyMon => {
+       return { mon: enemyMon, cScore: scoreEnemyThreatVsCombo(enemyMon, mons).score };
+    }).sort((a, b) => b.cScore - a.cScore);
+
+    const predictedEnemyLeads = comboEnemyScores.slice(0, 2);
+    const predictedEnemyBack = comboEnemyScores.slice(2, 4);
+
+    let ourPlan = combo.planDescription || "Presionar desde el primer turno.";
+    if (combo.antiStratNotes && combo.antiStratNotes.length > 0) {
+        ourPlan += ` <strong class="color-blue" style="display:block; margin-top:4px;"><i data-lucide="check-circle" style="width:12px;height:12px;"></i> Adaptación clave: ${combo.antiStratNotes.join(' · ')}</strong>`;
+    }
+
+    const topThreat = predictedEnemyLeads[0]?.mon;
+    const enemyRisk = topThreat 
+        ? `Estrategia <strong>${enemyStratText}</strong>. Buscarán tomar la iniciativa o anularte mediante <strong>${topThreat.displayName}</strong>.` 
         : 'Amenaza desconocida';
 
     return `
@@ -4569,7 +4672,11 @@ function getLeadPressureText(leads, enemyTeam) {
     }
   }
   if (!targets.length) return "Daño neutro y posicionamiento general.";
-  return `Presiona a ${targets.slice(0,2).join(' y ')}.`;
+  if (targets.length > 1) {
+    const last = targets.pop();
+    return `Presiona a ${targets.join(', ')} y ${last}.`;
+  }
+  return `Presiona a ${targets[0]}.`;
 }
 
 function getLeadAvoidText(leads, enemyTeam) {
@@ -4583,7 +4690,11 @@ function getLeadAvoidText(leads, enemyTeam) {
     }
   }
   if (!threats.length) return "Matchup sólido contra la mayoría de aperturas.";
-  return `Evita quedar expuesto ante ${threats.slice(0,2).join(' o ')}.`;
+  if (threats.length > 1) {
+    const last = threats.pop();
+    return `Evita quedar expuesto ante ${threats.join(', ')} o ${last}.`;
+  }
+  return `Evita quedar expuesto ante ${threats[0]}.`;
 }
 
 function getBenchEntryText(mon, enemyTeam) {
@@ -4593,18 +4704,17 @@ function getBenchEntryText(mon, enemyTeam) {
     let bestUse = 'Entra para estabilizar el daño o pivotar.';
 
     const enemies = enemyTeam.filter(Boolean);
-    let strongTargets = 0;
+    const targets = [];
     for (const e of enemies) {
       const res = bestAttack(mon, e);
-      if (res.mult >= 2 && res.maxPct >= 50) strongTargets++;
+      if (res.mult >= 2 && res.maxPct >= 50) targets.push(e.displayName);
     }
 
-    if (strongTargets >= 2) {
-      bestUse = `Entra para presionar fuerte a ${enemies
-        .filter((e) => bestAttack(mon, e).mult >= 2)
-        .map((e) => e.displayName)
-        .slice(0, 2)
-        .join(' y ')}.`;
+    if (targets.length > 1) {
+      const last = targets.pop();
+      bestUse = `Entra para presionar fuerte a ${targets.join(', ')} y ${last}.`;
+    } else if (targets.length === 1) {
+      bestUse = `Entra para presionar fuerte a ${targets[0]}.`;
     }
 
     const boardDelta = (() => {
@@ -4633,7 +4743,12 @@ function getBenchEntryText(mon, enemyTeam) {
   for (const e of enemyTeam) {
     if (bestAttack(mon, e).mult >= 2) targets.push(e.displayName);
   }
-  if (targets.length) return `Entra si necesitas presionar a ${targets[0]}.`;
+  if (targets.length > 1) {
+    const last = targets.pop();
+    return `Entra si necesitas presionar a ${targets.join(', ')} y ${last}.`;
+  } else if (targets.length === 1) {
+    return `Entra si necesitas presionar a ${targets[0]}.`;
+  }
   return `Entra para estabilizar el daño o pivotar.`;
 }
 
@@ -4664,16 +4779,26 @@ function getBenchAvoidText(mon, enemyTeam) {
   for (const e of enemyTeam) {
     if (bestAttack(e, mon).mult >= 2) threats.push(e.displayName);
   }
-  if (threats.length) return `No lo expongas si ${threats[0]} está activo.`;
+  if (threats.length > 1) {
+    const last = threats.pop();
+    return `No lo expongas si ${threats.join(', ')} o ${last} están activos.`;
+  } else if (threats.length === 1) {
+    return `No lo expongas si ${threats[0]} está activo.`;
+  }
   return `Cuidado con recibir demasiado daño de desgaste.`;
 }
 
 function getNoBringReason(mon, enemyTeam) {
-  let weakCount = 0;
+  const punishers = [];
   for (const e of enemyTeam) {
-     if (bestAttack(e, mon).mult >= 2) weakCount++;
+     if (bestAttack(e, mon).mult >= 2) punishers.push(e.displayName);
   }
-  if (weakCount >= 2) return "Demasiado castigado por sus amenazas principales.";
+  if (punishers.length > 1) {
+     const last = punishers.pop();
+     return `Demasiado castigado por ${punishers.join(', ')} y ${last}.`;
+  } else if (punishers.length === 1) {
+     return `Demasiado castigado por ${punishers[0]}.`;
+  }
   
   const speed = calculateSpeed(mon, "self");
   if (speed < 100 && !mon.set?.moves?.includes("Trick Room")) return "Pierde tempo de salida contra este equipo.";
@@ -5093,13 +5218,23 @@ function renderTurn1PickRows() {
         const mon = team[i];
         const on = picks.includes(i);
         const cls = ["t1-slot"];
+        let isDimmed = false;
+        
         if (!mon) cls.push("t1-slot--empty");
         if (mon && on)
           cls.push(side === "self" ? "t1-slot--on-self" : "t1-slot--on-enemy");
           
-        if (isQuick && side === "self" && state.chosenFour && state.chosenFour.length === 4) {
+        if (isQuick && side === "self" && state.chosenFour && state.chosenFour.length > 0) {
           if (!state.chosenFour.includes(i)) {
             cls.push("matchup-slot--dimmed");
+            isDimmed = true;
+          }
+        }
+
+        if (isQuick && side === "enemy" && state.chosenEnemyFour && state.chosenEnemyFour.length > 0) {
+          if (!state.chosenEnemyFour.includes(i)) {
+            cls.push("matchup-slot--dimmed");
+            isDimmed = true;
           }
         }
         
@@ -5109,7 +5244,7 @@ function renderTurn1PickRows() {
         const inner = mon
           ? `<img src="${mon.sprite}" alt="" loading="lazy">${badge}`
           : '<span class="t1-slot-ph">—</span>';
-        const dis = mon ? "" : " disabled";
+        const dis = (mon && !isDimmed) ? "" : " disabled";
         return `<button type="button" class="${cls.join(" ")}" data-t1-slot data-side="${side}" data-idx="${i}" ${mon && side === "enemy" ? `data-scout="${mon.name}"` : ""}${dis}>${inner}</button>`;
       })
       .join("");
@@ -5631,6 +5766,7 @@ selfSlots.addEventListener("click", async (e) => {
   if (remove) {
     const idx = Number(remove.dataset.index);
     state.self[idx] = null;
+    resetQuickCombosLock();
     renderAll();
     return;
   }
@@ -5651,6 +5787,7 @@ enemySlots.addEventListener("click", async (e) => {
   if (remove) {
     const idx = Number(remove.dataset.index);
     state.enemy[idx] = null;
+    resetQuickCombosLock();
     renderAll();
     return;
   }
@@ -6768,6 +6905,7 @@ function showScoutTooltip(slug, e) {
 }
 
 document.addEventListener("pointerenter", (e) => {
+  if (e.pointerType !== 'mouse') return;
   if (!e.target || typeof e.target.closest !== 'function') return;
   const target = e.target.closest('[data-scout]');
   if (!target) return;
@@ -6775,9 +6913,14 @@ document.addEventListener("pointerenter", (e) => {
 }, true);
 
 document.addEventListener("pointerleave", (e) => {
+  if (e.pointerType !== 'mouse') return;
   if (!e.target || typeof e.target.closest !== 'function') return;
   const target = e.target.closest('[data-scout]');
   if (target) scoutTooltipContainer.classList.remove('show');
+}, true);
+
+document.addEventListener("click", () => {
+  if (scoutTooltipContainer) scoutTooltipContainer.classList.remove('show');
 }, true);
 
 // --- Team Config Drawer ---
