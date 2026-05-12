@@ -4627,3 +4627,135 @@ tbody th {
     padding: 0 2px;
   }
 }
+
+/* ===== NUEVOS COMPONENTES (Global State, Badges, Tags, Survival) ===== */
+
+/* 1. Global State Banner */
+.global-field-state {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin: 16px 0;
+}
+
+.global-state-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--panel);
+}
+
+.global-state-item.weather-sun { color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.1); }
+.global-state-item.weather-rain { color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.1); }
+.global-state-item.weather-sand { color: #d97706; border: 1px solid rgba(217, 119, 6, 0.3); background: rgba(217, 119, 6, 0.1); }
+.global-state-item.weather-snow { color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.1); }
+
+.global-state-item.terrain-psychic { color: #d946ef; border: 1px solid rgba(217, 70, 239, 0.3); }
+.global-state-item.terrain-grassy { color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+.global-state-item.terrain-electric { color: #eab308; border: 1px solid rgba(234, 179, 8, 0.3); }
+.global-state-item.terrain-misty { color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.3); }
+
+/* 2. Lead Cards (Timeline, Stats, Ability) */
+.incident-card__actor {
+  position: relative;
+}
+
+.turn-order {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--bg);
+  border: 1px solid var(--line2);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  z-index: 10;
+}
+
+.turn-order.order-1 { border-color: var(--gold); color: var(--gold); }
+.turn-order.order-2 { border-color: #cbd5e1; }
+.turn-order.order-3 { border-color: #f97316; }
+.turn-order.order-4 { border-color: var(--red); }
+
+.stat-drop {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 69, 58, 0.15);
+  border: 1px solid rgba(255, 69, 58, 0.4);
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  z-index: 10;
+}
+
+/* 3. Matchup Analysis Tags (Sol x1.5, etc.) */
+.damage-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tag {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--soft);
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.tag-weather { border-color: rgba(245, 158, 11, 0.4); color: #fcd34d; }
+.tag-spread { border-color: rgba(148, 163, 184, 0.4); color: #cbd5e1; }
+.tag-stab { border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; }
+
+/* 4. Survival State (Protect / Fake Out) */
+.survival-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.survival-badge i {
+  width: 14px;
+  height: 14px;
+}
+
+.survival-protect {
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(48, 209, 88, 0.3);
+}
+
+.survival-fakeout {
+  background: rgba(255, 159, 10, 0.15);
+  color: var(--orange);
+  border: 1px solid rgba(255, 159, 10, 0.3);
+}

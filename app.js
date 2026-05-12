@@ -1267,6 +1267,15 @@ function estimateMoveDamage(attacker, defender, cand, field) {
   const atkStage = attacker.battle?.stages?.atk || 0;
   const defStage = defender.battle?.stages?.def || 0;
   
+  const tags = [];
+  if (wMul > 1 && field.weather === 'sun') tags.push("🔥 Sol x1.5");
+  if (wMul > 1 && (field.weather === 'rain' || field.weather === 'rainstorm')) tags.push("💧 Lluvia x1.5");
+  if (wMul < 1 && field.weather === 'sun') tags.push("🔥 Sol x0.5");
+  if (wMul < 1 && (field.weather === 'rain' || field.weather === 'rainstorm')) tags.push("💧 Lluvia x0.5");
+  if (stab > 1) tags.push("⚔️ STAB");
+  if (isSpread) tags.push("📉 Spread x0.75");
+  if (atkStage < 0) tags.push("🛡️ Intimidado x0.66");
+
   smartLog(
       `dmg-${cacheKey}`, 
       `💥 [DAMAGE] ${attacker.name} [Atk: ${atkStat} (Stage:${atkStage})] usa ${moveNameStr} vs ${defender.name} [Def: ${defStat} (Stage:${defStage})] | BP: ${basePower} | Modificadores: Clima(${wMul || 1}), Spread(${isSpread ? '0.75' : '1'}) | Rango: ${minDamage} - ${maxDamage}`
@@ -1281,6 +1290,7 @@ function estimateMoveDamage(attacker, defender, cand, field) {
     wMul,
     terrMul,
     registry: regResult.registry,
+    tags
   };
 
   // 3. GUARDAR EN LA CACHÉ ANTES DE SALIR
@@ -2324,7 +2334,8 @@ function bestAttack(attacker, defender, field = state.field) {
       ohko,
       registry,
       registryReasons: registry ? registry.reasons : [],
-      registryExplain: (window.EffectsRegistryBridge && registry) ? window.EffectsRegistryBridge.buildExplainLines(registry) : []
+      registryExplain: (window.EffectsRegistryBridge && registry) ? window.EffectsRegistryBridge.buildExplainLines(registry) : [],
+      tags: damageObj.tags || []
     };
   });
 
@@ -5856,13 +5867,89 @@ function renderTurn1Simulator() {
   const e2 = state.enemy[eIdx[1]];
 
   const leads = [
-    { mon: s1, side: "self", spe: calculateSpeed(s1, "self") },
-    { mon: s2, side: "self", spe: calculateSpeed(s2, "self") },
-    { mon: e1, side: "enemy", spe: calculateSpeed(e1, "enemy") },
-    { mon: e2, side: "enemy", spe: calculateSpeed(e2, "enemy") },
+    { mon: s1, side: "self", spe: calculateSpeed(s1, "self"), realIdx: sIdx[0] },
+    { mon: s2, side: "self", spe: calculateSpeed(s2, "self"), realIdx: sIdx[1] },
+    { mon: e1, side: "enemy", spe: calculateSpeed(e1, "enemy"), realIdx: eIdx[0] },
+    { mon: e2, side: "enemy", spe: calculateSpeed(e2, "enemy"), realIdx: eIdx[1] },
   ]
     .filter((x) => x.mon)
     .sort((a, b) => b.spe - a.spe);
+
+  let weathers = [];
+  let terrains = [];
+
+  // === RENDER GLOBAL STATE BANNER ===
+  const globalStateBanner = document.getElementById("t1GlobalFieldState");
+  if (globalStateBanner) {
+    const reversedLeads = [...leads].reverse();
+    for (const lead of reversedLeads) {
+      const ability = (lead.mon.set?.ability || lead.mon.ability || '').toLowerCase().replace(/\\s/g, '');
+      const name = lead.mon.displayName || lead.mon.name;
+      if (ability === 'drought') weathers.push({ type: 'sun', text: `Sol abrasador (vía ${name})`, icon: 'sun' });
+      if (ability === 'drizzle') weathers.push({ type: 'rain', text: `Lluvia (vía ${name})`, icon: 'cloud-rain' });
+      if (ability === 'sandstream') weathers.push({ type: 'sand', text: `Tormenta Arena (vía ${name})`, icon: 'wind' });
+      if (ability === 'snowwarning') weathers.push({ type: 'snow', text: `Nieve (vía ${name})`, icon: 'snowflake' });
+      if (ability === 'psychicsurge') terrains.push({ type: 'psychic', text: `Campo Psíquico (vía ${name})`, icon: 'orbit' });
+      if (ability === 'grassysurge') terrains.push({ type: 'grassy', text: `Campo de Hierba (vía ${name})`, icon: 'leaf' });
+      if (ability === 'electricsurge') terrains.push({ type: 'electric', text: `Campo Eléctrico (vía ${name})`, icon: 'zap' });
+      if (ability === 'mistysurge') terrains.push({ type: 'misty', text: `Campo de Niebla (vía ${name})`, icon: 'sparkles' });
+    }
+    const activeWeather = weathers.length > 0 ? weathers[0] : null;
+    const activeTerrain = terrains.length > 0 ? terrains[0] : null;
+    if (!activeWeather && !activeTerrain) {
+      globalStateBanner.style.display = 'none';
+    } else {
+      globalStateBanner.style.display = 'flex';
+      let html = '';
+      if (activeWeather) html += `<div class="global-state-item weather-${activeWeather.type}"><i data-lucide="${activeWeather.icon}"></i> <span>${activeWeather.text}</span></div>`;
+      if (activeTerrain) html += `<div class="global-state-item terrain-${activeTerrain.type}"><i data-lucide="${activeTerrain.icon}"></i> <span>${activeTerrain.text}</span></div>`;
+      globalStateBanner.innerHTML = html;
+      if (typeof lucide !== "undefined" && lucide.createIcons) lucide.createIcons({ root: globalStateBanner });
+    }
+  }
+
+  // === RENDER LEAD BADGES (TIMELINE, STATS, ABILITY GLOW) ===
+  document.querySelectorAll('.t1-slot-timeline-badge').forEach(e => e.remove());
+  document.querySelectorAll('.t1-slot-stat-badge').forEach(e => e.remove());
+  document.querySelectorAll('.t1-slot.t1-slot-ability-glow').forEach(e => e.classList.remove('t1-slot-ability-glow'));
+
+  let selfIntimidate = leads.some(l => l.side === 'self' && (l.mon.set?.ability || l.mon.ability || '').toLowerCase().includes('intimidate'));
+  let enemyIntimidate = leads.some(l => l.side === 'enemy' && (l.mon.set?.ability || l.mon.ability || '').toLowerCase().includes('intimidate'));
+  
+  leads.forEach((l, index) => {
+    const slotEl = document.querySelector(`.t1-slot[data-side="${l.side}"][data-idx="${l.realIdx}"]`);
+    if (!slotEl) return;
+    
+    const hasPriority = l.mon.set?.moves?.some(m => PRIORITY_MOVES.has(m));
+    const prioIcon = hasPriority ? '<i data-lucide="zap" style="width: 10px; height: 10px; color: var(--gold); margin-right: 2px;"></i>' : '';
+    const orderBadge = document.createElement('div');
+    orderBadge.className = 't1-slot-timeline-badge';
+    orderBadge.innerHTML = `${prioIcon}${index + 1}<span>️⃣</span>`;
+    slotEl.appendChild(orderBadge);
+    
+    const ability = (l.mon.set?.ability || l.mon.ability || '').toLowerCase().replace(/\\s/g, '');
+    const isIntimidated = (l.side === 'self' && enemyIntimidate) || (l.side === 'enemy' && selfIntimidate);
+    const blocksIntimidate = ['clearbody', 'innerfocus', 'hypercutter', 'defiant', 'competitive', 'guarddog', 'contrary'].includes(ability);
+    
+    if (isIntimidated && !blocksIntimidate) {
+      const statBadge = document.createElement('div');
+      statBadge.className = 't1-slot-stat-badge';
+      statBadge.innerHTML = '-1 Atk';
+      slotEl.appendChild(statBadge);
+    }
+    
+    const weather = state.field.weather || (weathers.length > 0 ? weathers[0].type : null);
+    const isActiveAbility = 
+      (['intimidate', 'drought', 'drizzle', 'sandstream', 'snowwarning', 'psychicsurge', 'grassysurge', 'electricsurge', 'mistysurge'].includes(ability)) ||
+      (weather === 'sun' && ability === 'chlorophyll') ||
+      (weather === 'rain' && ability === 'swiftswim') ||
+      (weather === 'sand' && ability === 'sandrush') ||
+      (weather === 'snow' && ability === 'slushrush');
+      
+    if (isActiveAbility) {
+      slotEl.classList.add('t1-slot-ability-glow');
+    }
+  });
 
   const insights = [];
   const micro = (mon) =>
@@ -5903,6 +5990,35 @@ function renderTurn1Simulator() {
   let planSteps = [];
   let selfThreats = 0;
 
+  // Pre-calcular orden de turno global para los 4 Pokémon
+  const turnOrderLeads = leads.map(l => {
+      let maxPrio = 0;
+      const targets = l.side === 'self' ? enemyLeads : selfLeads;
+      targets.forEach(t => {
+          const atk = bestAttack(l.mon, t.mon);
+          if (PRIORITY_MOVES.has(atk.move)) maxPrio = 1;
+      });
+      return { ...l, maxPrio, finalScore: (maxPrio * 10000) + l.spe };
+  }).sort((a, b) => b.finalScore - a.finalScore);
+  turnOrderLeads.forEach((l, idx) => l.turnRank = idx + 1);
+
+  const getActorStateHtml = (mon, side) => {
+      const orderLead = turnOrderLeads.find(l => l.mon.name === mon.name && l.side === side);
+      const rank = orderLead ? orderLead.turnRank : '?';
+      const prioIcon = (orderLead && orderLead.maxPrio > 0) ? '⚡' : '';
+      
+      const ability = (mon.set?.ability || mon.ability || '').toLowerCase().replace(/\\s/g, '');
+      const isIntimidated = (side === 'self' && enemyIntimidate) || (side === 'enemy' && selfIntimidate);
+      const blocksIntimidate = ['clearbody', 'innerfocus', 'hypercutter', 'defiant', 'competitive', 'guarddog', 'contrary'].includes(ability);
+      
+      const statDropHtml = (isIntimidated && !blocksIntimidate) ? `<span class="stat-drop">-1 Atk</span>` : '';
+      
+      return `
+        <div class="turn-order order-${rank}">${rank}${prioIcon}</div>
+        ${statDropHtml}
+      `;
+  };
+
   for (const sObj of selfLeads) {
     for (const eObj of enemyLeads) {
       const s = sObj.mon;
@@ -5937,7 +6053,19 @@ function renderTurn1Simulator() {
       // Opportunity (Ventana de Eliminación)
       if (sFaster && atkS.mult >= 2) {
         momentum += (atkS.ohko || atkS.ohkoProb > 50) ? 15 : 8;
-          const moveName = getTranslation(atkS.move, "move") || atkS.move;
+        const moveName = getTranslation(atkS.move, "move") || atkS.move;
+        
+        let tagsHtml = '';
+        if (atkS.tags && atkS.tags.length > 0) {
+            const mappedTags = atkS.tags.map(tag => {
+                let cls = "tag";
+                if (tag.includes('Sol') || tag.includes('Lluvia') || tag.includes('Arena') || tag.includes('Nieve')) cls += " tag-weather";
+                else if (tag.includes('Spread')) cls += " tag-spread";
+                else if (tag.includes('STAB')) cls += " tag-stab";
+                return `<span class="${cls}">${tag}</span>`;
+            }).join('');
+            tagsHtml = `<div class="damage-tags">${mappedTags}</div>`;
+        }
         
         opportunityCards.push(`
           <article class="opportunity-card opportunity-card--kill">
@@ -5947,15 +6075,30 @@ function renderTurn1Simulator() {
               <h3 class="opportunity-card__title">${s.displayName} elimina a ${e.displayName}</h3>
             </div>
             <div class="opportunity-card__body">
+              <div class="incident-card__actors">
+                <div class="incident-card__actor">
+                  <img class="incident-card__actor-sprite" src="${s.sprite}" />
+                  <span class="incident-card__actor-name">${s.displayName}</span>
+                  ${getActorStateHtml(s, 'self')}
+                </div>
+                <div class="incident-card__actor">
+                  <img class="incident-card__actor-sprite" src="${e.sprite}" />
+                  <span class="incident-card__actor-name">${e.displayName}</span>
+                  ${getActorStateHtml(e, 'enemy')}
+                </div>
+              </div>
               <p class="opportunity-card__summary">Buen click si quieres convertir presión en ventaja inmediata.</p>
             </div>
-            <div class="opportunity-card__footer">
-              <div class="opportunity-card__move">${moveName}</div>
-              <div class="opportunity-card__meta">
-                <span class="incident-card__multiplier">x${atkS.mult}</span>
-                <span class="incident-card__damage">${atkS.minPct}–${atkS.maxPct}%</span>
+            <div class="opportunity-card__footer" style="flex-direction: column; align-items: stretch; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="opportunity-card__move">${moveName}</div>
+                <div class="opportunity-card__meta">
+                  <span class="incident-card__multiplier">x${atkS.mult}</span>
+                  <span class="incident-card__damage">${atkS.minPct}–${atkS.maxPct}%</span>
+                </div>
+                <div class="opportunity-card__confidence">${(atkS.ohko || atkS.ohkoProb > 50) ? 'Confianza alta' : 'Posible KO'}</div>
               </div>
-              <div class="opportunity-card__confidence">${(atkS.ohko || atkS.ohkoProb > 50) ? 'Confianza alta' : 'Posible KO'}</div>
+              ${tagsHtml}
             </div>
           </article>
         `);
@@ -5966,6 +6109,35 @@ function renderTurn1Simulator() {
         momentum -= (atkE.ohko || atkE.ohkoProb > 50) ? 15 : 8;
         selfThreats++;
         const moveName = getTranslation(atkE.move, "move") || atkE.move;
+        
+        let tagsHtml = '';
+        if (atkE.tags && atkE.tags.length > 0) {
+            const mappedTags = atkE.tags.map(tag => {
+                let cls = "tag";
+                if (tag.includes('Sol') || tag.includes('Lluvia') || tag.includes('Arena') || tag.includes('Nieve')) cls += " tag-weather";
+                else if (tag.includes('Spread')) cls += " tag-spread";
+                else if (tag.includes('STAB')) cls += " tag-stab";
+                return `<span class="${cls}">${tag}</span>`;
+            }).join('');
+            tagsHtml = `<div class="damage-tags">${mappedTags}</div>`;
+        }
+        
+        const myMoves = (s.set?.moves || []).map(m => String(m).toLowerCase());
+        const partner = selfLeads.find(x => x.mon.name !== s.name)?.mon;
+        const partnerMoves = partner ? (partner.set?.moves || []).map(m => String(m).toLowerCase()) : [];
+        const partnerHasFakeOut = partnerMoves.includes('fake out') || partnerMoves.includes('sorpresa');
+
+        let blockedHtml = '';
+        let showEmptyHealth = false;
+        if (atkE.ohko || atkE.ohkoProb > 50) {
+            if (myMoves.includes('protect') || myMoves.includes('detect') || myMoves.includes('protección')) {
+              blockedHtml = `<div class="survival-badge survival-protect"><i data-lucide="shield"></i> Bloqueado por Protección</div>`;
+              showEmptyHealth = true;
+            } else if (myMoves.includes('fake out') || myMoves.includes('sorpresa') || partnerHasFakeOut) {
+              blockedHtml = `<div class="survival-badge survival-fakeout"><i data-lucide="rewind"></i> Turno anulado por Sorpresa</div>`;
+              showEmptyHealth = true;
+            }
+        }
         
         criticalCards.push(`
           <article class="incident-card incident-card--danger">
@@ -5979,28 +6151,30 @@ function renderTurn1Simulator() {
                 <div class="incident-card__actor">
                   <img class="incident-card__actor-sprite" src="${e.sprite}" />
                   <span class="incident-card__actor-name">${e.displayName}</span>
+                  ${getActorStateHtml(e, 'enemy')}
                 </div>
                 <div class="incident-card__actor">
                   <img class="incident-card__actor-sprite" src="${s.sprite}" />
                   <span class="incident-card__actor-name">${s.displayName}</span>
+                  ${getActorStateHtml(s, 'self')}
                 </div>
               </div>
-              <p class="incident-card__summary">El rival gana el cruce antes de que puedas estabilizar.</p>
+              <p class="incident-card__summary" ${showEmptyHealth ? 'style="display:none;"' : ''}>El rival gana el cruce antes de que puedas estabilizar.</p>
+              ${blockedHtml}
             </div>
-            <div class="incident-card__footer">
-              <div class="incident-card__move">${moveName}</div>
-              <div class="incident-card__meta">
-                <span class="incident-card__multiplier">x${atkE.mult}</span>
-                <span class="incident-card__damage">${atkE.minPct}–${atkE.maxPct}%</span>
-                <span class="incident-card__reason">Más rápido</span>
+            <div class="incident-card__footer" style="${showEmptyHealth ? 'opacity: 0.5; flex-direction: column; align-items: stretch; gap: 8px;' : 'flex-direction: column; align-items: stretch; gap: 8px;'}">
+              <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="incident-card__move">${moveName}</div>
+                <div class="incident-card__meta">
+                  <span class="incident-card__multiplier">x${atkE.mult}</span>
+                  <span class="incident-card__damage">${showEmptyHealth ? '0%' : `${atkE.minPct}–${atkE.maxPct}%`}</span>
+                  <span class="incident-card__reason">Más rápido</span>
+                </div>
               </div>
+              ${tagsHtml}
             </div>
           </article>
         `);
-
-        const myMoves = (s.set?.moves || []).map(m => String(m).toLowerCase());
-        const partner = selfLeads.find(x => x.mon.name !== s.name)?.mon;
-        const partnerMoves = partner ? (partner.set?.moves || []).map(m => String(m).toLowerCase()) : [];
 
         if (myMoves.includes('protect') || myMoves.includes('detect') || myMoves.includes('protección')) {
           planSteps.push(`Protege a ${s.displayName} (Protect) para esquivar ${moveName}.`);
