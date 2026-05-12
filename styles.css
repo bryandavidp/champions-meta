@@ -4423,8 +4423,6 @@ tbody th {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  overflow-y: scroll;
-  max-height: 500px;
   width: 100%;
   box-sizing: border-box;
 }
