@@ -5085,3 +5085,113 @@ tbody th {
   border-radius: 6px;
   border: 1px solid rgba(255,255,255,0.05);
 }
+
+
+/* --- PROGRESSIVE DISCLOSURE & BARS --- */
+.sprite-container { position: relative; display: inline-block; }
+.badge-stat-drop { 
+  position: absolute; bottom: -4px; right: -4px; 
+  background: #ff3b30; color: white; 
+  font-size: 0.6rem; font-weight: 800; 
+  padding: 2px 4px; border-radius: 4px; 
+  border: 1px solid #1a1a24; 
+}
+.badge-fakeout-alert { 
+  position: absolute; top: -4px; left: -4px; 
+  background: #ff9500; color: white; 
+  border-radius: 50%; padding: 3px; 
+  display: grid; place-items: center; 
+  box-shadow: 0 0 8px rgba(255, 149, 0, 0.6); 
+}
+.badge-fakeout-alert svg { width: 10px; height: 10px; }
+
+.pulse-anim { animation: pulse 1.5s infinite; } 
+@keyframes pulse { 
+  0% { transform: scale(1); } 
+  50% { transform: scale(1.15); } 
+  100% { transform: scale(1); } 
+}
+
+.predictive-hp-bar { 
+  width: 100%; height: 8px; 
+  background: rgba(0,0,0,0.5); 
+  border-radius: 4px; display: flex; 
+  overflow: hidden; position: relative; 
+  border: 1px solid rgba(255,255,255,0.1); 
+  margin-top: 4px; flex-direction: row-reverse; /* Row reverse because 100% safe is on the right */
+}
+.hp-safe { background: #34c759; }
+.hp-roll { background: repeating-linear-gradient(45deg, rgba(255,59,48,0.5), rgba(255,59,48,0.5) 4px, transparent 4px, transparent 8px); }
+.hp-damage { background: transparent; }
+.is-ohko .hp-lethal { background: #ff3b30; }
+.ohko-skull { position: absolute; right: 2px; top: -1px; width: 10px; height: 10px; color: white; }
+\n
+/* --- PHASE 2: TIES & VECTORS --- */
+.crossfire-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.03);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.vector-line {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--muted, #aaa);
+  white-space: nowrap;
+  text-align: center;
+}
+.vector-line::before, .vector-line::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+  margin: 0 4px;
+}
+
+.speed-tie-box {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px dashed var(--gold, #f1c40f);
+  border-radius: 6px;
+  position: relative;
+  background: rgba(255, 215, 0, 0.05);
+}
+.speed-tie-label {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a24;
+  color: var(--gold, #f1c40f);
+  font-size: 0.6rem;
+  font-weight: bold;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.btn-emergency-switch {
+  margin-top: 8px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(50, 173, 230, 0.15);
+  border: 1px solid rgba(50, 173, 230, 0.4);
+  color: #fff;
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-emergency-switch:hover {
+  background: rgba(50, 173, 230, 0.3);
+}
+.speed-badge.item-badge i { width: 10px; height: 10px; margin-right: 2px; }

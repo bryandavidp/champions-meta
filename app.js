@@ -4531,8 +4531,8 @@ function evaluateCombo(indices) {
           if (ab === 'drizzle' || mon.name.toLowerCase().includes('pelipper')) simFieldLocal.weather = 'rain';
           if (ab === 'psychicsurge') simFieldLocal.terrain = 'psychic';
       };
-      const sLead2 = selfLeads.find(m => m !== sLead);
-      const eLead2 = enemyLeads.find(m => m !== eLead);
+      const sLead2 = (selfLeads || []).find(m => m !== sLead);
+      const eLead2 = (enemyLeads || []).find(m => m !== eLead);
       applyHazards(sLead); applyHazards(sLead2);
       applyHazards(eLead); applyHazards(eLead2);
 
@@ -5857,8 +5857,15 @@ function renderTurn1Simulator() {
   const e1 = state.enemy[eIdx[0]];
   const e2 = state.enemy[eIdx[1]];
 
-  // 1. PRIMERO: CREAR EL CAMPO Y APLICAR CLIMAS/TERRENOS
+  // 1. PRIMERO: CALCULAR VELOCIDADES BASE PARA ORDEN DE ACTIVACIÓN
   const simFieldLocal = { ...state.field };
+  const initialLeads = [
+    { mon: s1, side: "self", spe: calculateSpeed(s1, "self", simFieldLocal), realIdx: sIdx[0] },
+    { mon: s2, side: "self", spe: calculateSpeed(s2, "self", simFieldLocal), realIdx: sIdx[1] },
+    { mon: e1, side: "enemy", spe: calculateSpeed(e1, "enemy", simFieldLocal), realIdx: eIdx[0] },
+    { mon: e2, side: "enemy", spe: calculateSpeed(e2, "enemy", simFieldLocal), realIdx: eIdx[1] },
+  ].filter((x) => x.mon).sort((a, b) => b.spe - a.spe); // Orden de más rápido a más lento
+
   const applyHazards = (mon) => {
     if (!mon) return;
     const ab = (mon.set?.ability || mon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -5873,17 +5880,13 @@ function renderTurn1Simulator() {
     if (ab === 'mistysurge') simFieldLocal.terrain = 'misty';
   };
   
-  [s1, s2, e1, e2].forEach(applyHazards); // El campo ya tiene Sol
+  initialLeads.forEach(l => applyHazards(l.mon));
 
-  // 2. SEGUNDO: CALCULAR VELOCIDADES PASANDO EL CAMPO ACTUALIZADO
-  const leads = [
-    { mon: s1, side: "self", spe: calculateSpeed(s1, "self", simFieldLocal), realIdx: sIdx[0] },
-    { mon: s2, side: "self", spe: calculateSpeed(s2, "self", simFieldLocal), realIdx: sIdx[1] },
-    { mon: e1, side: "enemy", spe: calculateSpeed(e1, "enemy", simFieldLocal), realIdx: eIdx[0] },
-    { mon: e2, side: "enemy", spe: calculateSpeed(e2, "enemy", simFieldLocal), realIdx: eIdx[1] },
-  ]
-    .filter((x) => x.mon)
-    .sort((a, b) => b.spe - a.spe);
+  // 2. SEGUNDO: RECALCULAR VELOCIDADES CON EL CAMPO FINAL (Climas aplicados)
+  const leads = initialLeads.map(l => ({
+    ...l,
+    spe: calculateSpeed(l.mon, l.side, simFieldLocal)
+  })).sort((a, b) => b.spe - a.spe);
 
   let weathers = [];
   let terrains = [];
@@ -6014,64 +6017,201 @@ function renderTurn1Simulator() {
   const mPanel = document.getElementById("momentumPanel");
   if (mPanel) mPanel.style.display = "none";
 
-  // ZONA 1: Timeline de Velocidad
+
+  // ZONA 1: Timeline de Velocidad (Con Speed Ties)
   let timelineHtml = `
     <div class="zone-timeline ${state.field.trickRoom ? 'trick-room-active' : ''}">
       <div class="timeline-track">
-        ${turnOrderLeads.map(l => {
-          const isPrio = l.maxPrio > 0;
-          const ability = (l.mon.set?.ability || l.mon.ability || '').toLowerCase().replace(/\s/g, '');
-          const weather = state.field.weather || (weathers.length > 0 ? weathers[0].type : null);
-          const hasSpeedModAbility = (weather === 'sun' && ability === 'chlorophyll') ||
-            (weather === 'rain' && ability === 'swiftswim') ||
-            (weather === 'sand' && ability === 'sandrush') ||
-            (weather === 'snow' && ability === 'slushrush');
-          const hasScarf = (l.mon.set?.item || '').toLowerCase().includes('scarf');
+        ${`` + (() => {
+          const renderTimelineNode = (l) => {
+            const isPrio = l.maxPrio > 0;
+            const ability = (l.mon.set?.ability || l.mon.ability || '').toLowerCase().replace(/\s/g, '');
+            const weather = state.field.weather || (weathers.length > 0 ? weathers[0].type : null);
+            const isSun = weather === 'sun';
+            const isRain = weather === 'rain';
+            const isSand = weather === 'sand';
+            const isSnow = weather === 'snow';
+            
+            let speedModIcon = '';
+            let hasSpeedModAbility = false;
+            
+            if (isSun && ability === 'chlorophyll') { hasSpeedModAbility = true; speedModIcon = '<i data-lucide="sun" style="width:10px; height:10px;"></i>'; }
+            else if (isRain && ability === 'swiftswim') { hasSpeedModAbility = true; speedModIcon = '<i data-lucide="cloud-rain" style="width:10px; height:10px;"></i>'; }
+            else if (isSand && ability === 'sandrush') { hasSpeedModAbility = true; speedModIcon = '<i data-lucide="wind" style="width:10px; height:10px;"></i>'; }
+            else if (isSnow && ability === 'slushrush') { hasSpeedModAbility = true; speedModIcon = '<i data-lucide="snowflake" style="width:10px; height:10px;"></i>'; }
+            
+            const hasScarf = (l.mon.set?.item || '').toLowerCase().includes('scarf');
+            const hasTailwind = (l.side === 'self' && state.field.tailwindSelf) || (l.side === 'enemy' && state.field.tailwindEnemy);
+            
+            let itemOrTwIcon = '';
+            if (hasScarf) itemOrTwIcon = '<i data-lucide="wind" style="width:10px; height:10px;"></i>';
+            else if (hasTailwind) itemOrTwIcon = '<i data-lucide="fast-forward" style="width:10px; height:10px;"></i>';
 
-          return `
-            <div class="timeline-node ${isPrio ? 'priority-lane' : ''}">
-              <div class="timeline-avatar-container">
-                <img src="${l.mon.sprite}" class="timeline-avatar">
-                ${hasScarf ? '<div class="speed-badge item-badge">x1.5</div>' : ''}
-                ${hasSpeedModAbility ? '<div class="speed-badge ability-badge"><i data-lucide="sun"></i></div>' : ''}
-                ${isPrio ? '<div class="speed-badge priority-badge"><i data-lucide="zap"></i></div>' : ''}
+            return `
+              <div class="timeline-node ${isPrio ? 'priority-lane' : ''}">
+                <div class="timeline-avatar-container">
+                  <img src="${l.mon.sprite}" class="timeline-avatar">
+                  ${(hasScarf || hasTailwind) ? `<div class="speed-badge item-badge" style="display:flex; align-items:center; gap:2px;">${itemOrTwIcon} x1.5</div>` : ''}
+                  ${hasSpeedModAbility ? `<div class="speed-badge ability-badge" style="display:flex; align-items:center; gap:2px;">${speedModIcon} x2</div>` : ''}
+                  ${isPrio ? '<div class="speed-badge priority-badge"><i data-lucide="zap"></i></div>' : ''}
+                </div>
+                <div class="speed-info">
+                  <span class="speed-effective">${Math.abs(l.spe)}</span>
+                  <span class="speed-base">(${l.mon.baseStats?.spe || '?'})</span>
+                </div>
               </div>
-              <div class="speed-info">
-                <span class="speed-effective">${Math.abs(l.spe)}</span>
-                <span class="speed-base">(${l.mon.baseStats?.spe || '?'})</span>
-              </div>
-            </div>
-          `;
-        }).join('')}
+            `;
+          };
+
+          const groupedLeads = [];
+          let currentGroup = [];
+          turnOrderLeads.forEach(l => {
+              if (currentGroup.length === 0) {
+                  currentGroup.push(l);
+              } else {
+                  const last = currentGroup[currentGroup.length - 1];
+                  if (last.spe === l.spe && last.maxPrio === l.maxPrio) {
+                      currentGroup.push(l);
+                  } else {
+                      groupedLeads.push(currentGroup);
+                      currentGroup = [l];
+                  }
+              }
+          });
+          if (currentGroup.length > 0) groupedLeads.push(currentGroup);
+
+          return groupedLeads.map(group => {
+             if (group.length > 1) {
+                 return `
+                   <div class="speed-tie-box">
+                     <div class="speed-tie-label">⚡ 50/50 Tie</div>
+                     ${group.map(renderTimelineNode).join('')}
+                   </div>
+                 `;
+             } else {
+                 return renderTimelineNode(group[0]);
+             }
+          }).join('');
+        })()}
       </div>
     </div>
   `;
 
+  // --- CARACTERÍSTICA 1: Badges de Estado (Intimidación y Fake Out) ---
+  const isPhysicalAttacker = (mon) => {
+    if (!mon.baseStats) return false;
+    return mon.baseStats.atk > mon.baseStats.spa || (mon.set?.evs?.atk > mon.set?.evs?.spa);
+  };
   
-  // Helpers ZONA 2 (Mobile-First)
+  const FAKE_OUT_MOVES = new Set(['fakeout', 'sorpresa']);
+  const fakeOutThreats = enemyLeads.filter(l => (l.mon.set?.moves || []).some(m => FAKE_OUT_MOVES.has(String(m).toLowerCase().replace(/[^a-z]/g, ''))));
+
+  let allyOhkoThreats = new Set();
+  let enemyThreatsGrouped = {};
+
+  // Primero calculamos las amenazas para el Emergency Switch
+  for (const sObj of selfLeads) {
+    for (const eObj of enemyLeads) {
+      const atkE = bestAttack(eObj.mon, sObj.mon, simFieldLocal);
+      if (atkE.ohko || atkE.ohkoProb > 50) allyOhkoThreats.add(sObj.mon.name);
+    }
+  }
+
+  // Helpers ZONA 2 (Mobile-First) con Badges y Banquillo
   const renderMobileCombatantCard = (mon, side, isDouble) => {
-    const typesHtml = (mon.types || []).map(t => `<span class="type-chip ${t.toLowerCase()}">${t}</span>`).join('');
+    const typesHtml = (mon.types || []).map(t => {
+      const typeLower = t.toLowerCase();
+      const translatedType = typeof getTranslation === 'function' ? getTranslation(typeLower, 'type') || formatName(t) : formatName(t);
+      const meta = TYPE_META[typeLower] || { color: '#8aa2c6', name: translatedType };
+      return `<span style="background: ${hexToRgba(meta.color, 0.2)}; border: 1px solid ${hexToRgba(meta.color, 0.5)}; color: #fff; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; font-weight: bold; font-size: 9px;"><div class="type-icon-circle" style="position: static; width:10px; height:10px; background-color: ${meta.color}; box-shadow: none; margin: 0;"></div> ${translatedType}</span>`;
+    }).join('');
     const ability = mon.set?.ability || mon.ability || 'Desconocida';
     const item = mon.set?.item || 'Sin objeto';
+
+    const translatedAbility = typeof getTranslation === 'function' && ability !== 'Desconocida' ? getTranslation(ability, 'ability') || formatName(ability) : formatName(ability);
+    const translatedItem = typeof getTranslation === 'function' && item !== 'Sin objeto' ? getTranslation(item, 'item') || formatName(item) : formatName(item);
 
     const abilityId = ability.toLowerCase().replace(/\s/g, '');
     const isActiveAbility =
       (['intimidate', 'drought', 'drizzle', 'sandstream', 'snowwarning', 'psychicsurge', 'grassysurge', 'electricsurge', 'mistysurge'].includes(abilityId));
 
+    // Determinar Badges
+    let badgeHtml = '';
+    const blocksIntimidate = ['clearbody', 'innerfocus', 'hypercutter', 'defiant', 'competitive', 'guarddog', 'contrary'].includes(abilityId);
+    const isIntimidated = (side === 'self' && enemyIntimidate) || (side === 'enemy' && selfIntimidate);
+    
+    if (isIntimidated && !blocksIntimidate && isPhysicalAttacker(mon)) {
+       badgeHtml += `<div class="badge-stat-drop">-1 Atk</div>`;
+    }
+
+    if (side === 'self') {
+      const mySpeed = Math.abs((turnOrderLeads || []).find(l => l && l.mon && l.mon.name === mon?.name)?.spe || 0);
+      const isFakeOutTarget = (fakeOutThreats || []).some(fo => Math.abs(fo.spe) > mySpeed);
+      if (isFakeOutTarget && abilityId !== 'innerfocus') {
+         badgeHtml += `<div class="badge-fakeout-alert pulse-anim"><i data-lucide="hand"></i></div>`;
+      }
+    }
+
+    let emergencyBtnHtml = '';
+    if (side === 'self' && allyOhkoThreats.has(mon.name)) {
+        // Encontrar un reemplazo usando getSuggestedReserves
+        // Pasamos offensive: false, y los datos del defensor
+        const attackerName = enemyLeads[0]?.mon?.name || 'unknown';
+        const reservesData = { offensive: false, defender: mon?.name, attacker: attackerName };
+        const reserves = typeof getSuggestedReserves === 'function' ? getSuggestedReserves(reservesData) : [];
+        const safeReserves = reserves.filter(r => r.category === 'safe' || r.category === 'pivot').sort((a,b) => a.worstPct - b.worstPct);
+        if (safeReserves.length > 0) {
+            const bestReserve = safeReserves[0].candidate;
+            emergencyBtnHtml = `
+              <button type="button" class="btn-emergency-switch" onclick="alert('Cambio táctico a ${formatName(bestReserve.displayName || bestReserve.name)} recomendado.')">
+                <i data-lucide="arrow-left-right" style="width: 14px; height: 14px;"></i>
+                <img src="${bestReserve.sprite}" style="width: 18px; height: 18px; object-fit: contain;">
+                <span>Sugerencia: Cambiar a ${formatName(bestReserve.displayName || bestReserve.name)}</span>
+              </button>
+            `;
+        }
+    }
+
     return `
       <div class="mobile-combatant-card card-${side === 'self' ? 'ally' : 'enemy'}">
         ${isDouble ? '<div class="double-target-warning" style="top: -6px; right: -6px; left: auto; transform: none; font-size: 9px; padding: 2px 6px;">⚠️ FOCO</div>' : ''}
         <div class="combatant-header" style="flex-direction: row; gap: 8px;">
-          <img src="${mon.sprite}" style="width: 40px; height: 40px; object-fit: cover; background: rgba(255,255,255,0.05); border-radius: 6px;">
+          <div class="sprite-container" style="position: relative; display: inline-block;">
+            <img src="${mon.sprite}" style="width: 40px; height: 40px; object-fit: cover; background: rgba(255,255,255,0.05); border-radius: 6px;">
+            ${badgeHtml}
+          </div>
           <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; overflow: hidden;">
             <div class="combatant-name" style="font-size: 14px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">${formatName(mon.displayName || mon.name)}</div>
             <div class="combatant-types" style="font-size: 10px;">${typesHtml}</div>
           </div>
         </div>
         <div class="combatant-footer" style="display: flex; flex-direction: row; gap: 4px;">
-          <div class="badge-item" title="${formatName(item)}" style="flex: 1;"><i data-lucide="package"></i> <span class="truncate">${formatName(item)}</span></div>
-          <div class="badge-ability ${isActiveAbility ? 'glow-active' : ''}" title="${formatName(ability)}" style="flex: 1;"><i data-lucide="zap"></i> <span class="truncate">${formatName(ability)}</span></div>
+          <div class="badge-item" title="${translatedItem}" style="flex: 1;"><i data-lucide="package"></i> <span class="truncate">${translatedItem}</span></div>
+          <div class="badge-ability ${isActiveAbility ? 'glow-active' : ''}" title="${translatedAbility}" style="flex: 1;"><i data-lucide="zap"></i> <span class="truncate">${translatedAbility}</span></div>
         </div>
+        ${emergencyBtnHtml}
+      </div>
+    `;
+  };
+
+  const getPredictiveHpBar = (minPct, maxPct, ohkoProb) => {
+    const isOhko = minPct >= 100 || ohkoProb >= 100;
+    if (isOhko) {
+       return `
+        <div class="predictive-hp-bar is-ohko">
+          <div class="hp-lethal" style="width: 100%;"></div>
+          <i data-lucide="skull" class="ohko-skull"></i>
+        </div>
+       `;
+    }
+    const damageW = Math.min(100, minPct);
+    const rollW = Math.min(100, maxPct) - damageW;
+    const safeW = Math.max(0, 100 - maxPct);
+    return `
+      <div class="predictive-hp-bar">
+        <div class="hp-damage" style="width: ${damageW}%;"></div>
+        <div class="hp-roll" style="width: ${rollW}%;"></div>
+        <div class="hp-safe" style="width: ${safeW}%;"></div>
       </div>
     `;
   };
@@ -6104,44 +6244,40 @@ function renderTurn1Simulator() {
       const isOhkoE = atkE.ohko || atkE.ohkoProb > 50;
       const isThreatE = atkE.mult >= 2 || isOhkoE;
 
-      // ZONA 3: Radar de Fuego Cruzado (Mobile-First)
+      // ZONA 3: Radar de Fuego Cruzado (Mobile-First) con Health Bars
       if (isThreatS) {
         const moveName = formatName(getTranslation(atkS.move, "move") || atkS.move);
         targetThreatsCount[e.name] = (targetThreatsCount[e.name] || 0) + 1;
         
-        const resPill = isOhkoS ? `<span style="background: rgba(231, 76, 60, 0.2); color: var(--red, #e74c3c); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">OHKO</span>` : `<span style="background: rgba(243, 156, 18, 0.2); color: var(--orange, #f39c12); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">x${atkS.mult}</span>`;
         const moveColor = isOhkoS ? 'var(--red, #e74c3c)' : 'var(--orange, #f39c12)';
-        
+        const resPill = isOhkoS ? `<span style="background: rgba(231, 76, 60, 0.2); color: var(--red, #e74c3c); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">OHKO</span>` : `<span style="background: rgba(243, 156, 18, 0.2); color: var(--orange, #f39c12); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">x${atkS.mult}</span>`;
+
         crossfireRowsHtml += `
           <div class="crossfire-row">
-            <div style="display: flex; align-items: center; gap: 8px;">
-               <img src="${s.sprite}" style="width: 24px; height: 24px;">
-               <div style="display: flex; flex-direction: column;">
-                 <span style="font-size: 10px; opacity: 0.7;">Tú atacas</span>
-                 <span style="font-size: 12px; font-weight: bold; color: ${moveColor};">${moveName}</span>
-               </div>
-            </div>
-            <i data-lucide="arrow-right" style="width: 14px; height: 14px; opacity: 0.5;"></i>
-            <div style="display: flex; align-items: center; gap: 8px;">
-               ${resPill}
-               <img src="${e.sprite}" style="width: 24px; height: 24px;">
-            </div>
+             <img src="${s.sprite}" style="width: 24px; height: 24px;">
+             <div class="vector-line" style="color: ${moveColor};">${moveName}</div>
+             <div style="display:flex; align-items:center; gap: 4px;">
+                <img src="${e.sprite}" style="width: 24px; height: 24px;"> ${resPill}
+             </div>
           </div>
         `;
         
         // ZONA 4: Feed Táctico (Opportunity)
         if (sFaster) {
+          const hpBarHtml = getPredictiveHpBar(atkS.minPct, atkS.maxPct, atkS.ohkoProb);
           tacticalFeedHtml += `
             <article class="tactical-feed-card type-opportunity">
               <div class="tf-header">
                  <i data-lucide="crosshair"></i>
                  <span>${formatName(s.displayName || s.name)} elimina a ${formatName(e.displayName || e.name)}</span>
               </div>
-              <div class="math-terminal">
+              <div class="math-terminal" style="padding-bottom: 12px;">
                 <div>> Ataque: <span class="term-accent">${moveName}</span></div>
                 <div>> Modificadores: ${atkS.tags && atkS.tags.length > 0 ? atkS.tags.join(' · ') : 'Ninguno'}</div>
-                <div class="terminal-highlight">> Rango: ${atkS.minPct}% - ${atkS.maxPct}% (x${atkS.mult})</div>
-                ${isOhkoS ? '<div class="terminal-highlight term-ohko">> Resultado: OHKO Garantizado/Probable</div>' : ''}
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                   <div style="flex: 1;">${hpBarHtml}</div>
+                   <span style="font-size: 0.65rem; opacity: 0.8;">${isOhkoS ? 'OHKO' : `${atkS.minPct}-${atkS.maxPct}%`}</span>
+                </div>
               </div>
             </article>
           `;
@@ -6152,39 +6288,25 @@ function renderTurn1Simulator() {
         const moveName = formatName(getTranslation(atkE.move, "move") || atkE.move);
         targetThreatsCount[s.name] = (targetThreatsCount[s.name] || 0) + 1;
         
-        const resPill = isOhkoE ? `<span style="background: rgba(231, 76, 60, 0.2); color: var(--red, #e74c3c); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">OHKO</span>` : `<span style="background: rgba(243, 156, 18, 0.2); color: var(--orange, #f39c12); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">x${atkE.mult}</span>`;
-        const moveColor = isOhkoE ? 'var(--red, #e74c3c)' : 'var(--orange, #f39c12)';
-        
-        crossfireRowsHtml += `
-          <div class="crossfire-row">
-            <div style="display: flex; align-items: center; gap: 8px;">
-               <img src="${e.sprite}" style="width: 24px; height: 24px;">
-               <div style="display: flex; flex-direction: column;">
-                 <span style="font-size: 10px; opacity: 0.7;">Rival ataca</span>
-                 <span style="font-size: 12px; font-weight: bold; color: ${moveColor};">${moveName}</span>
-               </div>
-            </div>
-            <i data-lucide="arrow-right" style="width: 14px; height: 14px; opacity: 0.5;"></i>
-            <div style="display: flex; align-items: center; gap: 8px;">
-               ${resPill}
-               <img src="${s.sprite}" style="width: 24px; height: 24px;">
-            </div>
-          </div>
-        `;
+        if (!enemyThreatsGrouped[s.name]) enemyThreatsGrouped[s.name] = [];
+        enemyThreatsGrouped[s.name].push({ enemy: e, atk: atkE, isOhko: isOhkoE, moveName });
         
         // ZONA 4: Feed Táctico (Critical)
         if (!sFaster) {
+           const hpBarHtml = getPredictiveHpBar(atkE.minPct, atkE.maxPct, atkE.ohkoProb);
            tacticalFeedHtml += `
             <article class="tactical-feed-card type-critical">
               <div class="tf-header">
                  <i data-lucide="alert-triangle"></i>
                  <span>${formatName(e.displayName || e.name)} elimina a ${formatName(s.displayName || s.name)}</span>
               </div>
-              <div class="math-terminal">
+              <div class="math-terminal" style="padding-bottom: 12px;">
                 <div>> Ataque: <span class="term-accent">${moveName}</span></div>
                 <div>> Modificadores: ${atkE.tags && atkE.tags.length > 0 ? atkE.tags.join(' · ') : 'Ninguno'}</div>
-                <div class="terminal-highlight">> Rango: ${atkE.minPct}% - ${atkE.maxPct}% (x${atkE.mult})</div>
-                ${isOhkoE ? '<div class="terminal-highlight term-ohko">> Resultado: OHKO Garantizado/Probable</div>' : ''}
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                   <div style="flex: 1;">${hpBarHtml}</div>
+                   <span style="font-size: 0.65rem; opacity: 0.8;">${isOhkoE ? 'OHKO' : `${atkE.minPct}-${atkE.maxPct}%`}</span>
+                </div>
               </div>
             </article>
           `;
@@ -6192,6 +6314,42 @@ function renderTurn1Simulator() {
       }
     }
   }
+
+  // Procesar Agrupación Direccional
+  Object.keys(enemyThreatsGrouped).forEach(allyName => {
+      const threats = enemyThreatsGrouped[allyName];
+      const allyObj = (selfLeads || []).find(l => l?.mon?.name === allyName);
+      const ally = allyObj ? allyObj.mon : null;
+      if (!ally) return;
+      if (threats.length >= 2) {
+          crossfireRowsHtml += `
+            <div class="crossfire-row">
+               <div style="display:flex; gap:2px;">
+                 <img src="${threats[0].enemy.sprite}" style="width: 24px; height: 24px;">
+                 <img src="${threats[1].enemy.sprite}" style="width: 24px; height: 24px;">
+               </div>
+               <div class="vector-line" style="color: var(--red, #e74c3c); font-weight:bold;">⚠️ Foco de Presión</div>
+               <div style="display:flex; align-items:center; gap: 4px;">
+                  <img src="${ally.sprite}" style="width: 24px; height: 24px;">
+                  <span style="background: rgba(139, 0, 0, 0.3); color: #ff4d4d; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; border: 1px solid #ff4d4d;">RIESGO CRÍTICO</span>
+               </div>
+            </div>
+          `;
+      } else if (threats.length === 1) {
+          const t = threats[0];
+          const resPill = t.isOhko ? `<span style="background: rgba(231, 76, 60, 0.2); color: var(--red, #e74c3c); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">OHKO</span>` : `<span style="background: rgba(243, 156, 18, 0.2); color: var(--orange, #f39c12); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">x${t.atk.mult}</span>`;
+          const moveColor = t.isOhko ? 'var(--red, #e74c3c)' : 'var(--orange, #f39c12)';
+          crossfireRowsHtml += `
+            <div class="crossfire-row">
+               <img src="${t.enemy.sprite}" style="width: 24px; height: 24px;">
+               <div class="vector-line" style="color: ${moveColor};">${t.moveName}</div>
+               <div style="display:flex; align-items:center; gap: 4px;">
+                  <img src="${ally.sprite}" style="width: 24px; height: 24px;"> ${resPill}
+               </div>
+            </div>
+          `;
+      }
+  });
 
   // ZONA 2 & 3: Roster Grid + Radar (Mobile-First)
   let rosterGridHtml = `
@@ -6217,6 +6375,49 @@ function renderTurn1Simulator() {
       </div>
     </div>
   ` : '';
+
+  // --- INYECCIÓN DE CONDITION CARDS (TRICK ROOM Y FAKE OUT) ---
+  const buildCondition = (type, icon, eyebrow, title, text) => `
+      <article class="condition-card condition-card--${type}">
+        <div class="condition-card__icon"><i data-lucide="${icon}"></i></div>
+        <div class="condition-card__content">
+          <div class="condition-card__eyebrow">${eyebrow}</div>
+          <h4 class="condition-card__title">${title}</h4>
+          <p class="condition-card__text">${text}</p>
+        </div>
+      </article>
+  `;
+
+  const TRICK_ROOM = new Set(["trickroom", "espacioraro"]);
+  const trickRoomUsers = leads.filter(x => (x.mon.set?.moves || []).some(m => TRICK_ROOM.has(String(m).toLowerCase().replace(/[^a-z]/g, ''))));
+  if (trickRoomUsers.length > 0) {
+    const userNames = trickRoomUsers.map(u => formatName(u.mon.displayName || u.mon.name)).join(', ');
+    tacticalFeedHtml += buildCondition('speed', 'clock', 'Alerta de Campo', 'Espacio Raro Posible', `Detectado en: <b>${userNames}</b>. Puede invertir el orden de turnos.`);
+  }
+
+  const antiPriorityAbilities = new Set(['innerfocus', 'armortail', 'dazzling', 'queenlymajesty', 'shielddust']);
+  let validFakeOutUsers = [];
+  
+  for (const foUser of leads) {
+    const hasFakeOut = (foUser.mon.set?.moves || []).some(m => FAKE_OUT_MOVES.has(String(m).toLowerCase().replace(/[^a-z]/g, '')));
+    if (!hasFakeOut) continue;
+    
+    const opponents = foUser.side === 'self' ? enemyLeads : selfLeads;
+    const canHitSomeone = opponents.some(opp => {
+       const abilityId = (opp.mon.set?.ability || opp.mon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
+       const isGhost = (opp.mon.types || []).map(t => t.toLowerCase()).includes('ghost');
+       return !antiPriorityAbilities.has(abilityId) && !isGhost;
+    });
+
+    if (canHitSomeone) {
+       validFakeOutUsers.push(foUser);
+    }
+  }
+
+  if (validFakeOutUsers.length > 0) {
+     const userNames = validFakeOutUsers.map(u => formatName(u.mon.displayName || u.mon.name)).join(', ');
+     tacticalFeedHtml += buildCondition('priority', 'hand', 'Alerta de Prioridad', 'Amenaza con Sorpresa', `Detectado en: <b>${userNames}</b>. Oponentes válidos en riesgo de retroceso.`);
+  }
 
   // Render Final
   list.innerHTML = `
@@ -8214,6 +8415,7 @@ document.addEventListener("click", e => {
  */
 
 function getCandidateActions(state, side) {
+  if (DEBUG_MODE) console.groupCollapsed('🧠 [AI_THINKING] Generando acciones para', side);
   const team = state[side];
   const enemyTeam = state[side === 'self' ? 'enemy' : 'self'];
   const activeSlots = side === 'self' ? state.activeSelfSlots : state.activeEnemySlots;
@@ -8293,10 +8495,21 @@ function getCandidateActions(state, side) {
     }
   }
 
+  if (DEBUG_MODE) {
+      console.table(actions.map(a => ({
+          Tipo: a.kind, 
+          Usuario: state[side][a.userIndex]?.name, 
+          Movimiento_o_Cambio: a.moveName || state[side][a.switchInIndex]?.name,
+          Target: a.target
+      })));
+      console.groupEnd();
+  }
+
   return actions;
 }
 
 function simulateTurn(state, actionsSelf, actionsEnemy) {
+  if (DEBUG_MODE) console.groupCollapsed('🎬 [SIM_TURN] Resolviendo turno');
   // Clonar estado para no mutar directamente si quieres analizar "what-if"
   const nextState = structuredClone(state);
 
@@ -8326,6 +8539,14 @@ function simulateTurn(state, actionsSelf, actionsEnemy) {
 
   withOrder.sort((a, b) => b.orderKey - a.orderKey);
 
+  if (DEBUG_MODE) {
+      console.log('⚡ [ACTION_SORT] Orden de resolución:');
+      withOrder.forEach((item, i) => {
+          const monName = nextState[item.action.side][item.action.userIndex]?.name;
+          console.log(`  ${i+1}. ${monName} | Acción: ${item.action.kind} | Clave de orden: ${item.orderKey}`);
+      });
+  }
+
   const log = [];
 
   // Helpers para aplicar daño
@@ -8340,6 +8561,7 @@ function simulateTurn(state, actionsSelf, actionsEnemy) {
     mon.battle.hpPct = Math.max(0, Math.floor((newHP / baseHP) * 100));
     if (mon.battle.hpPct <= 0) {
       mon.fainted = true;
+      if (DEBUG_MODE) console.log(`💀 [SIM_FAINT] ${mon.name} ha caído debilitado.`);
     }
   };
 
@@ -8362,6 +8584,7 @@ function simulateTurn(state, actionsSelf, actionsEnemy) {
 
       ensureBattleState(team[action.userIndex]);
       applySwitchInEffects(team[action.userIndex], action.side); // ya actualiza campo
+      if (DEBUG_MODE) console.log(`🔄 [SIM_SWITCH] ${team[action.switchInIndex].name} sale, entra ${inMon.name} (Lado: ${action.side})`);
       log.push({
         type: 'switch',
         side: action.side,
@@ -8411,6 +8634,9 @@ function simulateTurn(state, actionsSelf, actionsEnemy) {
 
         if (!blocked && damage > 0) {
           applyDamage(t.side, t.index, damage);
+          if (DEBUG_MODE) {
+              console.log(`💥 [SIM_HIT] ${atkMon.name} usa ${moveName} contra ${defMon.name} -> Daño: ${damage} HP | HP restante: ${nextState[t.side][t.index].battle.hpPct}%`);
+          }
           log.push({
             type: 'hit',
             side: action.side,
@@ -8437,6 +8663,7 @@ function simulateTurn(state, actionsSelf, actionsEnemy) {
     tickField(nextState);
   }
 
+  if (DEBUG_MODE) console.groupEnd();
   return { nextState, log };
 }
 
@@ -8494,6 +8721,8 @@ function suggestBestAction(state, side) {
   if (!actionsSelf.length) return [];
 
   const evaluatedActions = [];
+  
+  if (DEBUG_MODE) console.groupCollapsed('⚖️ [AI_THINKING] Evaluando escenarios (Minimax) para', side);
 
   for (const aSelf of actionsSelf) {
     // Supón que el rival elige una de sus acciones; usa un criterio simple
@@ -8506,11 +8735,19 @@ function suggestBestAction(state, side) {
       if (score < worstOutcome) worstOutcome = score;
     }
 
+    if (DEBUG_MODE) console.log(`Evaluando acción: ${aSelf.moveName || 'Switch a ' + aSelf.switchInIndex} -> Peor escenario (Score): ${worstOutcome}`);
     evaluatedActions.push({ action: aSelf, score: worstOutcome });
   }
 
   evaluatedActions.sort((a, b) => b.score - a.score);
-  return evaluatedActions.slice(0, 3);
+  const top3 = evaluatedActions.slice(0, 3);
+  
+  if (DEBUG_MODE) {
+      console.log('🏆 Top 3 decisiones:', top3.map(e => `${e.action.moveName || 'Switch ' + e.action.switchInIndex} (${e.score})`));
+      console.groupEnd();
+  }
+  
+  return top3;
 }
 
 function renderLiveRecommendations() {
