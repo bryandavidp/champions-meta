@@ -4759,3 +4759,329 @@ tbody th {
   color: var(--orange);
   border: 1px solid rgba(255, 159, 10, 0.3);
 }
+
+/* --- TURN 1 SIMULATOR REFACTOR: ZONAS 1-4 --- */
+
+/* ZONA 1: Timeline */
+.zone-timeline {
+  padding: 16px 0;
+  overflow-x: auto;
+  margin-bottom: 24px;
+}
+.zone-timeline.trick-room-active {
+  border: 2px solid var(--purple, #9b59b6);
+  background: rgba(155, 89, 182, 0.05);
+  border-radius: 8px;
+}
+.timeline-track {
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+  align-items: flex-end;
+  min-height: 80px;
+  padding: 0 16px;
+}
+.timeline-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  transition: transform 0.3s ease;
+}
+.timeline-node.priority-lane {
+  transform: translateY(-24px);
+}
+.timeline-avatar-container {
+  position: relative;
+}
+.timeline-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid var(--line, #444);
+  background: var(--surface, #222);
+  object-fit: cover;
+}
+.speed-badge {
+  position: absolute;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  background: var(--surface, #111);
+  color: white;
+  border: 1px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.speed-badge.item-badge { top: -6px; right: -12px; border-color: var(--blue, #3498db); color: var(--blue, #3498db); }
+.speed-badge.ability-badge { bottom: -6px; right: -6px; border-color: var(--orange, #f39c12); color: var(--orange, #f39c12); width: 22px; height: 22px; padding: 0; }
+.speed-badge.priority-badge { top: -6px; left: -6px; border-color: var(--gold, #f1c40f); color: var(--gold, #f1c40f); width: 22px; height: 22px; padding: 0; }
+.speed-badge svg { width: 12px; height: 12px; }
+
+.speed-info {
+  margin-top: 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+.speed-effective { font-size: 18px; font-weight: 900; color: var(--text-color, #fff); font-family: 'Rajdhani', sans-serif; line-height: 1; }
+.speed-base { font-size: 11px; opacity: 0.5; margin-top: 2px; }
+
+/* ZONA 2 & 3: HUD y Vectores */
+.hud-arena-wrapper {
+  background: rgba(0,0,0,0.15);
+  border: 1px solid var(--line, #333);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 32px;
+}
+.hud-arena {
+  display: grid;
+  grid-template-columns: 1fr minmax(200px, auto) 1fr;
+  gap: 24px;
+  align-items: center;
+}
+.side-self, .side-enemy {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.combatant-wrapper {
+  position: relative;
+}
+.double-target-warning {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--red, #e74c3c);
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 8px;
+  z-index: 10;
+  animation: pulse-warning 1.5s infinite alternate;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+@keyframes pulse-warning {
+  from { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.6); }
+  to { box-shadow: 0 0 0 6px rgba(231, 76, 60, 0); }
+}
+
+.combatant-card {
+  background: var(--surface, #1e1e1e);
+  border: 1px solid var(--line, #333);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.side-self .combatant-card { border-left: 4px solid var(--blue, #3498db); }
+.side-enemy .combatant-card { border-right: 4px solid var(--red, #e74c3c); }
+
+.combatant-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.combatant-sprite-wrapper {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,0.03);
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.combatant-sprite {
+  max-width: 120%;
+  max-height: 120%;
+}
+.mega-crystal-icon {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  color: #00bcd4;
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 0 6px #00bcd4);
+}
+.combatant-name {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: 'Cabinet Grotesk', sans-serif;
+  line-height: 1.2;
+}
+
+.combatant-types {
+  display: flex;
+  gap: 6px;
+}
+
+.combatant-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.badge-item, .badge-ability {
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,0,0,0.4);
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #aaa;
+}
+.badge-item svg, .badge-ability svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.badge-ability.glow-active {
+  color: #2ecc71;
+  border-color: rgba(46, 204, 113, 0.4);
+  background: rgba(46, 204, 113, 0.1);
+  box-shadow: inset 0 0 10px rgba(46, 204, 113, 0.15);
+}
+.badge-ability.glow-active svg { opacity: 1; }
+
+.arena-vectors {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+}
+.crosshair-vector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  position: relative;
+  background: rgba(0,0,0,0.6);
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.5px;
+}
+.vector--lethal {
+  border: 2px solid var(--red, #e74c3c);
+  color: var(--red, #e74c3c);
+  box-shadow: 0 0 12px rgba(231, 76, 60, 0.2);
+}
+.vector--pressure {
+  border: 2px solid var(--orange, #f39c12);
+  color: var(--orange, #f39c12);
+}
+
+/* ZONA 4: Feed Táctico */
+.tactical-feed {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+.tactical-feed-card {
+  background: var(--surface, #1e1e1e);
+  border: 1px solid var(--line, #333);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.tactical-feed-card.type-opportunity { border-left: 4px solid var(--blue, #3498db); }
+.tactical-feed-card.type-critical { border-left: 4px solid var(--red, #e74c3c); }
+
+.tf-header {
+  padding: 14px 20px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--line, #333);
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tf-header svg { width: 18px; height: 18px; }
+.type-opportunity .tf-header svg { color: var(--blue, #3498db); }
+.type-critical .tf-header svg { color: var(--red, #e74c3c); }
+
+.math-terminal {
+  background: #0d0d0d;
+  color: #33ff33;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  padding: 20px;
+  line-height: 1.6;
+}
+.math-terminal .term-accent { color: #f1c40f; font-weight: bold; }
+.math-terminal .terminal-highlight { 
+  margin-top: 10px; 
+  font-weight: bold; 
+  color: #fff; 
+  background: rgba(255,255,255,0.1); 
+  padding: 6px 10px; 
+  display: inline-block; 
+  border-radius: 6px; 
+}
+.math-terminal .term-ohko { 
+  background: rgba(231, 76, 60, 0.15); 
+  color: #ff6b61; 
+  border: 1px solid rgba(231, 76, 60, 0.4); 
+}\n
+/* --- MOBILE FIRST ROSTER & CROSSFIRE --- */
+.mobile-roster-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+.mobile-combatant-card {
+  background: #1a1a24;
+  border-radius: 8px;
+  padding: 8px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.mobile-combatant-card.card-ally {
+  border-left: 3px solid var(--blue, #3498db);
+}
+.mobile-combatant-card.card-enemy {
+  border-left: 3px solid var(--red, #e74c3c);
+}
+.crossfire-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.crossfire-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255,255,255,0.03);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
