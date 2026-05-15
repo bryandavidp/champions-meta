@@ -1002,15 +1002,6 @@ function getSpeedModifier(field, side, ability, item) {
   return modifier;
 }
 
-function logSpeedCalc(mon, side, baseSpe, evsSpe, nature, modifier, trickRoom, finalSpe) {
-  if (!DEBUG_MODE) return;
-  /* console.groupCollapsed(`🚀 [SPEED CALC] ${mon.name} (${side})`);
-  console.log(`📊 Stats -> Base: ${baseSpe} | EVs: ${evsSpe} | Naturaleza: ${nature}`);
-  console.log(`⚙️ Modificadores -> Multiplicador Final: x${modifier} | Trick Room: ${trickRoom ? 'SÍ' : 'NO'}`);
-  console.log(`🏁 Velocidad Efectiva: ${trickRoom ? -finalSpe : finalSpe}`);
-  console.groupEnd(); */
-}
-
 // CORE ENGINE: calcula la velocidad efectiva de un mon (Tailwind/TR/registry).
 // CORE ENGINE: calcula la velocidad efectiva de un mon (Tailwind/TR/registry).
 function calculateSpeed(mon, side, currentField = state.field) {
@@ -1044,7 +1035,7 @@ function calculateSpeed(mon, side, currentField = state.field) {
 
   const ability = (mon.set?.ability || mon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
   const item = (mon.set?.item || mon.item || '').toLowerCase().replace(/[^a-z]/g, '');
-  const weatherStr = (currentField?.weather || state.field?.weather || '').toLowerCase();
+  const weatherStr = (currentField?.weather ?? state.field?.weather ?? '').toLowerCase();
 
   let trigger = '';
 
@@ -1283,22 +1274,6 @@ function calculateDamageRolls(baseTotal) {
   return { maxDamage: Math.max(...rolls), minDamage: Math.min(...rolls), critDamage: Math.floor(baseTotal * 1.5) };
 }
 
-function logDamageCalcInfo(attacker, defender, cand, dmgClass, atkS, defSafe, eff, wMul, terrMul, registryDamageMul, isSpread, hits, minDamage, maxDamage) {
-  if (!DEBUG_MODE) return;
-  const atkStatRaw = getBaseStatRaw(attacker, dmgClass === 'physical' ? 'attack' : 'special-attack');
-  const defStatRaw = getBaseStatRaw(defender, dmgClass === 'physical' ? 'defense' : 'special-defense');
-  const stab = (attacker.types || []).includes(cand.type) ? 1.5 : 1;
-
-  /* console.groupCollapsed(`⚔️ [DAMAGE CALC] ${attacker.name} usa ${cand.move} vs ${defender.name}`);
-  console.log(`🔹 Movimiento -> Poder Base: ${cand.power || 0} | Tipo: ${cand.type} | Clase: ${dmgClass.toUpperCase()}`);
-  console.log(`🔹 Stats Base Brutos -> Atk/SpA Base: ${atkStatRaw} | Def/SpD Base: ${defStatRaw}`);
-  console.log(`🔹 Stats Reales (Nv50+EVs) -> Atacante: ${atkS} | Defensor: ${defSafe}`);
-  console.log(`🔹 Multiplicadores -> STAB: ${stab} | Eficacia: x${eff} | Clima: x${wMul} | Terreno: x${terrMul} | Registro: x${registryDamageMul}`);
-  console.log(`🔹 Golpes Múltiples: ${hits} | Penalización por Spread: ${isSpread ? 'SÍ (x0.75)' : 'NO'}`);
-  console.log(`🏁 Rango de Daño Resultante: ${minDamage} - ${maxDamage} HP`);
-  console.groupEnd(); */
-}
-
 // CORE ENGINE: calcula el daño base de un movimiento entre dos mons.
 function estimateMoveDamage(attacker, defender, cand, field) {
   if (!attacker || !defender || !cand) return { damage: 0, minDamage: 0, maxDamage: 0 };
@@ -1366,9 +1341,7 @@ function estimateMoveDamage(attacker, defender, cand, field) {
 
   // Objetos defensivos sanitizados
   const defenderItem = (defender.set?.item || '').toLowerCase().replace(/\s/g, '');
-  if (defenderItem === 'eviolite') {
-      defStat *= 1.5;
-  } else if (defenderItem === 'assaultvest' && dmgClass === 'special') {
+  if (defenderItem === 'eviolite' || (defenderItem === 'assaultvest' && dmgClass === 'special')) {
       defStat *= 1.5;
   }
 
@@ -1712,7 +1685,7 @@ async function fetchPokemon(name) {
   }
   if (state.cache.has(key)) {
     const cloned = structuredClone(state.cache.get(key));
-      cloned.set = buildDefaultSetForSpecies(key, "self", -1, cloned.types);
+      cloned.set = buildDefaultSetForSpecies(key, "self", -1);
       ensureBattleState(cloned);
     return cloned;
   }
@@ -1732,7 +1705,7 @@ async function fetchPokemon(name) {
       metaRank: null, 
       usage: 0
     };
-    fallback.set = buildDefaultSetForSpecies(key, "self", -1, fallback.types);
+    fallback.set = buildDefaultSetForSpecies(key, "self", -1);
     ensureBattleState(fallback);
     return fallback;
   }
@@ -1752,7 +1725,7 @@ async function fetchPokemon(name) {
 
   state.cache.set(key, structuredClone(mon));
 
-  mon.set = buildDefaultSetForSpecies(key, "self", -1, mon.types);
+  mon.set = buildDefaultSetForSpecies(key, "self", -1);
   ensureBattleState(mon);
   scheduleMoveWarmup();
   return structuredClone(mon);
@@ -2292,25 +2265,23 @@ function ensureMoveRegistry(moveName) {
 function ensureStatusRegistry(statusName) {
   if (!window.EffectsRegistryBridge || !statusName) return;
   const slug = normalizeText(statusName);
-  if (window.EffectsRegistryBridge.getStatusEntry && window.EffectsRegistryBridge.getStatusEntry(slug)) return;
+  if (window.EffectsRegistryBridge.getStatusEntry?.(slug)) return;
 
   let entry = null;
 
-  switch (slug) {
-    case 'brn':
-      entry = {
-        slug,
-        name: 'Burn',
-        triggers: ['on_damage_calc'],
-        effects: [
-          {
-            kind: 'attack_multiplier',
-            value: 0.5,
-            unless: ['guts']
-          }
-        ],
-      };
-      break;
+  if (slug === 'brn') {
+    entry = {
+      slug,
+      name: 'Burn',
+      triggers: ['on_damage_calc'],
+      effects: [
+        {
+          kind: 'attack_multiplier',
+          value: 0.5,
+          unless: ['guts']
+        }
+      ],
+    };
   }
 
   if (entry && window.EffectsRegistryBridge.upsertStatusEntry) {
@@ -2349,18 +2320,8 @@ function fetchMoveInfo(moveName) {
   const info = window.GameDB?.moves?.[slug] || window.GameDB?.moves?.[moveName.toLowerCase()];
   
   if (info) {
-    if (DEBUG_MODE && !state.moveTypeCache[moveName]) {
-      //console.log(`✅ [MOVE CACHE] "${moveName}" cargado en RAM -> Poder: ${info.power}, Tipo: ${info.type}, Clase: ${info.damageClass}`);
-    }
     state.moveTypeCache[moveName] = info;
     return info;
-  }
-  
-  if (DEBUG_MODE && !state.moveTypeCache[moveName]) {
-    /* console.groupCollapsed(`❌ [MOVE MISSING] Ataque Fantasma: "${moveName}" no existe en la Base de Datos Local`);
-    console.warn(`Se buscó usando la clave: "${slug}". Al no existir, el simulador le aplicará Poder 0 (Daño 0).`);
-    console.log(`💡 Pista: Si es un ataque de 2 palabras, el script de Python probablemente falló al cruzar los nombres con la PokeAPI.`);
-    console.groupEnd(); */
   }
 
   const fallbackInfo = {
@@ -2410,8 +2371,8 @@ function recalculateActiveField() {
 
   const actives = [];
   
-  const sIdx = (state.uiMode === 'quick') ? getTurn1ResolvedLeadIndices("self") : state.activeSelfSlots;
-  const eIdx = (state.uiMode === 'quick') ? getTurn1ResolvedLeadIndices("enemy") : state.activeEnemySlots;
+  const sIdx = state.uiMode === 'quick' ? getTurn1ResolvedLeadIndices("self") : state.activeSelfSlots;
+  const eIdx = state.uiMode === 'quick' ? getTurn1ResolvedLeadIndices("enemy") : state.activeEnemySlots;
 
   sIdx.forEach(i => {
      const m = state.self[i];
@@ -2445,8 +2406,10 @@ async function rehydrateCurrentTeamsSets() {
   for (const side of ["self", "enemy"]) {
     for (let i = 0; i < state[side].length; i++) {
       const mon = state[side][i];
-      if (!mon) continue;
-          mon.set = buildDefaultSetForSpecies(mon.name, side, i, mon.types);
+      if (!mon) {
+        continue;
+      }
+          mon.set = buildDefaultSetForSpecies(mon.name, side, i);
           ensureBattleState(mon);
     }
   }
@@ -2458,8 +2421,8 @@ function getMoveCandidates(mon) {
   const resolved = moves
     .map((move) => {
       const info = state.moveTypeCache[move];
-      if (!info || !info.type) return null;
-      if (info.damageClass === "status") return null;
+      if (!info?.type) return null;
+      if (info?.damageClass === "status") return null;
       return {
         move,
         type: info.type,
@@ -2598,20 +2561,12 @@ function bestAttack(attacker, defender, field = state.field) {
       window.comboBestAttackCache[cacheKey] = scored[0];
   }
 
-  if (DEBUG_MODE) {
-    /* console.groupCollapsed(`🎯 [BEST ATTACK] ${attacker?.name} vs ${defender?.name}`);
-    scored.forEach((s, i) => {
-       console.log(`  [${i+1}] ${s.move} -> Daño: ${s.damage} HP (${s.minPct}% - ${s.maxPct}%) | Mult: x${s.mult}`);
-    });
-    console.log(`🏆 Movimiento Elegido: ${scored[0]?.move}`);
-    console.groupEnd(); */
-  }
 
   return scored[0];
 }
 
 // CORE ENGINE: aplica efectos de entrada (clima, terreno, etc.).
-// TODO(registry): aplicar TODOS los eventos relevantes de switch-in
+// TO-DO(registry): aplicar TODOS los eventos relevantes de switch-in
 // (hazards, rooms, side-conditions) cuando el registry esté completo.
 function applySwitchInEffects(mon, explicitSide) {
   if (!mon || !window.EffectsRegistryBridge) return;
@@ -2773,7 +2728,6 @@ function applyMoveResolutionEffects(attacker, move) {
   }
 
   const side = attacker.side || attacker.battle?.side || 'self';
-  const oppSide = side === 'self' ? 'enemy' : 'self';
 
   for (const ev of entry.events) {
     const payload = ev.payload || {};
@@ -3175,12 +3129,14 @@ function loadMatrixPreferences() {
       state.matrixHelpOpen = true;
       localStorage.setItem(MATRIX_HELP_SEEN_KEY, "true");
     }
-  } catch(e) {}
+  } catch(e) {
+    console.error(e);
+  }
 }
 
 function setMatrixDetailMode(mode) {
   state.matrixDetailMode = mode;
-  try { localStorage.setItem(MATRIX_DETAIL_MODE_KEY, mode); } catch(e){}
+  try { localStorage.setItem(MATRIX_DETAIL_MODE_KEY, mode); } catch(e){console.error(e);}
   triggerMatrixFlash();
   renderAll();
 }
@@ -3215,11 +3171,16 @@ function buildMatrixCellMarkup(rowAttacker, rawCell, offensive, compact = false)
   const isCompact = compact;
   const verdict = classifyMatrixCell(cell, offensive);
   const moveLabel = cell.dataIssue ? 'Datos incompletos' : (localizeMoveName(cell.move) || 'Sin presión real');
-  const typeLabel = localizeTypeName(cell.type);
   const rangeLabel = cell.dataIssue ? 'N/A' : formatCellPct(cell);
   
   const multLabel = cell.blocked ? 'inmune' : `x${fmtMult(cell.mult).replace('×', '')}`;
-  const metaLine = cell.blocked ? `0% · ${multLabel}` : (cell.dataIssue ? `Sin daño · ${multLabel}` : `${rangeLabel} · ${multLabel}`);
+  
+  let metaLine;
+  if (cell.blocked) {
+    metaLine = `0% · ${multLabel}`;
+  } else {
+    metaLine = cell.dataIssue ? `Sin daño · ${multLabel}` : `${rangeLabel} · ${multLabel}`;
+  }
   
   const phrase = getTacticalPhrase(cell, offensive);
 
@@ -3268,12 +3229,13 @@ function buildMatrixCellMarkup(rowAttacker, rawCell, offensive, compact = false)
   ];
 
   const stateLabel = isCompact ? verdict.shortLabel : verdict.label;
-  const chipsHtml = tags.length
-    ? `<div class="matrix-cell-context">${tags.map(tag => `
+  const tagsHtml = tags.map(tag => `
         <span class="matrix-context-chip matrix-context-chip--${tag.tone}">
           ${escapeHtml(tag.label)}
         </span>
-      `).join('')}</div>`
+      `).join('');
+  const chipsHtml = tags.length
+    ? `<div class="matrix-cell-context">${tagsHtml}</div>`
     : '';
 
   if (isCompact) {
@@ -3524,15 +3486,6 @@ function scoreThreat(enemyMon) {
 
   const bestAnswers = strongAnswers.slice(0, 2).map((x) => x.mon);
   const isSupportThreat = maxEnemyPressure < 2 && score >= 40;
-
-  if (DEBUG_MODE) {
-    /* console.groupCollapsed(`🚨 [THREAT SCORE] Evaluando peligro de ${enemyMon?.name}`);
-    console.log(`⚔️ Presión Máxima vs tu equipo: x${maxEnemyPressure}`);
-    console.log(`🛠️ Utilidad Detectada -> Tailwind: ${setMoves.includes("Tailwind")}, Trick Room: ${setMoves.includes("Trick Room")}, Fake Out: ${setMoves.includes("Fake Out")}, Redirección: ${setMoves.includes("Follow Me") || setMoves.includes("Rage Powder")}`);
-    console.log(`🛡️ Respuestas fuertes en tu equipo: ${strongAnswers.length} Pokémon`);
-    console.log(`🏁 Puntuación Final: ${score} (Nivel: ${level.toUpperCase()}) | ¿Amenaza pura de soporte?: ${isSupportThreat ? 'SÍ' : 'NO'}`);
-    console.groupEnd(); */
-  }
 
   return { score, level, reasons: reasons.slice(0, 3), bestAnswers, maxEnemyPressure, isSupportThreat };
 }
@@ -3914,7 +3867,6 @@ async function loadSavedTeam(id, side = "self") {
   while (state[side].length < 6) state[side].push(null);
   mons.forEach(mon => {
     ensureBattleState(mon);
-    // applySwitchInEffects(mon);
   });
   if (typeof scheduleMoveWarmup === "function") scheduleMoveWarmup();
   renderAll();
@@ -4054,7 +4006,7 @@ async function pickPokemonIntoSlot(side, index, name) {
   }
   try {
     const mon = await fetchPokemon(name);
-    mon.set = buildDefaultSetForSpecies(mon.name, side, index, mon.types);
+    mon.set = buildDefaultSetForSpecies(mon.name, side, index);
     ensureBattleState(mon);
     state[side][index] = mon;
     
@@ -4120,7 +4072,7 @@ async function fillTeamWithSpecies(side, speciesList) {
     for (let i = 0; i < Math.min(speciesList.length, 6); i++) {
       try {
         const mon = await fetchPokemon(speciesList[i]);
-            mon.set = buildDefaultSetForSpecies(mon.name, side, i, mon.types);
+            mon.set = buildDefaultSetForSpecies(mon.name, side, i);
         ensureBattleState(mon);
         mons.push(mon);
       } catch {}
@@ -4158,7 +4110,6 @@ function getPokemonUtilityFlags(mon) {
   const set = mon?.set || {};
   const moves = set.moves || [];
   const ability = set.ability || "";
-  const item = set.item || "";
   return {
     fakeOut: moves.includes("Fake Out"),
     tailwind: moves.includes("Tailwind"),
@@ -4545,7 +4496,7 @@ function scoreRedundancyPenalty(selfMons, enemyMons) {
   return penalty;
 }
 
-function classifyTeamRoles(selfMons, enemyMons) {
+function classifyTeamRoles(selfMons) {
   const roles = new Map();
 
   const baseScore = typeof scoreBoard === 'function' ? scoreBoard(state, 'self') : 0;
@@ -5105,7 +5056,8 @@ function evaluateAllCombos() {
   const combosIndices = getSelfCombos();
   flowLog('evaluateAllCombos: Evaluando combinaciones', { totalCombos: combosIndices.length });
   const evaluated = combosIndices.map(indices => evaluateCombo(indices)).filter(Boolean);
-  state.combos = evaluated.sort((a, b) => b.score - a.score);
+  evaluated.sort((a, b) => b.score - a.score);
+  state.combos = evaluated;
 
   // Restauramos estado y limpiamos caché temporal
   state.field.weather = backupField.weather;
@@ -5267,11 +5219,12 @@ function renderQuickCombos() {
     }
 
     const topThreat = predictedEnemyLeads[0]?.mon;
-    let enemyRisk = combo.keyLine && combo.keyLine.includes('Riesgo Crítico') 
-        ? `<span style="color: #ff4d4d; font-weight: bold;">${combo.keyLine}</span>`
-        : topThreat 
-            ? `Estrategia <strong>${enemyStratText}</strong>. Buscarán tomar la iniciativa o anularte mediante <strong>${topThreat.displayName}</strong>.` 
-            : 'Amenaza desconocida';
+    let enemyRisk = 'Amenaza desconocida';
+    if (combo?.keyLine?.includes('Riesgo Crítico')) {
+      enemyRisk = `<span style="color: #ff4d4d; font-weight: bold;">${combo.keyLine}</span>`;
+    } else if (topThreat) {
+      enemyRisk = `Estrategia <strong>${enemyStratText}</strong>. Buscarán tomar la iniciativa o anularte mediante <strong>${topThreat.displayName}</strong>.`;
+    }
 
     const hasEnemyTR = enemyPlan.some(s => s.type === "Trick Room");
     const ourTRAbusers = mons.filter(m => {
@@ -5281,7 +5234,7 @@ function renderQuickCombos() {
       return bSpe <= 60 && (bAtk >= 90 || bSpa >= 90);
     });
 
-    if (hasEnemyTR && ourTRAbusers.length > 0 && !(combo.keyLine && combo.keyLine.includes('Riesgo Crítico'))) {
+    if (hasEnemyTR && ourTRAbusers.length > 0 && !combo?.keyLine?.includes('Riesgo Crítico')) {
       enemyRisk = `El rival puede usar <strong>Trick Room</strong>, lo cual beneficia a nuestro <strong>${ourTRAbusers[0].displayName}</strong>.`;
       ourPlan += ` <span class="text-green" style="display:block; margin-top:4px;"><i data-lucide="check-square" style="width:12px;height:12px;"></i> Sinergia de campo: aprovechar el Trick Room rival con ${ourTRAbusers[0].displayName}.</span>`;
     }
@@ -5290,7 +5243,9 @@ function renderQuickCombos() {
       <div class="match-setter-card ${active ? 'active' : ''}" data-combo="${combo.orderedIdx.join(',')}">
         <div class="match-header">
           <div class="match-badge">SIMULACIÓN #${idx + 1}${active ? ' - ACTIVA' : ''}</div>
-          <div class="match-score">Ventaja: <span class="${combo.score >= 80 ? 'text-green' : (combo.score < 0 ? 'text-red' : 'text-gold')}">${combo.score > 0 ? '+' : ''}${combo.score}</span></div>
+          <div class="match-score">Ventaja: <span class="${
+            combo.score >= 80 ? 'text-green' : (combo.score < 0 ? 'text-red' : 'text-gold')
+          }">${combo.score > 0 ? '+' : ''}${combo.score}</span></div>
         </div>
 
         <div class="clash-main-grid">
@@ -6244,22 +6199,6 @@ function renderTurn1Simulator() {
     }
   }
 
-  // === RENDER LEAD BADGES (TIMELINE, STATS, ABILITY GLOW) ===
-  /* document.querySelectorAll('.t1-slot-timeline-badge').forEach(e => e.remove());
-  document.querySelectorAll('.t1-slot-stat-badge').forEach(e => e.remove());
-  document.querySelectorAll('.t1-slot.t1-slot-ability-glow').forEach(e => e.classList.remove('t1-slot-ability-glow'));
-
-  const simFieldLocal = { ...state.field };
-  const applyHazards = (mon) => {
-    if (!mon) return;
-    const ab = (mon.set?.ability || mon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
-    // Soporte nativo para la Mega si Smogon no pasa la habilidad "Drought" explícita
-    if (ab === 'drought' || mon.name.toLowerCase() === 'charizard-mega-y' || mon.name.toLowerCase() === 'charizardmegay') {
-        simField.weather = 'sun';
-    }
-  };
-  leads.forEach(l => applyHazards(l.mon)); */
-
 // === RENDER LEAD BADGES (TIMELINE, STATS, ABILITY GLOW) ===
   document.querySelectorAll('.t1-slot-timeline-badge').forEach(e => e.remove());
   document.querySelectorAll('.t1-slot-stat-badge').forEach(e => e.remove());
@@ -6343,10 +6282,6 @@ function renderTurn1Simulator() {
       slotEl.classList.add('t1-slot-ability-glow');
     }
   });
-
-  const insights = [];
-  const micro = (mon) =>
-    `<img src="${mon.sprite}" class="sprite-micro" title="${mon.displayName}">`;
 
     // --- ZONAS 1 a 4: RENDERIZADO DE ALTA EFICIENCIA ---
 
@@ -6442,12 +6377,6 @@ function renderTurn1Simulator() {
       </div>
     </div>
   `;
-
-  // --- CARACTERÍSTICA 1: Badges de Estado (Intimidación y Fake Out) ---
-  const isPhysicalAttacker = (mon) => {
-    if (!mon.baseStats) return false;
-    return mon.baseStats.atk > mon.baseStats.spa || (mon.set?.evs?.atk > mon.set?.evs?.spa);
-  };
   
   const FAKE_OUT_MOVES = new Set(['fakeout', 'sorpresa']);
   const fakeOutThreats = enemyLeads.filter(l => (l.mon.set?.moves || []).some(m => FAKE_OUT_MOVES.has(String(m).toLowerCase().replace(/[^a-z]/g, ''))));
