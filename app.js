@@ -1149,30 +1149,34 @@ function calcOtherStatLv50(base, ev, natureMultiplier, stage = 0) {
   return Math.floor(staged * natureMultiplier);
 }
 
-const PRIORITY_MOVES = new Set([
-  "Fake Out",
-  "Extreme Speed",
-  "Quick Attack",
-  "Mach Punch",
-  "Bullet Punch",
-  "Aqua Jet",
-  "Ice Shard",
-  "Shadow Sneak",
-  "Sucker Punch",
-  "Vacuum Wave",
-  "Upper Hand",
-  "Jet Punch",
-  "Accelerock",
-  "Water Shuriken",
-  "Feint",
-  "Follow Me",
-  "Rage Powder",
-  "Wide Guard",
-  "Quick Guard",
-  "Protect",
-  "Detect",
-  "Helping Hand",
-]);
+const MOVE_PRIORITY_LEVELS = {
+  'helping hand': 5, 'refuerzo': 5,
+  'protect': 4, 'protección': 4, 'detect': 4, 'detección': 4,
+  'fake out': 3, 'sorpresa': 3,
+  'wide guard': 3, 'vasta guardia': 3,
+  'quick guard': 3, 'anticipo': 3,
+  'extreme speed': 2, 'velocidad extrema': 2,
+  'ally switch': 2, 'cambio banda': 2,
+  'follow me': 2, 'señuelo': 2,
+  'rage powder': 2, 'polvo ira': 2,
+  'feint': 2, 'amago': 2,
+  'aqua jet': 1, 'acua jet': 1,
+  'sucker punch': 1, 'golpe bajo': 1,
+  'bullet punch': 1, 'puño bala': 1,
+  'mach punch': 1, 'ultrapuño': 1,
+  'ice shard': 1, 'canto helado': 1,
+  'shadow sneak': 1, 'sombra vil': 1,
+  'jet punch': 1, 'puño jet': 1,
+  'quick attack': 1, 'ataque rápido': 1,
+  'vacuum wave': 1, 'onda vacío': 1,
+  'first impression': 1, 'escaramuza': 1,
+  'upper hand': 1, 'mano superior': 1,
+  'accelerock': 1, 'roca veloz': 1,
+  'water shuriken': 1, 'shuriken de agua': 1,
+  'trick room': -7, 'espacio raro': -7,
+  'roar': -6, 'rugido': -6,
+  'whirlwind': -6, 'remolino': -6
+};
 
 // Movimientos típicos de spread en dobles
 const SPREAD_MOVES = new Set([
@@ -1389,10 +1393,10 @@ function estimateMoveDamage(attacker, defender, cand, field) {
   }
   // --- FIN DE INTERCEPTACIÓN ---
 
-  const blocked = (field.terrain === 'psychic' && PRIORITY_MOVES.has(moveName)) || regResult.blockedByRegistry || immunityData !== null;
+  const blocked = (field.terrain === 'psychic' && (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || 0) > 0) || regResult.blockedByRegistry || immunityData !== null;
 
   if (blocked) {
-    if (!immunityData && field.terrain === 'psychic' && PRIORITY_MOVES.has(moveName)) {
+    if (!immunityData && field.terrain === 'psychic' && (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || 0) > 0) {
         immunityData = { type: 'field', name: 'Campo Psíquico' };
     }
     const res = { damage: 0, minDamage: 0, maxDamage: 0, blocked: true, wMul, terrMul, registry: regResult.registry, immunityData };
@@ -2700,6 +2704,60 @@ function applySwitchInEffects(mon, explicitSide) {
         default:
           break;
       }
+    }
+  }
+
+  applyHazardsOnSwitchIn(mon, side);
+}
+
+function applyHazardsOnSwitchIn(mon, explicitSide) {
+  if (!mon || !mon.battle) return;
+  const side = explicitSide || mon.side || mon.battle.side || 'self';
+  const hazards = state.field.hazards[side];
+  if (!hazards) return;
+
+  const types = (mon.types || []).map(t => String(t).toLowerCase());
+  const abilityId = (mon.set?.ability || mon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
+  const itemId = (mon.set?.item || mon.item || '').toLowerCase().replace(/[^a-z]/g, '');
+
+  const isFlying = types.includes('flying');
+  const hasLevitate = abilityId === 'levitate' || abilityId === 'levitacion';
+  const hasBalloon = itemId === 'airballoon' || itemId === 'globohelio';
+  
+  const isGrounded = !isFlying && !hasLevitate && !hasBalloon;
+
+  if (mon.battle.hpPct === undefined) mon.battle.hpPct = 100;
+  if (!mon.battle.stages) mon.battle.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+
+  // Stealth Rock
+  if (hazards.rocks) {
+    const rockEff = effectiveness('rock', mon.types);
+    const damagePct = 12.5 * rockEff;
+    mon.battle.hpPct = Math.max(0, mon.battle.hpPct - Math.floor(damagePct));
+  }
+
+  // Spikes
+  if (isGrounded && hazards.spikes > 0) {
+    let damagePct = 12.5; // 1 capa
+    if (hazards.spikes === 2) damagePct = 16.6; // 2 capas
+    if (hazards.spikes >= 3) damagePct = 25; // 3 capas
+    mon.battle.hpPct = Math.max(0, mon.battle.hpPct - Math.floor(damagePct));
+  }
+
+  // Sticky Web
+  if (isGrounded && hazards.web) {
+    mon.battle.stages.spe = Math.max(-6, (mon.battle.stages.spe || 0) - 1);
+  }
+
+  // Toxic Spikes
+  if (isGrounded && hazards.tspikes > 0) {
+    const isPoison = types.includes('poison');
+    const isSteel = types.includes('steel');
+    
+    if (isPoison) {
+      hazards.tspikes = 0; // Absorbe las Toxic Spikes
+    } else if (!isSteel && (!mon.battle.status || mon.battle.status === 'none' || mon.battle.status === '')) {
+      mon.battle.status = hazards.tspikes >= 2 ? 'tox' : 'psn';
     }
   }
 }
@@ -4699,7 +4757,6 @@ function evaluateCombo(indices) {
   const enemyHasWeather = expectedEnemyTeam.some(m => m.set?.ability && ['Drizzle', 'Drought', 'Sand Stream', 'Snow Warning', 'Llovizna', 'Sequía', 'Chorro Arena', 'Nevada'].includes(m.set.ability));
 
   const SPREAD_MOVES = new Set(['earthquake', 'terremoto', 'dazzling gleam', 'brillo mágico', 'make it rain', 'fiebre dorada', 'rock slide', 'avalancha', 'water spout', 'salpicar', 'eruption', 'estallido', 'heat wave', 'onda ígnea', 'hyper voice', 'vozarrón', 'blizzard', 'ventisca', 'muddy water', 'agua lodosa', 'discharge', 'chispazo', 'icy wind', 'viento hielo', 'snarl', 'alarido', 'electroweb', 'red viscosa']);
-  const PRIORITY_MOVES = new Set(['extreme speed', 'velocidad extrema', 'aqua jet', 'acua jet', 'fake out', 'sorpresa', 'mach punch', 'ultrapuño', 'bullet punch', 'puño bala', 'sucker punch', 'golpe bajo', 'ice shard', 'canto helado', 'shadow sneak', 'sombra vil', 'vacuum wave', 'onda vacío', 'quick attack', 'ataque rápido', 'first impression', 'escaramuza']);
   const SETUP_MOVES = new Set(['swords dance', 'danza espada', 'nasty plot', 'maquinación', 'dragon dance', 'danza dragón', 'quiver dance', 'danza aleteo', 'calm mind', 'paz mental', 'tailwind', 'viento afín', 'trick room', 'espacio raro']);
 
   // 1. Calcular Puntuación Neta Diferencial (Net Matchup Score)
@@ -4744,7 +4801,7 @@ function evaluateCombo(indices) {
       else if (atkOnEnemy.mult >= 1) allyThreat += 5;
       if (atkOnEnemy.ohko) allyThreat += 10;
 
-      const isAllyPriority = atkOnEnemy.move && PRIORITY_MOVES.has(String(atkOnEnemy.move).toLowerCase());
+      const isAllyPriority = atkOnEnemy.move && (MOVE_PRIORITY_LEVELS[String(atkOnEnemy.move).toLowerCase()] || 0) > 0;
       const isAllySpread = atkOnEnemy.move && SPREAD_MOVES.has(String(atkOnEnemy.move).toLowerCase());
 
       if (isAllySpread && atkOnEnemy.ohko && !spreadWarning) {
@@ -6219,12 +6276,8 @@ function renderTurn1Simulator() {
   // Helper robusto de prioridad
   const getPriority = (moveName) => {
       if (!moveName) return 0;
-      const id = moveName.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (['fakeout', 'firstimpression'].includes(id)) return 3;
-      if (['extremespeed'].includes(id)) return 2;
-      if (['suckerpunch', 'golpebajo', 'aquajet', 'machpunch', 'bulletpunch', 'iceshard', 'shadowsneak', 'grassyglide'].includes(id)) return 1;
-      if (['trickroom'].includes(id)) return -7;
-      return 0;
+      // Normalizamos pero preservando espacios para MOVE_PRIORITY_LEVELS, o solo lowerCase
+      return MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || 0;
   };
 
   let turnOrderLeads = simLeads.map(l => {
@@ -6235,8 +6288,11 @@ function renderTurn1Simulator() {
           const currentPrio = getPriority(atk.move);
           if (currentPrio > maxPrio) maxPrio = currentPrio;
       });
-      return { ...l, maxPrio, finalScore: (maxPrio * 10000) + l.spe };
-  }).sort((a, b) => b.finalScore - a.finalScore);
+      return { ...l, prio: maxPrio, spe: l.spe };
+  }).sort((a, b) => {
+      if (b.prio !== a.prio) return b.prio - a.prio;
+      return b.spe - a.spe;
+  });
   
   turnOrderLeads.forEach((l, idx) => l.turnRank = idx + 1);
 
@@ -6244,7 +6300,7 @@ function renderTurn1Simulator() {
     const slotEl = document.querySelector(`.t1-slot[data-side="${l.side}"][data-idx="${l.realIdx}"]`);
     if (!slotEl) return;
     
-    const hasPriority = l.mon.set?.moves?.some(m => PRIORITY_MOVES.has(m));
+    const hasPriority = l.mon.set?.moves?.some(m => (MOVE_PRIORITY_LEVELS[String(m).toLowerCase()] || 0) > 0);
     const prioIcon = hasPriority ? '<i data-lucide="zap" style="width: 10px; height: 10px; color: var(--gold); margin-right: 2px;"></i>' : '';
     const orderBadge = document.createElement('div');
     orderBadge.className = 't1-slot-timeline-badge';
@@ -9036,30 +9092,29 @@ function simulateTurn(state, actionsSelf, actionsEnemy) {
     const team = nextState[a.side];
     const mon = team[a.userIndex];
     if (!mon) {
-      return { action: a, orderKey: -Infinity };
+      return { action: a, prio: -Infinity, spe: -Infinity };
     }
 
     let prio = 0;
     if (a.kind === 'move' && a.moveName) {
-      if (PRIORITY_MOVES.has(a.moveName)) prio = 1;
-      // Podrías extender a otras prioridades (Fake Out, Quick Guard, etc.)
+      prio = MOVE_PRIORITY_LEVELS[String(a.moveName).toLowerCase()] || 0;
     }
     const sideKey = a.side;
     const spe = calculateSpeed(mon, sideKey); // ya usa TR y registry
 
-    // Mayor prioridad primero, luego más velocidad (o TR con signo)
-    const orderKey = prio * 10000 + spe;
-
-    return { action: a, orderKey };
+    return { action: a, prio, spe };
   });
 
-  withOrder.sort((a, b) => b.orderKey - a.orderKey);
+  withOrder.sort((a, b) => {
+    if (b.prio !== a.prio) return b.prio - a.prio;
+    return b.spe - a.spe;
+  });
 
   if (DEBUG_MODE) {
       console.log('⚡ [ACTION_SORT] Orden de resolución:');
       withOrder.forEach((item, i) => {
           const monName = nextState[item.action.side][item.action.userIndex]?.name;
-          console.log(`  ${i+1}. ${monName} | Acción: ${item.action.kind} | Clave de orden: ${item.orderKey}`);
+          console.log(`  ${i+1}. ${monName} | Acción: ${item.action.kind} | Prio: ${item.prio} | Spe: ${item.spe}`);
       });
   }
 
