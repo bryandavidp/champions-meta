@@ -11,7 +11,7 @@
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=cabinet-grotesk@500,700,800&display=swap"
     rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
-  
+
   <link rel="stylesheet" href="styles.css" />
   <script src="./effects-registry-bridge.js"></script>
   <script>
@@ -30,7 +30,8 @@
     <section class="panel hero">
       <div class="hero-top">
         <div>
-          <span class="eyebrow"><i data-lucide="swords" style="width:14px;height:14px;"></i> Matriz ofensiva + Smogon Chaos</span>
+          <span class="eyebrow"><i data-lucide="swords" style="width:14px;height:14px;"></i> Matriz ofensiva + Smogon
+            Chaos</span>
           <h1>Lectura rápida, decisiones claras</h1>
           <p>La app aplica sets por defecto desde Smogon Champions OU, manteniendo matriz, semáforo, oportunidades,
             estrategias y guardado local en un único HTML.</p>
@@ -61,16 +62,23 @@
             </button>
           </div>
           <button class="btn gold" id="loadDemoBtn">Ejemplo</button>
-          <button class="btn blue" id="swapBtn" title="Swap" style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;"><i data-lucide="refresh-cw" style="width:16px;height:16px;"></i></button>
-          <button class="btn red" id="clearBtn" title="Limpiar" style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+          <button class="btn blue" id="swapBtn" title="Swap"
+            style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;"><i
+              data-lucide="refresh-cw" style="width:16px;height:16px;"></i></button>
+          <button class="btn red" id="clearBtn" title="Limpiar"
+            style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;"><i
+              data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
         </div>
       </div>
 
       <div class="hero-stats-compact" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
-        <div class="tiny-chip" style="background: rgba(255, 211, 90, 0.1); border-color: rgba(255, 211, 90, 0.2); color: #ffd35a;">
-          <span style="opacity: 0.8; font-weight: 500; margin-right: 4px;">Fuertes</span> <span id="metricStrong">0</span>
+        <div class="tiny-chip"
+          style="background: rgba(255, 211, 90, 0.1); border-color: rgba(255, 211, 90, 0.2); color: #ffd35a;">
+          <span style="opacity: 0.8; font-weight: 500; margin-right: 4px;">Fuertes</span> <span
+            id="metricStrong">0</span>
         </div>
-        <div class="tiny-chip" style="background: rgba(255, 59, 48, 0.12); border-color: rgba(255, 59, 48, 0.28); color: #ff6b61;">
+        <div class="tiny-chip"
+          style="background: rgba(255, 59, 48, 0.12); border-color: rgba(255, 59, 48, 0.28); color: #ff6b61;">
           <span style="opacity: 0.8; font-weight: 500; margin-right: 4px;">Pico</span> <span id="metricPeak">×0</span>
         </div>
         <div class="tiny-chip" style="opacity: 0.7;">
@@ -94,10 +102,10 @@
           <i data-lucide="zap" style="width: 14px; height: 14px;"></i> Autopilot
         </div>
       </div>
-      
+
       <div class="premium-body">
         <div id="mvpBannerContainer" style="display: none;"></div>
-        
+
         <div class="premium-scout-bar" id="planRivalCard">
           <div class="scout-label"><i data-lucide="eye"></i> Scout Rival</div>
           <div class="list scout-list" id="planRivalList"></div>
@@ -112,19 +120,20 @@
         </div>
       </div>
     </section>
-<section class="panel" id="quickCombosSection" style="display: none;">
-  <div class="premium-header">
-    <div class="premium-header-content">
-      <h2 class="section-title">Top 3 Combinaciones</h2>
-      <p class="section-subtitle">Las mejores sinergias automáticas evaluando cobertura, defensa, utilidad y debilidades</p>
-    </div>
-  </div>
-  <div class="premium-body">
-    <div id="quickCombosList" style="display: flex; flex-direction: column; gap: 12px;"></div>
-  </div>
-</section>
+    <section class="panel" id="quickCombosSection" style="display: none;">
+      <div class="premium-header">
+        <div class="premium-header-content">
+          <h2 class="section-title">Top 3 Combinaciones</h2>
+          <p class="section-subtitle">Las mejores sinergias automáticas evaluando cobertura, defensa, utilidad y
+            debilidades</p>
+        </div>
+      </div>
+      <div class="premium-body">
+        <div id="quickCombosList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+      </div>
+    </section>
 
-<section id="liveStatePanel" class="live-state-panel panel" style="display:none">
+    <!-- <section id="liveStatePanel" class="live-state-panel panel" style="display:none">
   <div class="premium-header">
     <div class="premium-header-content">
       <h3 class="section-title">Estado actual de la partida</h3>
@@ -152,64 +161,66 @@
     <h4>Recomendación de turno</h4>
     <div id="liveRecommendations"></div>
   </div>
-</section>
+</section> -->
 
-<section class="shock-projection" id="turn1SimulatorPanel" style="display: none;">
-  <header class="shock-projection__header">
-    <div class="shock-projection__eyebrow">Centro de Comando Táctico</div>
-    <h2 class="shock-projection__title">Proyección de Choque Inicial</h2>
-    <p class="shock-projection__subtitle">Análisis de inercia, fuego cruzado y letalidad antes de mover.</p>
-  </header>
+    <section class="shock-projection" id="turn1SimulatorPanel" style="display: none;">
+      <header class="shock-projection__header">
+        <div class="shock-projection__eyebrow">Centro de Comando Táctico</div>
+        <h2 class="shock-projection__title">Proyección de Choque Inicial</h2>
+        <p class="shock-projection__subtitle">Análisis de inercia, fuego cruzado y letalidad antes de mover.</p>
+      </header>
 
-  <div id="t1EmptyState" style="display: none; padding: 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; margin-bottom: 16px;">
-    Selecciona una combinación arriba para ver cómo se ve el choque inicial.
-  </div>
-
-  <div id="t1GlobalStateBanner" class="global-state-banner" style="display: none;"></div>
-
-  <div class="shock-projection__matchup" id="turn1PickZone">
-    <div class="matchup-lane matchup-lane--self">
-      <div class="matchup-lane__label">Tu equipo</div>
-      <div class="matchup-lane__slots" id="t1SelfPickRow" aria-label="Seleccionar leads propios">
-        <!-- slots -->
+      <div id="t1EmptyState"
+        style="display: none; padding: 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; margin-bottom: 16px;">
+        Selecciona una combinación arriba para ver cómo se ve el choque inicial.
       </div>
-    </div>
 
-    <div class="matchup-lane matchup-lane--enemy">
-      <div class="matchup-lane__label">Rival</div>
-      <div class="matchup-lane__slots" id="t1EnemyPickRow" aria-label="Seleccionar leads rivales">
-        <!-- slots -->
+      <div id="t1GlobalStateBanner" class="global-state-banner" style="display: none;"></div>
+
+      <div class="shock-projection__matchup" id="turn1PickZone">
+        <div class="matchup-lane matchup-lane--self">
+          <div class="matchup-lane__label">Tu equipo</div>
+          <div class="matchup-lane__slots" id="t1SelfPickRow" aria-label="Seleccionar leads propios">
+            <!-- slots -->
+          </div>
+        </div>
+
+        <div class="matchup-lane matchup-lane--enemy">
+          <div class="matchup-lane__label">Rival</div>
+          <div class="matchup-lane__slots" id="t1EnemyPickRow" aria-label="Seleccionar leads rivales">
+            <!-- slots -->
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <section class="momentum-panel" id="momentumPanel" style="display: none;">
-    <div class="momentum-panel__header">
-      <span class="momentum-panel__side momentum-panel__side--self">Tu inercia</span>
-      <span class="momentum-panel__side momentum-panel__side--enemy">Inercia rival</span>
-    </div>
-    <div class="momentum-panel__track">
-      <div class="momentum-panel__fill" id="momentumFill"></div>
-      <div class="momentum-panel__marker"></div>
-    </div>
-    <div class="momentum-panel__rail" id="momentumRail">
-      <!-- secuencia probable del turno -->
-    </div>
-  </section>
+      <section class="momentum-panel" id="momentumPanel" style="display: none;">
+        <div class="momentum-panel__header">
+          <span class="momentum-panel__side momentum-panel__side--self">Tu inercia</span>
+          <span class="momentum-panel__side momentum-panel__side--enemy">Inercia rival</span>
+        </div>
+        <div class="momentum-panel__track">
+          <div class="momentum-panel__fill" id="momentumFill"></div>
+          <div class="momentum-panel__marker"></div>
+        </div>
+        <div class="momentum-panel__rail" id="momentumRail">
+          <!-- secuencia probable del turno -->
+        </div>
+      </section>
 
-  <!-- TABLERO GLOBAL DE ESTADOS DINÁMICOS -->
-  <div id="t1GlobalFieldState" class="global-field-state" style="display: none;"></div>
+      <!-- TABLERO GLOBAL DE ESTADOS DINÁMICOS -->
+      <div id="t1GlobalFieldState" class="global-field-state" style="display: none;"></div>
 
-  <section class="tactical-feed" id="t1InsightsList">
-    <!-- Contenido inyectado por JS -->
-  </section>
-</section>
+      <section class="tactical-feed" id="t1InsightsList">
+        <!-- Contenido inyectado por JS -->
+      </section>
+    </section>
 
     <section class="panel section-pad">
       <div class="section-head">
         <div>
           <h2 class="section-title" id="matrixSectionTitle">Matriz ofensiva</h2>
-          <p class="section-subtitle" id="matrixSectionSub">Usa tipos de movimientos del set por defecto cuando estén disponibles; si no, cae
+          <p class="section-subtitle" id="matrixSectionSub">Usa tipos de movimientos del set por defecto cuando estén
+            disponibles; si no, cae
             al tipado base.</p>
         </div>
       </div>
@@ -219,47 +230,69 @@
           <div class="matrix-topbar">
             <div class="matrix-topbar-left">
               <div class="segmented-control" id="matrixModeToggleGroup">
-                <button class="segmented-btn active" data-mode="offensive"><i data-lucide="swords"></i> Ofensiva</button>
+                <button class="segmented-btn active" data-mode="offensive"><i data-lucide="swords"></i>
+                  Ofensiva</button>
                 <button class="segmented-btn" data-mode="defensive"><i data-lucide="shield"></i> Defensiva</button>
               </div>
               <div class="segmented-control" id="matrixDetailToggleGroup">
                 <button class="segmented-btn" data-detail="compact"><i data-lucide="layout-grid"></i> Compacta</button>
-                <button class="segmented-btn active" data-detail="detailed"><i data-lucide="list"></i> Detallada</button>
+                <button class="segmented-btn active" data-detail="detailed"><i data-lucide="list"></i>
+                  Detallada</button>
               </div>
             </div>
             <div class="matrix-metrics">
               <span class="matrix-summary-chip status-neutral" id="matrixStatus">0 cruces</span>
-              <span class="matrix-summary-chip status-red" id="metricOhkoCount" title="OHKOs"><strong>0</strong> OHKOs</span>
-              <span class="matrix-summary-chip status-amber" id="metricPressureCount" title="Presión x2+"><strong>0</strong> Presión x2+</span>
-              <span class="matrix-summary-chip status-green" id="metricWallCount" title="Muros e Inmunes"><strong>0</strong> Muros/Inmunes</span>
+              <span class="matrix-summary-chip status-red" id="metricOhkoCount" title="OHKOs"><strong>0</strong>
+                OHKOs</span>
+              <span class="matrix-summary-chip status-amber" id="metricPressureCount"
+                title="Presión x2+"><strong>0</strong> Presión x2+</span>
+              <span class="matrix-summary-chip status-green" id="metricWallCount"
+                title="Muros e Inmunes"><strong>0</strong> Muros/Inmunes</span>
             </div>
           </div>
 
           <div class="matrix-secondarybar">
-            <div class="field-group-wrapper" id="matrixFieldControls" style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 12px; border: 1px solid var(--line); flex-wrap: wrap;">
-              <div class="field-group" style="display: flex; gap: 4px; background: transparent; border: none; padding: 0;">
-                <button type="button" class="field-pill" data-weather="sun" title="Sol"><i data-lucide="sun"></i></button>
-                <button type="button" class="field-pill" data-weather="rain" title="Lluvia"><i data-lucide="cloud-rain"></i></button>
-                <button type="button" class="field-pill" data-weather="sand" title="Arena"><i data-lucide="wind"></i></button>
-                <button type="button" class="field-pill" data-weather="snow" title="Nieve"><i data-lucide="snowflake"></i></button>
+            <div class="field-group-wrapper" id="matrixFieldControls"
+              style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 12px; border: 1px solid var(--line); flex-wrap: wrap;">
+              <div class="field-group"
+                style="display: flex; gap: 4px; background: transparent; border: none; padding: 0;">
+                <button type="button" class="field-pill" data-weather="sun" title="Sol"><i
+                    data-lucide="sun"></i></button>
+                <button type="button" class="field-pill" data-weather="rain" title="Lluvia"><i
+                    data-lucide="cloud-rain"></i></button>
+                <button type="button" class="field-pill" data-weather="sand" title="Arena"><i
+                    data-lucide="wind"></i></button>
+                <button type="button" class="field-pill" data-weather="snow" title="Nieve"><i
+                    data-lucide="snowflake"></i></button>
               </div>
               <div style="width: 1px; height: 16px; background: var(--line);"></div>
-              <div class="field-group" style="display: flex; gap: 4px; background: transparent; border: none; padding: 0;">
-                <button type="button" class="field-pill" data-terrain="electric" title="Campo eléctrico"><i data-lucide="zap"></i></button>
-                <button type="button" class="field-pill" data-terrain="grassy" title="Campo de hierba"><i data-lucide="leaf"></i></button>
-                <button type="button" class="field-pill" data-terrain="psychic" title="Campo psíquico"><i data-lucide="orbit"></i></button>
-                <button type="button" class="field-pill" data-terrain="misty" title="Campo de niebla"><i data-lucide="sparkles"></i></button>
+              <div class="field-group"
+                style="display: flex; gap: 4px; background: transparent; border: none; padding: 0;">
+                <button type="button" class="field-pill" data-terrain="electric" title="Campo eléctrico"><i
+                    data-lucide="zap"></i></button>
+                <button type="button" class="field-pill" data-terrain="grassy" title="Campo de hierba"><i
+                    data-lucide="leaf"></i></button>
+                <button type="button" class="field-pill" data-terrain="psychic" title="Campo psíquico"><i
+                    data-lucide="orbit"></i></button>
+                <button type="button" class="field-pill" data-terrain="misty" title="Campo de niebla"><i
+                    data-lucide="sparkles"></i></button>
               </div>
               <div style="width: 1px; height: 16px; background: var(--line);"></div>
-              <div class="field-group" style="display: flex; gap: 4px; background: transparent; border: none; padding: 0;">
-                <button type="button" class="field-pill" data-toggle-field="reflectEnemy" title="Reflect (Rival)"><i data-lucide="shield"></i></button>
-                <button type="button" class="field-pill" data-toggle-field="lightScreenEnemy" title="Light Screen (Rival)"><i data-lucide="monitor"></i></button>
-                <button type="button" class="field-pill" data-toggle-field="auroraVeilEnemy" title="Aurora Veil (Rival)"><i data-lucide="cloud-snow"></i></button>
-                <button type="button" class="field-pill" data-toggle-field="helpingHandSelf" title="Helping Hand (Propio)"><i data-lucide="hand"></i></button>
+              <div class="field-group"
+                style="display: flex; gap: 4px; background: transparent; border: none; padding: 0;">
+                <button type="button" class="field-pill" data-toggle-field="reflectEnemy" title="Reflect (Rival)"><i
+                    data-lucide="shield"></i></button>
+                <button type="button" class="field-pill" data-toggle-field="lightScreenEnemy"
+                  title="Light Screen (Rival)"><i data-lucide="monitor"></i></button>
+                <button type="button" class="field-pill" data-toggle-field="auroraVeilEnemy"
+                  title="Aurora Veil (Rival)"><i data-lucide="cloud-snow"></i></button>
+                <button type="button" class="field-pill" data-toggle-field="helpingHandSelf"
+                  title="Helping Hand (Propio)"><i data-lucide="hand"></i></button>
               </div>
             </div>
-            
-            <button class="matrix-help-toggle" id="matrixHelpToggleBtn" aria-expanded="false" aria-controls="matrixHelpPanel">
+
+            <button class="matrix-help-toggle" id="matrixHelpToggleBtn" aria-expanded="false"
+              aria-controls="matrixHelpPanel">
               <i data-lucide="help-circle"></i> Ayuda
             </button>
           </div>
@@ -273,13 +306,17 @@
 
         <div class="active-matchup-strip" id="activeMatchupStrip" style="display: none;">
           <div class="active-side active-side--self">
-            <button class="active-slot-btn active-slot-btn--self" id="activeSelfSlotA" aria-label="Cambiar activo propio A"></button>
-            <button class="active-slot-btn active-slot-btn--self" id="activeSelfSlotB" aria-label="Cambiar activo propio B"></button>
+            <button class="active-slot-btn active-slot-btn--self" id="activeSelfSlotA"
+              aria-label="Cambiar activo propio A"></button>
+            <button class="active-slot-btn active-slot-btn--self" id="activeSelfSlotB"
+              aria-label="Cambiar activo propio B"></button>
           </div>
           <div class="active-vs">VS</div>
           <div class="active-side active-side--enemy">
-            <button class="active-slot-btn active-slot-btn--enemy" id="activeEnemySlotA" aria-label="Cambiar activo rival A"></button>
-            <button class="active-slot-btn active-slot-btn--enemy" id="activeEnemySlotB" aria-label="Cambiar activo rival B"></button>
+            <button class="active-slot-btn active-slot-btn--enemy" id="activeEnemySlotA"
+              aria-label="Cambiar activo rival A"></button>
+            <button class="active-slot-btn active-slot-btn--enemy" id="activeEnemySlotB"
+              aria-label="Cambiar activo rival B"></button>
           </div>
         </div>
 
@@ -412,11 +449,14 @@
 
       <div class="result-list" id="resultList">
         ${Array(15).fill(0).map(() => `
-          <div class="result skeleton-result">
-            <div class="result-sprite" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.02);"></div>
-            <div style="width: 80%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 8px;"></div>
-            <div style="width: 50%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;"></div>
+        <div class="result skeleton-result">
+          <div class="result-sprite" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.02);">
           </div>
+          <div
+            style="width: 80%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 8px;">
+          </div>
+          <div style="width: 50%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;"></div>
+        </div>
         `).join('')}
       </div>
     </div>
@@ -467,7 +507,7 @@
     </div>
   </div>
 
-  
+
   <div class="battle-sheet-overlay" id="battleSheetOverlay" style="display: none;"></div>
   <div class="battle-sheet" id="battleSheet" style="transform: translateY(100%);">
     <div class="drawer-handle"></div>
@@ -479,4 +519,5 @@
   </div>
 
 </body>
+
 </html>

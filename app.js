@@ -71,6 +71,93 @@ const RATING_ORDER = ["1760", "1630", "1500", "0"];
 const MATRIX_DETAIL_MODE_KEY = "offensive-matrix-detail-v1";
 const MATRIX_HELP_SEEN_KEY = "offensive-matrix-help-seen-v1";
 
+const TEST_TEAMS = [
+  {
+    name: "Sol Agresivo",
+    desc: "Test: Multiplicadores dinámicos de velocidad y OHKO.",
+    mons: [
+      { name: "charizard-mega-y", set: { ability: "Drought", item: "Charizardite Y", moves: ["Heat Wave", "Protect", "", ""] } },
+      { name: "venusaur", set: { ability: "Chlorophyll", item: "Focus Sash", moves: ["Sleep Powder", "Sludge Bomb", "", ""] } },
+      { name: "tornadus", set: { ability: "Prankster", item: "Mental Herb", moves: ["Tailwind", "", "", ""] } },
+      { name: "entei", set: { ability: "Inner Focus", item: "Choice Band", moves: ["Extreme Speed", "", "", ""] } },
+      { name: "gastrodon", set: { ability: "Storm Drain", item: "Leftovers", moves: ["Earth Power", "", "", ""] } },
+      { name: "flutter-mane", set: { ability: "Protosynthesis", item: "Booster Energy", moves: ["Dazzling Gleam", "", "", ""] } }
+    ]
+  },
+  {
+    name: "Tormenta Impermeable",
+    desc: "Test: Inmunidades elementales cruzadas.",
+    mons: [
+      { name: "pelipper", set: { ability: "Drizzle", item: "Focus Sash", moves: ["Hurricane", "Protect", "", ""] } },
+      { name: "kingdra", set: { ability: "Swift Swim", item: "Choice Specs", moves: ["Muddy Water", "Draco Meteor", "", ""] } },
+      { name: "raichu", set: { ability: "Lightning Rod", item: "Assault Vest", moves: ["Fake Out", "Volt Switch", "", ""] } },
+      { name: "ludicolo", set: { ability: "Swift Swim", item: "Life Orb", moves: ["Fake Out", "Hydro Pump", "", ""] } },
+      { name: "amoonguss", set: { ability: "Regenerator", item: "Rocky Helmet", moves: ["Rage Powder", "Spore", "", ""] } },
+      { name: "swampert-mega", set: { ability: "Swift Swim", item: "Swampertite", moves: ["Earthquake", "", "", ""] } }
+    ]
+  },
+  {
+    name: "Espacio Raro y Terrenos",
+    desc: "Test: Inversión de timeline y bloqueo de prioridades.",
+    mons: [
+      { name: "indeedee-f", set: { ability: "Psychic Surge", item: "Psychic Seed", moves: ["Follow Me", "", "", ""] } },
+      { name: "armarouge", set: { ability: "Flash Fire", item: "Life Orb", moves: ["Expanding Force", "Trick Room", "", ""] } },
+      { name: "farigiraf", set: { ability: "Armor Tail", item: "Leftovers", moves: ["Hyper Voice", "Trick Room", "", ""] } },
+      { name: "torkoal", set: { ability: "Drought", item: "Charcoal", moves: ["Eruption", "", "", ""] } },
+      { name: "ursaluna", set: { ability: "Guts", item: "Flame Orb", moves: ["Facade", "Earthquake", "", ""] } },
+      { name: "mawile-mega", set: { ability: "Intimidate", item: "Mawilite", moves: ["Play Rough", "Sucker Punch", "", ""] } }
+    ]
+  },
+  {
+    name: "Ciclo de Intimidación",
+    desc: "Test: Buffs encadenados (Defiant) + Acero/Arena.",
+    mons: [
+      { name: "tyranitar", set: { ability: "Sand Stream", item: "Choice Scarf", moves: ["Rock Slide", "", "", ""] } },
+      { name: "excadrill", set: { ability: "Sand Rush", item: "Focus Sash", moves: ["High Horsepower", "Iron Head", "", ""] } },
+      { name: "incineroar", set: { ability: "Intimidate", item: "Sitrus Berry", moves: ["Fake Out", "Parting Shot", "", ""] } },
+      { name: "kingambit", set: { ability: "Defiant", item: "Black Glasses", moves: ["Sucker Punch", "Kowtow Cleave", "", ""] } },
+      { name: "rotom-wash", set: { ability: "Levitate", item: "Sitrus Berry", moves: ["Hydro Pump", "", "", ""] } },
+      { name: "salamence-mega", set: { ability: "Intimidate", item: "Salamencite", moves: ["Hyper Voice", "", "", ""] } }
+    ]
+  },
+  {
+    name: "Los Rompemoldes",
+    desc: "Test: Anular inmunidades y atravesar habilidades.",
+    mons: [
+      { name: "excadrill", set: { ability: "Mold Breaker", item: "Life Orb", moves: ["Earthquake", "Protect", "", ""] } },
+      { name: "ogerpon-hearthflame", set: { ability: "Mold Breaker", item: "Hearthflame Mask", moves: ["Ivy Cudgel", "Spiky Shield", "", ""] } },
+      { name: "heatran", set: { ability: "Flash Fire", item: "Air Balloon", moves: ["Heat Wave", "", "", ""] } },
+      { name: "togekiss", set: { ability: "Serene Grace", item: "Sitrus Berry", moves: ["Air Slash", "Follow Me", "", ""] } },
+      { name: "kangaskhan-mega", set: { ability: "Scrappy", item: "Kangaskhanite", moves: ["Fake Out", "Double-Edge", "", ""] } },
+      { name: "gholdengo", set: { ability: "Good as Gold", item: "Choice Specs", moves: ["Make It Rain", "", "", ""] } }
+    ]
+  },
+  {
+    name: "Invisibles y Escudos",
+    desc: "Test: Daño a través de Protect y reducciones.",
+    mons: [
+      { name: "ninetales-alola", set: { ability: "Snow Warning", item: "Light Clay", moves: ["Aurora Veil", "Blizzard", "", ""] } },
+      { name: "urshifu-rapid-strike", set: { ability: "Unseen Fist", item: "Choice Scarf", moves: ["Surging Strikes", "", "", ""] } },
+      { name: "cetitan", set: { ability: "Slush Rush", item: "Sitrus Berry", moves: ["Ice Spinner", "", "", ""] } },
+      { name: "venusaur-mega", set: { ability: "Thick Fat", item: "Venusaurite", moves: ["Leech Seed", "", "", ""] } },
+      { name: "landorus-therian", set: { ability: "Intimidate", item: "Assault Vest", moves: ["U-turn", "Earthquake", "", ""] } },
+      { name: "ogerpon-wellspring", set: { ability: "Water Absorb", item: "Wellspring Mask", moves: ["Ivy Cudgel", "", "", ""] } }
+    ]
+  },
+  {
+    name: "Control de Pista",
+    desc: "Test: Consumibles automáticos de Terreno y daño puro.",
+    mons: [
+      { name: "rillaboom", set: { ability: "Grassy Surge", item: "Miracle Seed", moves: ["Grassy Glide", "Fake Out", "", ""] } },
+      { name: "tapu-koko", set: { ability: "Electric Surge", item: "Life Orb", moves: ["Thunderbolt", "", "", ""] } },
+      { name: "sneasler", set: { ability: "Unburden", item: "Electric Seed", moves: ["Close Combat", "Dire Claw", "", ""] } },
+      { name: "dragonite", set: { ability: "Multiscale", item: "Sharp Beak", moves: ["Extreme Speed", "", "", ""] } },
+      { name: "gyarados", set: { ability: "Intimidate", item: "Sitrus Berry", moves: ["Waterfall", "", "", ""] } },
+      { name: "metagross-mega", set: { ability: "Tough Claws", item: "Metagrossite", moves: ["Meteor Mash", "", "", ""] } }
+    ]
+  }
+];
+
 const META_PRESETS = [
   {
     name: "Hyper Offense",
@@ -86,6 +173,46 @@ const META_PRESETS = [
     name: "Clima Arena",
     desc: "Control de clima y daño residual.",
     mons: ["tyranitar", "excadrill", "aegislash", "primarina", "dragonite", "hatterene"]
+  },
+  {
+    name: "Meta Test 1: Sun + Unburden",
+    desc: "Meta sun hyper‑offense: Drought + Chlorophyll + Tailwind + Unburden y cierre con Supreme Overlord.",
+    mons: ["charizard", "venusaur", "whimsicott", "sneasler", "rotom-wash", "kingambit"]
+  },
+  {
+    name: "Meta Test 2: Arena + Last Respects",
+    desc: "Sand balance con Excadrill + Garchomp y Basculegion para probar daño de clima, Earthquake spread, Last Respects y redirección de Sinistcha.",
+    mons: ["tyranitar", "excadrill", "garchomp", "sinistcha", "basculegion", "rotom-wash"]
+  },
+  {
+    name: "Meta Test 3: Trick Room Psychic Terrain",
+    desc: "Core Farigiraf + Hatterene + Armarouge + Torkoal para probar Armor Tail, Psychic Terrain, Expanding Force y TR mirrors.",
+    mons: ["farigiraf", "hatterene", "armarouge", "torkoal", "kingambit", "amoonguss"]
+  },
+  {
+    name: "Meta Test 4: Ciclo Intimidate & Defiant",
+    desc: "Triple Intimidate (Incineroar, Gyarados, Arcanine) contra Kingambit + Sneasler para testear boosts de Defiant, Fake Out, Parting Shot y control de velocidad.",
+    mons: ["incineroar", "gyarados", "arcanine", "kingambit", "sneasler", "rotom-wash"]
+  },
+  {
+    name: "Meta Test 5: Dual Speed (Tailwind + TR)",
+    desc: "Equipo híbrido con Tailwind de Whimsicott y Trick Room de Farigiraf/Sinistcha, más sweepers Garchomp/Basculegion e Incineroar de glue.",
+    mons: ["whimsicott", "farigiraf", "garchomp", "basculegion", "incineroar", "sinistcha"]
+  },
+  {
+    name: "Meta Test 6: Pivot & Status Control",
+    desc: "Core Rotom‑W + Incineroar + Whimsicott para pivot (Volt Switch/Parting Shot) y status (Thunder Wave, Stun Spore, Taunt), con Garchomp, Sinistcha y Kingambit de presión.",
+    mons: ["rotom-wash", "incineroar", "whimsicott", "garchomp", "sinistcha", "kingambit"]
+  },
+  {
+    name: "Meta Test 7: Prioridad & Endgame Closers",
+    desc: "Test de prioridades fuertes (Extreme Speed, Aqua Jet, Sucker Punch) y cierres de partida con Supreme Overlord + Last Respects escalado.",
+    mons: ["basculegion", "kingambit", "arcanine", "sneasler", "rotom-wash", "whimsicott"]
+  },
+  {
+    name: "Meta Test 8: Guerras de Clima & Inmunidades",
+    desc: "Sun vs Sand con Rotom‑W y Garchomp para probar cambios de clima, inmunidades a Tierra/Eléctrico, Armor Tail vs prioridades y escalado de Last Respects.",
+    mons: ["tyranitar", "charizard", "rotom-wash", "garchomp", "farigiraf", "basculegion"]
   }
 ];
 
@@ -1178,7 +1305,12 @@ function estimateMoveDamage(attacker, defender, cand, field) {
 
   window.currentDamageCache = window.currentDamageCache || {};
   const moveNameStr = typeof cand === 'string' ? cand : (cand.move || cand.name || 'unknown');
-  const cacheKey = `${attacker.name}-${defender.name}-${moveNameStr}-${field?.weather || 'none'}`;
+  
+  const atkStage = attacker.battle?.stages?.atk || 0;
+  const spaStage = attacker.battle?.stages?.spa || 0;
+  const defStage = defender.battle?.stages?.def || 0;
+  const spdStage = defender.battle?.stages?.spd || 0;
+  const cacheKey = `${attacker.name}(${atkStage},${spaStage})-${defender.name}(${defStage},${spdStage})-${moveNameStr}-${field?.weather || 'none'}-${field?.terrain || 'none'}`;
 
   // SHORT-CIRCUIT: Salir inmediatamente, cero logs, cero lag
   if (window.currentDamageCache[cacheKey]) {
@@ -1203,6 +1335,7 @@ function estimateMoveDamage(attacker, defender, cand, field) {
 
   // Lógica de Weather Ball protegida
   const moveId = moveName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const isGuaranteedCrit = ['surgingstrikes', 'wickedblow', 'flowertrick', 'frostbreath', 'stormthrow'].includes(moveId);
   if (moveId === 'weatherball' && field.weather) {
       basePower = 100;
       if (field.weather === 'sun') moveType = 'fire';
@@ -1224,21 +1357,6 @@ function estimateMoveDamage(attacker, defender, cand, field) {
   }
 
   let { atkS: atkStat, defS: defStat } = calculateEffectiveStats(attacker, defender, dmgClass);
-
-  const getStageMul = (stage) => {
-      if (!stage) return 1;
-      return stage > 0 ? (2 + stage) / 2 : 2 / (2 - stage);
-  };
-
-  // Aplicar stages si el Pokémon está en el campo activo (tiene objeto battle)
-  if (attacker.battle?.stages) {
-      const atkKey = dmgClass === 'physical' ? 'atk' : 'spa';
-      atkStat = Math.floor(atkStat * getStageMul(attacker.battle.stages[atkKey]));
-  }
-  if (defender.battle?.stages) {
-      const defKey = dmgClass === 'physical' ? 'def' : 'spd';
-      defStat = Math.floor(defStat * getStageMul(defender.battle.stages[defKey]));
-  }
 
   // Habilidades ofensivas (Huge Power) sanitizadas
   const attackerAbility = (attacker.set?.ability || attacker.ability || '').toLowerCase().replace(/\s/g, '');
@@ -1265,16 +1383,53 @@ function estimateMoveDamage(attacker, defender, cand, field) {
   const stab = (attacker.types || []).some(t => t.toLowerCase() === moveType.toLowerCase()) ? 1.5 : 1;
   const defSafe = Math.max(1, defStat);
 
-  const blocked = (field.terrain === 'psychic' && PRIORITY_MOVES.has(moveName)) || regResult.blockedByRegistry;
+  // --- INICIO DE INTERCEPTACIÓN DE INMUNIDADES ---
+  const defAbility = (defender.set?.ability || defender.ability || '').toLowerCase().replace(/[^a-z]/g, '');
+  const defAbilityName = defender.set?.ability || defender.ability || 'Habilidad';
+  const defItem = (defender.set?.item || defender.item || '').toLowerCase().replace(/[^a-z]/g, '');
+  const defItemName = defender.set?.item || defender.item || 'Objeto';
+  const defTypes = (defender.types || []).map(t => t.toLowerCase());
+
+  let immunityData = null;
+
+  // 1. Inmunidades a Tierra (Levitación, Globo Helio, y seguro nativo para Voladores)
+  if (moveType === 'ground') {
+      if (defItem !== 'ironball' && defItem !== 'bolaferrea') {
+          if (defAbility === 'levitate' || defAbility === 'levitacion') immunityData = { type: 'ability', name: defAbilityName };
+          else if (defItem === 'airballoon' || defItem === 'globohelio') immunityData = { type: 'item', name: defItemName };
+          else if (defTypes.includes('flying')) immunityData = { type: 'type', name: 'Tipo Volador' };
+      }
+  }
+
+  // 2. Inmunidades Elementales por Habilidad Clásicas
+  else if (moveType === 'water' && ['waterabsorb', 'absorbeagua', 'stormdrain', 'colector', 'dryskin', 'pielseca'].includes(defAbility)) immunityData = { type: 'ability', name: defAbilityName };
+  else if (moveType === 'fire' && ['flashfire', 'absorbefuego', 'wellbakedbody', 'cuerpohorneado'].includes(defAbility)) immunityData = { type: 'ability', name: defAbilityName };
+  else if (moveType === 'electric' && ['voltabsorb', 'absorbeelec', 'motordrive', 'electromotor', 'lightningrod', 'pararrayos'].includes(defAbility)) immunityData = { type: 'ability', name: defAbilityName };
+  else if (moveType === 'grass' && ['sapsipper', 'herbivoro'].includes(defAbility)) immunityData = { type: 'ability', name: defAbilityName };
+  else if (moveType === 'ground' && ['eartheater', 'geofagia'].includes(defAbility)) immunityData = { type: 'ability', name: defAbilityName };
+
+  // 3. Inmunidad a Polvos/Esporas (Grass types y Overcoat)
+  else if (['spore', 'espora', 'sleeppowder', 'somnifero', 'ragepowder', 'polvoira'].includes(moveName.toLowerCase().replace(/[^a-z]/g, ''))) {
+      if (['overcoat', 'funda'].includes(defAbility)) immunityData = { type: 'ability', name: defAbilityName };
+      else if (defItem === 'safetygoggles' || defItem === 'gafasprotectoras') immunityData = { type: 'item', name: defItemName };
+      else if (defTypes.includes('grass')) immunityData = { type: 'type', name: 'Tipo Planta' };
+  }
+  // --- FIN DE INTERCEPTACIÓN ---
+
+  const blocked = (field.terrain === 'psychic' && PRIORITY_MOVES.has(moveName)) || regResult.blockedByRegistry || immunityData !== null;
 
   if (blocked) {
-    const res = { damage: 0, minDamage: 0, maxDamage: 0, blocked: true, wMul, terrMul, registry: regResult.registry };
+    if (!immunityData && field.terrain === 'psychic' && PRIORITY_MOVES.has(moveName)) {
+        immunityData = { type: 'field', name: 'Campo Psíquico' };
+    }
+    const res = { damage: 0, minDamage: 0, maxDamage: 0, blocked: true, wMul, terrMul, registry: regResult.registry, immunityData };
     window.currentDamageCache[cacheKey] = res;
     return res;
   }
 
   let basePerHit = (((((22 * basePower * atkStat) / defSafe) / 50) + 2) * stab * eff * wMul * terrMul * regResult.registryDamageMul);
   if (isSpread) basePerHit *= 0.75;
+  if (isGuaranteedCrit) basePerHit *= 1.5;
 
   // Habilidad defensiva: Fur Coat
   const defenderAbility = (defender.set?.ability || '').toLowerCase().replace(/\s/g, '');
@@ -1285,8 +1440,6 @@ function estimateMoveDamage(attacker, defender, cand, field) {
   const { maxDamage, minDamage, critDamage } = calculateDamageRolls(basePerHit * hits);
 
   // NUEVO LOG INTELIGENTE (Justo antes de guardar en caché y hacer return)
-  const atkStage = attacker.battle?.stages?.atk || 0;
-  const defStage = defender.battle?.stages?.def || 0;
   
   const tags = [];
   if (wMul > 1 && field.weather === 'sun') tags.push("🔥 Sol x1.5");
@@ -1730,6 +1883,66 @@ function ensureAbilityRegistry(abilityName) {
             kind: 'heal_fraction',
             value: 0.25,
             when: { move_type: 'water' },
+          },
+        ],
+      };
+      break;
+
+    case 'drought':
+      entry = {
+        slug,
+        name: 'Drought',
+        triggers: ['on_switch_in'],
+        effects: [
+          {
+            kind: 'set_weather',
+            value: 'sun',
+            turns: 5,
+          },
+        ],
+      };
+      break;
+
+    case 'drizzle':
+      entry = {
+        slug,
+        name: 'Drizzle',
+        triggers: ['on_switch_in'],
+        effects: [
+          {
+            kind: 'set_weather',
+            value: 'rain',
+            turns: 5,
+          },
+        ],
+      };
+      break;
+
+    case 'sandstream':
+      entry = {
+        slug,
+        name: 'Sand Stream',
+        triggers: ['on_switch_in'],
+        effects: [
+          {
+            kind: 'set_weather',
+            value: 'sand',
+            turns: 5,
+          },
+        ],
+      };
+      break;
+
+    case 'snowwarning':
+      entry = {
+        slug,
+        name: 'Snow Warning',
+        triggers: ['on_switch_in'],
+        effects: [
+          {
+            kind: 'set_weather',
+            value: 'snow',
+            turns: 5,
           },
         ],
       };
@@ -2187,6 +2400,14 @@ function recalculateActiveField() {
   state.field.terrain = null;
   state.field.terrainTurns = 0;
 
+  // Limpiamos los stages de los Pokémon para no acumular reducciones
+  state.self.forEach(m => {
+    if (m && m.battle) m.battle.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  });
+  state.enemy.forEach(m => {
+    if (m && m.battle) m.battle.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  });
+
   const actives = [];
   
   const sIdx = (state.uiMode === 'quick') ? getTurn1ResolvedLeadIndices("self") : state.activeSelfSlots;
@@ -2279,7 +2500,9 @@ function getMoveCandidates(mon) {
 // CORE ENGINE: elige el mejor movimiento ofensivo entre dos mons.
 function bestAttack(attacker, defender, field = state.field) {
   if (window.comboBestAttackCache) {
-      const cacheKey = `${attacker.name}-${defender.name}-${field.weather}-${field.terrain}`;
+      const atkStage = attacker.battle?.stages?.atk || 0;
+      const defStage = defender.battle?.stages?.def || 0;
+      const cacheKey = `${attacker.name}(${atkStage})-${defender.name}(${defStage})-${field.weather}-${field.terrain}`;
       if (window.comboBestAttackCache[cacheKey]) return window.comboBestAttackCache[cacheKey];
   }
 
@@ -2323,7 +2546,8 @@ function bestAttack(attacker, defender, field = state.field) {
       blocked,
       wMul = 1,
       terrMul = 1,
-      registry = null
+      registry = null,
+      immunityData = null
     } = damageObj;
     
     const rawMult = effectiveness(c.type, defender?.types || []);
@@ -2354,6 +2578,7 @@ function bestAttack(attacker, defender, field = state.field) {
       minPct, maxPct, ohkoProb,
       ohko,
       registry,
+      immunityData,
       registryReasons: registry ? registry.reasons : [],
       registryExplain: (window.EffectsRegistryBridge && registry) ? window.EffectsRegistryBridge.buildExplainLines(registry) : [],
       tags: damageObj.tags || []
@@ -2367,7 +2592,9 @@ function bestAttack(attacker, defender, field = state.field) {
   });
 
   if (window.comboBestAttackCache) {
-      const cacheKey = `${attacker.name}-${defender.name}`;
+      const atkStage = attacker.battle?.stages?.atk || 0;
+      const defStage = defender.battle?.stages?.def || 0;
+      const cacheKey = `${attacker.name}(${atkStage})-${defender.name}(${defStage})-${field.weather}-${field.terrain}`;
       window.comboBestAttackCache[cacheKey] = scored[0];
   }
 
@@ -2422,6 +2649,38 @@ function applySwitchInEffects(mon, explicitSide) {
         state.field.trickRoomTurns = next ? payload.turns || 5 : 0;
       }
     }
+
+      if (ev.kind === 'modify_stat_stage') {
+        const targetSide = (payload.target === 'foe' || payload.target === 'foes' || payload.target === 'foes_adjacent') ? oppSide : side;
+        const stat = payload.stat;
+        const value = payload.value || payload.delta || 0;
+        
+        const activeTargetIndices = targetSide === 'self' 
+          ? ((state.uiMode === 'quick') ? getTurn1ResolvedLeadIndices("self") : state.activeSelfSlots)
+          : ((state.uiMode === 'quick') ? getTurn1ResolvedLeadIndices("enemy") : state.activeEnemySlots);
+
+        activeTargetIndices.forEach(idx => {
+          const targetMon = state[targetSide][idx];
+          if (!targetMon || !targetMon.battle) return;
+
+          const abilityId = (targetMon.set?.ability || targetMon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
+          let finalValue = value;
+
+          if (value < 0 && targetSide === oppSide) {
+             if (['defiant', 'competitive', 'competitivo', 'tenacidad'].includes(abilityId)) {
+                 if (stat === 'atk') {
+                     finalValue = 1; // Intimidación (-1) + Tenacidad (+2) = +1 Atk
+                 } else {
+                     targetMon.battle.stages['atk'] = Math.max(-6, Math.min(6, (targetMon.battle.stages['atk'] || 0) + 2));
+                 }
+             } else if (['clearbody', 'innerfocus', 'hypercutter', 'guarddog', 'focointerno', 'cuerpopuro'].includes(abilityId)) {
+                 finalValue = 0; // Inmunidad a bajadas
+             }
+          }
+
+          targetMon.battle.stages[stat] = Math.max(-6, Math.min(6, (targetMon.battle.stages[stat] || 0) + finalValue));
+        });
+      }
 
     if (ev.kind === 'set_side_condition') {
       const targetSide = payload.side || side; // por defecto, lado del owner
@@ -3664,6 +3923,36 @@ async function loadSavedTeam(id, side = "self") {
 function deleteSavedTeam(id) {
   const teams = getSavedTeams().filter((t) => t.id !== id);
   setSavedTeams(teams);
+}
+
+async function loadTestTeam(index, side = "self") {
+  const team = TEST_TEAMS[index];
+  if (!team) return;
+
+  const mons = await Promise.all(
+    team.mons.map(async (testMon) => {
+      try {
+        const mon = await fetchPokemon(testMon.name);
+        mon.set = { ...mon.set, ...testMon.set };
+        if (!Array.isArray(mon.set.moves)) mon.set.moves = ["", "", "", ""];
+        while (mon.set.moves.length < 4) mon.set.moves.push("");
+        ensureBattleState(mon);
+        return mon;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  state[side] = mons.filter(Boolean).slice(0, 6);
+  state.leads[side] = [];
+  while (state[side].length < 6) state[side].push(null);
+  
+  if (side === "self") state.activeSelfSlots = [0, 1];
+  if (side === "enemy") state.activeEnemySlots = [0, 1];
+  
+  if (typeof scheduleMoveWarmup === "function") scheduleMoveWarmup();
+  renderAll();
 }
 
 function ensurePokedex() {
@@ -5543,12 +5832,8 @@ function renderQuickPreview(preview) {
 function renderSpeedTiers() {
   const speedTierList = document.getElementById("speedTierList");
   const allMons = [
-    ...state.self
-      .map((m) => (m ? { mon: m, side: "self" } : null))
-      .filter(Boolean),
-    ...state.enemy
-      .map((m) => (m ? { mon: m, side: "enemy" } : null))
-      .filter(Boolean),
+    ...state.self.map((m) => (m ? { mon: m, side: "self" } : null)).filter(Boolean),
+    ...state.enemy.map((m) => (m ? { mon: m, side: "enemy" } : null)).filter(Boolean),
   ];
 
   if (!allMons.length) {
@@ -5556,52 +5841,98 @@ function renderSpeedTiers() {
     return;
   }
 
-  const tiers = allMons
-    .map((item) => {
-      const spe = calculateSpeed(item.mon, item.side);
-      return { ...item, spe };
-    })
-    .sort((a, b) => b.spe - a.spe);
+  const PRIO_SET = new Set(['fakeout', 'sorpresa', 'firstimpression', 'extremespeed', 'velocidadextrema', 'suckerpunch', 'golpebajo', 'aquajet', 'acuajet', 'machpunch', 'ultrapuño', 'bulletpunch', 'puñobala', 'iceshard', 'cantohelado', 'shadowsneak', 'sombravil', 'grassyglide', 'fitimpulso']);
 
+  const tiers = allMons.map((item) => {
+    // 1. Calculamos la velocidad efectiva actual
+    const spe = calculateSpeed(item.mon, item.side);
+    
+    // 2. Calculamos la velocidad NETA (Nivel 50 sin modificadores)
+    const baseSpe = item.mon.baseStats?.speed || 100;
+    const evsSpe = item.mon.set?.evs?.spe || 0;
+    const nature = item.mon.set?.nature || "";
+    let rawSpe = Math.floor(((2 * baseSpe + 31 + Math.floor(evsSpe / 4)) * 50) / 100) + 5;
+    rawSpe = Math.floor(rawSpe * getNatureSpeModifier(nature));
+
+    // 3. Evaluamos condiciones especiales
+    const hasPriority = (item.mon.set?.moves || []).some(m => PRIO_SET.has(String(m).toLowerCase().replace(/[^a-z0-9]/g, '')));
+    const ability = (item.mon.set?.ability || '').toLowerCase().replace(/[^a-z]/g, '');
+    const obj = (item.mon.set?.item || '').toLowerCase().replace(/[^a-z]/g, '');
+    
+    let modReason = null;
+    let ringColor = null;
+
+    if (Math.abs(spe) !== rawSpe) {
+        if (['sandrush', 'impetuarena'].includes(ability)) { modReason = 'Ímpetu Arena'; ringColor = '#B6A136'; }
+        else if (['chlorophyll', 'clorofila'].includes(ability)) { modReason = 'Clorofila'; ringColor = '#7AC74C'; }
+        else if (['swiftswim', 'nadorapido'].includes(ability)) { modReason = 'Nado Rápido'; ringColor = '#6390F0'; }
+        else if (['slushrush', 'quitanieves'].includes(ability)) { modReason = 'Quitanieves'; ringColor = '#96D9D6'; }
+        else if (obj === 'choicescarf' || obj === 'pañueloeleccion') { modReason = 'Pañuelo'; ringColor = '#A98FF3'; }
+        else if ((item.side === 'self' && state.field.tailwindSelf) || (item.side === 'enemy' && state.field.tailwindEnemy)) { modReason = 'Viento Afín'; ringColor = '#96D9D6'; }
+    }
+
+    // Prioridad sobrescribe el texto, pero mantiene el anillo del clima si existe
+    if (hasPriority) {
+        modReason = 'Prioridad';
+        if (!ringColor) ringColor = 'var(--gold, #ffd700)';
+    }
+
+    return { ...item, spe, rawSpe, hasPriority, modReason, ringColor };
+  }).sort((a, b) => b.spe - a.spe);
+
+  // Agrupamos para calcular los empates (Ties)
   const blocks = [];
   for (let i = 0; i < tiers.length; ) {
     let j = i;
-    while (j + 1 < tiers.length && tiers[j + 1].spe === tiers[i].spe) j++;
+    while (j + 1 < tiers.length && tiers[j + 1].spe === tiers[i].spe && tiers[j + 1].hasPriority === tiers[i].hasPriority) j++;
     blocks.push(tiers.slice(i, j + 1));
     i = j + 1;
   }
 
-  let html = `<div class="velocity-track">`;
+  // Generamos el HTML del Timeline
+  let html = `<div class="tactical-timeline-track">`;
   
-  blocks.forEach((group, index) => {
+  blocks.forEach((group) => {
     if (group.length > 1) {
       html += `
-        <div class="velocity-tie-column">
-          <div class="velocity-tie-badge"><i data-lucide="zap" style="width: 10px; height: 10px;"></i> Tie</div>
-          ${group.map(item => `
-            <div class="velocity-node" title="${item.mon.displayName}">
-              <div class="velocity-avatar velocity-avatar--${item.side}">
-                <img src="${item.mon.sprite}" alt="${item.mon.displayName}">
+        <div class="timeline-tie-box">
+          <div class="timeline-tie-label"><i data-lucide="zap"></i> Tie</div>
+          ${group.map(item => {
+            let ringStyle = item.ringColor ? `box-shadow: 0 0 0 3px #1a1a24, 0 0 0 5px ${item.ringColor};` : '';
+            let labelHtml = item.modReason ? `<div class="timeline-mod-label ${item.hasPriority ? 'priority' : 'buff'}">${item.hasPriority ? '<i data-lucide="zap"></i>' : ''} ${item.modReason}</div>` : '';
+            return `
+              <div class="timeline-node" title="${item.mon.displayName}">
+                ${labelHtml}
+                <div class="timeline-avatar" style="${ringStyle}">
+                  <img src="${item.mon.sprite}" alt="${item.mon.displayName}">
+                  <div class="timeline-side-badge ${item.side}"></div>
+                </div>
+                <div class="timeline-stats">
+                  <div class="stat-eff" style="${item.spe < 0 ? 'color: var(--purple);' : ''}">${Math.abs(item.spe)}</div>
+                  <div class="stat-base">Base ${item.rawSpe}</div>
+                </div>
               </div>
-              <div class="velocity-stat" style="${item.spe < 0 ? 'color: var(--purple);' : ''}">${Math.abs(item.spe)}</div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       `;
     } else {
       const item = group[0];
+      let ringStyle = item.ringColor ? `box-shadow: 0 0 0 3px #1a1a24, 0 0 0 5px ${item.ringColor};` : '';
+      let labelHtml = item.modReason ? `<div class="timeline-mod-label ${item.hasPriority ? 'priority' : 'buff'}">${item.hasPriority ? '<i data-lucide="zap"></i>' : ''} ${item.modReason}</div>` : '';
       html += `
-        <div class="velocity-node" title="${item.mon.displayName}">
-          <div class="velocity-avatar velocity-avatar--${item.side}">
+        <div class="timeline-node" title="${item.mon.displayName}">
+          ${labelHtml}
+          <div class="timeline-avatar" style="${ringStyle}">
             <img src="${item.mon.sprite}" alt="${item.mon.displayName}">
+            <div class="timeline-side-badge ${item.side}"></div>
           </div>
-          <div class="velocity-stat" style="${item.spe < 0 ? 'color: var(--purple);' : ''}">${Math.abs(item.spe)}</div>
+          <div class="timeline-stats">
+            <div class="stat-eff" style="${item.spe < 0 ? 'color: var(--purple);' : ''}">${Math.abs(item.spe)}</div>
+            <div class="stat-base">Base ${item.rawSpe}</div>
+          </div>
         </div>
       `;
-    }
-    
-    if (index < blocks.length - 1) {
-      html += `<div class="velocity-connector"><i data-lucide="chevron-right"></i></div>`;
     }
   });
 
@@ -5767,7 +6098,6 @@ function renderTurn1PickRows() {
   const rows = getRows();
   const preview = computeQuickPreview(rows);
   const optimalNames = preview.leadPair.map(m => m.name);
-  const isQuick = state.uiMode === 'quick';
 
   const build = (side) => {
     const team = state[side];
@@ -5777,25 +6107,10 @@ function renderTurn1PickRows() {
         const mon = team[i];
         const on = picks.includes(i);
         const cls = ["t1-slot"];
-        let isDimmed = false;
         
         if (!mon) cls.push("t1-slot--empty");
         if (mon && on)
           cls.push(side === "self" ? "t1-slot--on-self" : "t1-slot--on-enemy");
-          
-        if (isQuick && side === "self" && state.chosenFour && state.chosenFour.length > 0) {
-          if (!state.chosenFour.includes(i)) {
-            cls.push("matchup-slot--dimmed");
-            isDimmed = true;
-          }
-        }
-
-        if (isQuick && side === "enemy" && state.chosenEnemyFour && state.chosenEnemyFour.length > 0) {
-          if (!state.chosenEnemyFour.includes(i)) {
-            cls.push("matchup-slot--dimmed");
-            isDimmed = true;
-          }
-        }
         
         const isOptimal = side === "self" && mon && optimalNames.includes(mon.name);
         const badge = isOptimal ? `<div class="optimal-badge"><i data-lucide="star"></i> ÓPTIMO</div>` : '';
@@ -5803,7 +6118,7 @@ function renderTurn1PickRows() {
         const inner = mon
           ? `<img src="${mon.sprite}" alt="" loading="lazy">${badge}`
           : '<span class="t1-slot-ph">—</span>';
-        const dis = (mon && !isDimmed) ? "" : " disabled";
+        const dis = mon ? "" : " disabled";
         return `<button type="button" class="${cls.join(" ")}" data-t1-slot data-side="${side}" data-idx="${i}" ${mon && side === "enemy" ? `data-scout="${mon.name}"` : ""}${dis}>${inner}</button>`;
       })
       .join("");
@@ -5914,8 +6229,16 @@ function renderTurn1Simulator() {
     } else {
       globalStateBanner.style.display = 'flex';
       let html = '';
-      if (activeWeather) html += `<div class="global-state-item weather-${activeWeather.type}"><i data-lucide="${activeWeather.icon}"></i> <span>${activeWeather.text}</span></div>`;
-      if (activeTerrain) html += `<div class="global-state-item terrain-${activeTerrain.type}"><i data-lucide="${activeTerrain.icon}"></i> <span>${activeTerrain.text}</span></div>`;
+      if (activeWeather) {
+        html += `<div class="global-state-pill weather-pill-${activeWeather.type}">
+                   <i data-lucide="${activeWeather.icon}"></i> <span>${activeWeather.text}</span>
+                 </div>`;
+      }
+      if (activeTerrain) {
+        html += `<div class="global-state-pill terrain-pill-${activeTerrain.type}">
+                   <i data-lucide="${activeTerrain.icon}"></i> <span>${activeTerrain.text}</span>
+                 </div>`;
+      }
       globalStateBanner.innerHTML = html;
       if (typeof lucide !== "undefined" && lucide.createIcons) lucide.createIcons({ root: globalStateBanner });
     }
@@ -5942,8 +6265,17 @@ function renderTurn1Simulator() {
   document.querySelectorAll('.t1-slot-stat-badge').forEach(e => e.remove());
   document.querySelectorAll('.t1-slot.t1-slot-ability-glow').forEach(e => e.classList.remove('t1-slot-ability-glow'));
 
-  let selfLeads = leads.filter(x => x.side === "self");
-  let enemyLeads = leads.filter(x => x.side === "enemy");
+  // Clonar leads para preservar estado
+  let simLeads = leads.map(l => ({ ...l, mon: structuredClone(l.mon) }));
+
+  // Limpiamos caché para que tome en cuenta los stages actualizados
+  window.currentDamageCache = {};
+
+  let selfLeads = simLeads.filter(x => x.side === "self");
+  let enemyLeads = simLeads.filter(x => x.side === "enemy");
+
+  let selfIntimidate = selfLeads.some(l => (l.mon.set?.ability || l.mon.ability || '').toLowerCase().includes('intimidate'));
+  let enemyIntimidate = enemyLeads.some(l => (l.mon.set?.ability || l.mon.ability || '').toLowerCase().includes('intimidate'));
 
   // Helper robusto de prioridad
   const getPriority = (moveName) => {
@@ -5951,12 +6283,12 @@ function renderTurn1Simulator() {
       const id = moveName.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (['fakeout', 'firstimpression'].includes(id)) return 3;
       if (['extremespeed'].includes(id)) return 2;
-      if (['suckerpunch', 'aquajet', 'machpunch', 'bulletpunch', 'iceshard', 'shadowsneak', 'grassyglide'].includes(id)) return 1;
+      if (['suckerpunch', 'golpebajo', 'aquajet', 'machpunch', 'bulletpunch', 'iceshard', 'shadowsneak', 'grassyglide'].includes(id)) return 1;
       if (['trickroom'].includes(id)) return -7;
       return 0;
   };
 
-  let turnOrderLeads = leads.map(l => {
+  let turnOrderLeads = simLeads.map(l => {
       let maxPrio = 0;
       const targets = l.side === 'self' ? enemyLeads : selfLeads;
       targets.forEach(t => {
@@ -5969,10 +6301,7 @@ function renderTurn1Simulator() {
   
   turnOrderLeads.forEach((l, idx) => l.turnRank = idx + 1);
 
-  let selfIntimidate = leads.some(l => l.side === 'self' && (l.mon.set?.ability || l.mon.ability || '').toLowerCase().includes('intimidate'));
-  let enemyIntimidate = leads.some(l => l.side === 'enemy' && (l.mon.set?.ability || l.mon.ability || '').toLowerCase().includes('intimidate'));
-  
-  leads.forEach((l, index) => {
+  simLeads.forEach((l, index) => {
     const slotEl = document.querySelector(`.t1-slot[data-side="${l.side}"][data-idx="${l.realIdx}"]`);
     if (!slotEl) return;
     
@@ -5980,20 +6309,28 @@ function renderTurn1Simulator() {
     const prioIcon = hasPriority ? '<i data-lucide="zap" style="width: 10px; height: 10px; color: var(--gold); margin-right: 2px;"></i>' : '';
     const orderBadge = document.createElement('div');
     orderBadge.className = 't1-slot-timeline-badge';
-    orderBadge.innerHTML = `${prioIcon}${index + 1}<span>️⃣</span>`;
+    
+    // Obtener rank actualizado
+    const turnL = turnOrderLeads.find(t => t.realIdx === l.realIdx && t.side === l.side);
+    orderBadge.innerHTML = `${prioIcon}${turnL ? turnL.turnRank : index + 1}<span>️⃣</span>`;
     slotEl.appendChild(orderBadge);
     
-    const ability = (l.mon.set?.ability || l.mon.ability || '').toLowerCase().replace(/\\s/g, '');
-    const isIntimidated = (l.side === 'self' && enemyIntimidate) || (l.side === 'enemy' && selfIntimidate);
-    const blocksIntimidate = ['clearbody', 'innerfocus', 'hypercutter', 'defiant', 'competitive', 'guarddog', 'contrary'].includes(ability);
-    
-    if (isIntimidated && !blocksIntimidate) {
+    const atkStage = l.mon.battle?.stages?.atk || 0;
+    if (atkStage < 0) {
       const statBadge = document.createElement('div');
       statBadge.className = 't1-slot-stat-badge';
-      statBadge.innerHTML = '-1 Atk';
+      statBadge.innerHTML = `${atkStage} Atk`;
+      slotEl.appendChild(statBadge);
+    } else if (atkStage > 0) {
+      const statBadge = document.createElement('div');
+      statBadge.className = 't1-slot-stat-badge';
+      statBadge.innerHTML = `+${atkStage} Atk`;
+      statBadge.style.background = 'var(--green)';
+      statBadge.style.color = 'black';
       slotEl.appendChild(statBadge);
     }
     
+    const ability = (l.mon.set?.ability || l.mon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
     const weather = state.field.weather || (weathers.length > 0 ? weathers[0].type : null);
     const isActiveAbility = 
       (['intimidate', 'drought', 'drizzle', 'sandstream', 'snowwarning', 'psychicsurge', 'grassysurge', 'electricsurge', 'mistysurge'].includes(ability)) ||
@@ -6021,43 +6358,52 @@ function renderTurn1Simulator() {
   // ZONA 1: Timeline de Velocidad (Con Speed Ties)
   let timelineHtml = `
     <div class="zone-timeline ${state.field.trickRoom ? 'trick-room-active' : ''}">
-      <div class="timeline-track">
+      <div class="tactical-timeline-track">
         ${`` + (() => {
           const renderTimelineNode = (l) => {
             const isPrio = l.maxPrio > 0;
             const ability = (l.mon.set?.ability || l.mon.ability || '').toLowerCase().replace(/\s/g, '');
+            const obj = (l.mon.set?.item || '').toLowerCase().replace(/[^a-z]/g, '');
             const weather = state.field.weather || (weathers.length > 0 ? weathers[0].type : null);
             const isSun = weather === 'sun';
             const isRain = weather === 'rain';
-            const isSand = weather === 'sand';
-            const isSnow = weather === 'snow';
-            
-            let speedModIcon = '';
-            let hasSpeedModAbility = false;
-            
-            if (isSun && ability === 'chlorophyll') { hasSpeedModAbility = true; speedModIcon = '<i data-lucide="sun" style="width:10px; height:10px;"></i>'; }
-            else if (isRain && ability === 'swiftswim') { hasSpeedModAbility = true; speedModIcon = '<i data-lucide="cloud-rain" style="width:10px; height:10px;"></i>'; }
-            else if (isSand && ability === 'sandrush') { hasSpeedModAbility = true; speedModIcon = '<i data-lucide="wind" style="width:10px; height:10px;"></i>'; }
-            else if (isSnow && ability === 'slushrush') { hasSpeedModAbility = true; speedModIcon = '<i data-lucide="snowflake" style="width:10px; height:10px;"></i>'; }
-            
-            const hasScarf = (l.mon.set?.item || '').toLowerCase().includes('scarf');
-            const hasTailwind = (l.side === 'self' && state.field.tailwindSelf) || (l.side === 'enemy' && state.field.tailwindEnemy);
-            
-            let itemOrTwIcon = '';
-            if (hasScarf) itemOrTwIcon = '<i data-lucide="wind" style="width:10px; height:10px;"></i>';
-            else if (hasTailwind) itemOrTwIcon = '<i data-lucide="fast-forward" style="width:10px; height:10px;"></i>';
+            const isSand = weather === 'sand' || weather === 'sandstorm';
+            const isSnow = weather === 'snow' || weather === 'hail';
+
+            let modReason = null;
+            let ringColor = null;
+
+            if (isSand && ['sandrush', 'impetuarena'].includes(ability)) { modReason = 'Ímpetu Arena'; ringColor = '#B6A136'; }
+            else if (isSun && ['chlorophyll', 'clorofila'].includes(ability)) { modReason = 'Clorofila'; ringColor = '#7AC74C'; }
+            else if (isRain && ['swiftswim', 'nadorapido'].includes(ability)) { modReason = 'Nado Rápido'; ringColor = '#6390F0'; }
+            else if (isSnow && ['slushrush', 'quitanieves'].includes(ability)) { modReason = 'Quitanieves'; ringColor = '#96D9D6'; }
+            else if (obj === 'choicescarf' || obj === 'pañueloeleccion') { modReason = 'Pañuelo'; ringColor = '#A98FF3'; }
+            else if ((l.side === 'self' && state.field.tailwindSelf) || (l.side === 'enemy' && state.field.tailwindEnemy)) { modReason = 'Viento Afín'; ringColor = '#96D9D6'; }
+
+            if (isPrio) {
+                modReason = 'Prioridad';
+                if (!ringColor) ringColor = 'var(--gold, #ffd700)';
+            }
+
+            const baseSpe = l.mon.baseStats?.speed || 100;
+            const evsSpe = l.mon.set?.evs?.spe || 0;
+            const nature = l.mon.set?.nature || "";
+            let rawSpe = Math.floor(((2 * baseSpe + 31 + Math.floor(evsSpe / 4)) * 50) / 100) + 5;
+            rawSpe = Math.floor(rawSpe * getNatureSpeModifier(nature));
+
+            let ringStyle = ringColor ? `box-shadow: 0 0 0 3px #1a1a24, 0 0 0 5px ${ringColor};` : '';
+            let labelHtml = modReason ? `<div class="timeline-mod-label ${isPrio ? 'priority' : 'buff'}">${isPrio ? '<i data-lucide="zap"></i>' : ''} ${modReason}</div>` : '';
 
             return `
-              <div class="timeline-node ${isPrio ? 'priority-lane' : ''}">
-                <div class="timeline-avatar-container">
-                  <img src="${l.mon.sprite}" class="timeline-avatar">
-                  ${(hasScarf || hasTailwind) ? `<div class="speed-badge item-badge" style="display:flex; align-items:center; gap:2px;">${itemOrTwIcon} x1.5</div>` : ''}
-                  ${hasSpeedModAbility ? `<div class="speed-badge ability-badge" style="display:flex; align-items:center; gap:2px;">${speedModIcon} x2</div>` : ''}
-                  ${isPrio ? '<div class="speed-badge priority-badge"><i data-lucide="zap"></i></div>' : ''}
+              <div class="timeline-node" title="${l.mon.displayName}">
+                ${labelHtml}
+                <div class="timeline-avatar" style="${ringStyle}">
+                  <img src="${l.mon.sprite}" alt="${l.mon.displayName}">
+                  <div class="timeline-side-badge ${l.side}"></div>
                 </div>
-                <div class="speed-info">
-                  <span class="speed-effective">${Math.abs(l.spe)}</span>
-                  <span class="speed-base">(${l.mon.baseStats?.spe || '?'})</span>
+                <div class="timeline-stats">
+                  <div class="stat-eff" style="${l.spe < 0 ? 'color: var(--purple);' : ''}">${Math.abs(l.spe)}</div>
+                  <div class="stat-base">Base ${rawSpe}</div>
                 </div>
               </div>
             `;
@@ -6083,8 +6429,8 @@ function renderTurn1Simulator() {
           return groupedLeads.map(group => {
              if (group.length > 1) {
                  return `
-                   <div class="speed-tie-box">
-                     <div class="speed-tie-label">⚡ 50/50 Tie</div>
+                   <div class="timeline-tie-box">
+                     <div class="timeline-tie-label"><i data-lucide="zap"></i> Tie</div>
                      ${group.map(renderTimelineNode).join('')}
                    </div>
                  `;
@@ -6131,23 +6477,64 @@ function renderTurn1Simulator() {
     const translatedAbility = typeof getTranslation === 'function' && ability !== 'Desconocida' ? getTranslation(ability, 'ability') || formatName(ability) : formatName(ability);
     const translatedItem = typeof getTranslation === 'function' && item !== 'Sin objeto' ? getTranslation(item, 'item') || formatName(item) : formatName(item);
 
-    const abilityId = ability.toLowerCase().replace(/\s/g, '');
-    const isActiveAbility =
-      (['intimidate', 'drought', 'drizzle', 'sandstream', 'snowwarning', 'psychicsurge', 'grassysurge', 'electricsurge', 'mistysurge'].includes(abilityId));
+    const abilitySlug = ability.toLowerCase().replace(/[^a-z]/g, '');
+    const itemSlug = item.toLowerCase().replace(/[^a-z]/g, '');
+    let isAbilityTriggered = false;
+
+    // 1. Climas y Terrenos
+    const weatherSetters = ['drought', 'sequia', 'drizzle', 'llovizna', 'sandstream', 'chorroarena', 'snowwarning', 'nevasca', 'psychicsurge', 'grassysurge', 'electricsurge', 'mistysurge'];
+    if (weatherSetters.includes(abilitySlug)) isAbilityTriggered = true;
+
+    // 2. Intimidación
+    if (abilitySlug === 'intimidate' || abilitySlug === 'intimidacion') isAbilityTriggered = true;
+
+    // 3. Anti-Intimidación
+    const opposingHasIntimidate = (side === 'self' && enemyIntimidate) || (side === 'enemy' && selfIntimidate);
+    const antiIntimidateAbilities = ['defiant', 'competitivo', 'innerfocus', 'focointerno', 'clearbody', 'cuerpopuro', 'hypercutter', 'guarddog'];
+    if (antiIntimidateAbilities.includes(abilitySlug) && opposingHasIntimidate) {
+        isAbilityTriggered = true;
+    }
+
+    // 4. Abusadores de Clima (Speed & Power Boosters)
+    const activeWeather = (simFieldLocal.weather || '').toLowerCase();
+
+    if (activeWeather.includes('sun') && ['chlorophyll', 'clorofila', 'solarpower', 'podersolar'].includes(abilitySlug)) {
+        isAbilityTriggered = true;
+    }
+    if (activeWeather.includes('rain') && ['swiftswim', 'nadorapido'].includes(abilitySlug)) {
+        isAbilityTriggered = true;
+    }
+    if ((activeWeather.includes('sand') || activeWeather.includes('sandstorm')) && ['sandrush', 'impetuarena', 'sandforce', 'poderarena', 'sandveil', 'veloarena'].includes(abilitySlug)) {
+        isAbilityTriggered = true;
+    }
+    if ((activeWeather.includes('snow') || activeWeather.includes('hail')) && ['slushrush', 'quitanieves', 'snowcloak', 'mantoacueo'].includes(abilitySlug)) {
+        isAbilityTriggered = true;
+    }
+
+    // 5. Supervivencia (Sturdy) o Inmunidad
+    if (mon.battle?.turn1Triggers?.sturdy || mon.battle?.turn1Triggers?.abilityImmunity) {
+        isAbilityTriggered = true;
+    }
+    const itemGlow = (mon.battle?.turn1Triggers?.sash || mon.battle?.turn1Triggers?.itemImmunity) ? ' glow-active' : '';
 
     // Determinar Badges
     let badgeHtml = '';
-    const blocksIntimidate = ['clearbody', 'innerfocus', 'hypercutter', 'defiant', 'competitive', 'guarddog', 'contrary'].includes(abilityId);
-    const isIntimidated = (side === 'self' && enemyIntimidate) || (side === 'enemy' && selfIntimidate);
-    
-    if (isIntimidated && !blocksIntimidate && isPhysicalAttacker(mon)) {
-       badgeHtml += `<div class="badge-stat-drop">-1 Atk</div>`;
+    let activeModifiersHtml = '';
+    const atkStage = mon.battle?.stages?.atk || 0;
+    if (atkStage > 0) {
+       activeModifiersHtml += `<span style="background: rgba(48, 209, 88, 0.15); border: 1px solid rgba(48, 209, 88, 0.4); color: #d4ffe3; padding: 2px 4px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;">Atk +1 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></span>`;
+    } else if (atkStage < 0) {
+       activeModifiersHtml += `<span style="background: rgba(255, 59, 48, 0.15); border: 1px solid rgba(255, 59, 48, 0.4); color: #ffc8c4; padding: 2px 4px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;">Atk -1 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>`;
+    }
+
+    if (activeModifiersHtml) {
+        activeModifiersHtml = `<div class="combatant-modifiers" style="display: flex; flex-direction: row; gap: 4px; margin-top: 4px; flex-wrap: wrap;">${activeModifiersHtml}</div>`;
     }
 
     if (side === 'self') {
       const mySpeed = Math.abs((turnOrderLeads || []).find(l => l && l.mon && l.mon.name === mon?.name)?.spe || 0);
       const isFakeOutTarget = (fakeOutThreats || []).some(fo => Math.abs(fo.spe) > mySpeed);
-      if (isFakeOutTarget && abilityId !== 'innerfocus') {
+      if (isFakeOutTarget && abilitySlug !== 'innerfocus') {
          badgeHtml += `<div class="badge-fakeout-alert pulse-anim"><i data-lucide="hand"></i></div>`;
       }
     }
@@ -6183,18 +6570,28 @@ function renderTurn1Simulator() {
           <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; overflow: hidden;">
             <div class="combatant-name" style="font-size: 14px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">${formatName(mon.displayName || mon.name)}</div>
             <div class="combatant-types" style="font-size: 10px;">${typesHtml}</div>
+            ${activeModifiersHtml}
           </div>
         </div>
         <div class="combatant-footer" style="display: flex; flex-direction: row; gap: 4px;">
-          <div class="badge-item" title="${translatedItem}" style="flex: 1;"><i data-lucide="package"></i> <span class="truncate">${translatedItem}</span></div>
-          <div class="badge-ability ${isActiveAbility ? 'glow-active' : ''}" title="${translatedAbility}" style="flex: 1;"><i data-lucide="zap"></i> <span class="truncate">${translatedAbility}</span></div>
+          <div class="badge-item${itemGlow}" onclick="showInfoTooltip(event, 'item', '${itemSlug}')" style="flex: 1;"><i data-lucide="package"></i> <span class="truncate">${translatedItem}</span></div>
+          <div class="badge-ability ${isAbilityTriggered ? 'glow-active' : ''}" onclick="showInfoTooltip(event, 'ability', '${abilitySlug}')" style="flex: 1;"><i data-lucide="zap"></i> <span class="truncate">${translatedAbility}</span></div>
         </div>
         ${emergencyBtnHtml}
       </div>
     `;
   };
 
-  const getPredictiveHpBar = (minPct, maxPct, ohkoProb) => {
+  const getPredictiveHpBar = (minPct, maxPct, ohkoProb, survivesAt1HP) => {
+    if (survivesAt1HP) {
+      return `
+        <div class="predictive-hp-bar">
+          <div class="hp-damage" style="width: 99%;"></div>
+          <div class="hp-roll" style="width: 0%;"></div>
+          <div class="hp-safe" style="width: 1%; background: #34c759;"></div>
+        </div>
+      `;
+    }
     const isOhko = minPct >= 100 || ohkoProb >= 100;
     if (isOhko) {
        return `
@@ -6220,6 +6617,78 @@ function renderTurn1Simulator() {
   let targetThreatsCount = {};
   let tacticalFeedHtml = '';
 
+  const checkSurvival = (atk, defMon) => {
+    const defItem = (defMon.set?.item || defMon.item || '').toLowerCase().replace(/[^a-z]/g, '');
+    const defAbility = (defMon.set?.ability || defMon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
+    const hasSash = defItem === 'focussash' || defItem === 'bandafocus';
+    const hasSturdy = defAbility === 'sturdy' || defAbility === 'robustez';
+    const isLethal = atk.ohko || atk.ohkoProb > 50;
+
+    const isSavedBySash = hasSash && isLethal;
+    const isSavedBySturdy = hasSturdy && isLethal;
+    const survivesAt1HP = isSavedBySash || isSavedBySturdy;
+
+    if (survivesAt1HP) {
+        if (!defMon.battle) defMon.battle = {};
+        if (!defMon.battle.turn1Triggers) defMon.battle.turn1Triggers = {};
+        if (isSavedBySash) defMon.battle.turn1Triggers.sash = true;
+        if (isSavedBySturdy) defMon.battle.turn1Triggers.sturdy = true;
+    }
+
+    return { survivesAt1HP, isSavedBySash, isSavedBySturdy, isLethal };
+  };
+
+  const getCrossfireBadge = (atkObj, survivesAt1HP) => {
+    if (atkObj.immunityData) {
+        return `<span class="vector-badge badge-immune" style="border-color: #666; color: #ccc;">🛡️ INM: ${formatName(atkObj.immunityData.name)}</span>`;
+    }
+    if (survivesAt1HP) return `<span class="vector-badge badge-sash">🛡️ 1 HP</span>`;
+    if (atkObj.ohko || atkObj.ohkoProb >= 80) return `<span class="vector-badge badge-lethal">💀 OHKO</span>`;
+    if (atkObj.mult >= 4) return `<span class="vector-badge badge-critical">💥 x4</span>`;
+    if (atkObj.mult >= 2) return `<span class="vector-badge badge-warning">⚠️ x2</span>`;
+    if (atkObj.blocked || atkObj.mult === 0) return `<span class="vector-badge badge-immune">🛡️ INM</span>`;
+    return ''; // No mostrar pill si es daño neutro para limpiar ruido
+  };
+
+  const buildAllyVector = (sLead, eLead, atkMove, badgeHtml) => `
+    <div class="crossfire-row vector-ally">
+      <img src="${sLead.sprite}" class="sprite-micro" title="${sLead.displayName || sLead.name}">
+      <div class="vector-line vector-line-right">
+        <span>${formatName(getTranslation(atkMove.move, "move") || atkMove.move)}</span>
+        <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+      </div>
+      <img src="${eLead.sprite}" class="sprite-micro" title="${eLead.displayName || eLead.name}">
+      ${badgeHtml}
+    </div>
+  `;
+
+  const buildEnemyVector = (sLead, eLead, atkMove, badgeHtml) => `
+    <div class="crossfire-row vector-enemy">
+      <img src="${sLead.sprite}" class="sprite-micro" title="${sLead.displayName || sLead.name}">
+      <div class="vector-line vector-line-left">
+        <i data-lucide="arrow-left" style="width:14px; height:14px;"></i>
+        <span>${formatName(getTranslation(atkMove.move, "move") || atkMove.move)}</span>
+      </div>
+      <img src="${eLead.sprite}" class="sprite-micro" title="${eLead.displayName || eLead.name}">
+      ${badgeHtml}
+    </div>
+  `;
+
+  const buildDoubleEnemyVector = (sLead, eLead1, eLead2) => `
+    <div class="crossfire-row vector-enemy">
+      <img src="${sLead.sprite}" class="sprite-micro" title="${sLead.displayName || sLead.name}">
+      <div class="vector-line vector-line-left" style="color: var(--red); font-weight: bold;">
+        <i data-lucide="arrow-left" style="width:14px; height:14px;"></i>
+        <span>⚠️ Foco de Presión</span>
+      </div>
+      <div style="display:flex; gap:2px;">
+        <img src="${eLead1.sprite}" class="sprite-micro" title="${eLead1.displayName || eLead1.name}">
+        <img src="${eLead2.sprite}" class="sprite-micro" title="${eLead2.displayName || eLead2.name}">
+      </div>
+      <span class="vector-badge badge-lethal">💀 CRÍTICO</span>
+    </div>
+  `;
+
   for (const sObj of selfLeads) {
     for (const eObj of enemyLeads) {
       const s = sObj.mon;
@@ -6230,6 +6699,21 @@ function renderTurn1Simulator() {
       const atkS = bestAttack(s, e, simFieldLocal);
       const atkE = bestAttack(e, s, simFieldLocal);
 
+      // Registrar Inmunidades para activar Glow
+      if (atkS.immunityData) {
+          if (!e.battle) e.battle = {};
+          if (!e.battle.turn1Triggers) e.battle.turn1Triggers = {};
+          if (atkS.immunityData.type === 'ability') e.battle.turn1Triggers.abilityImmunity = true;
+          if (atkS.immunityData.type === 'item') e.battle.turn1Triggers.itemImmunity = true;
+      }
+      
+      if (atkE.immunityData) {
+          if (!s.battle) s.battle = {};
+          if (!s.battle.turn1Triggers) s.battle.turn1Triggers = {};
+          if (atkE.immunityData.type === 'ability') s.battle.turn1Triggers.abilityImmunity = true;
+          if (atkE.immunityData.type === 'item') s.battle.turn1Triggers.itemImmunity = true;
+      }
+
       const sPriority = getPriority(atkS.move);
       const ePriority = getPriority(atkE.move);
 
@@ -6238,45 +6722,42 @@ function renderTurn1Simulator() {
       else if (ePriority > sPriority) sFaster = false; 
       else sFaster = speS >= speE; 
 
-      const isOhkoS = atkS.ohko || atkS.ohkoProb > 50;
-      const isThreatS = atkS.mult >= 2 || isOhkoS;
+      const survE = checkSurvival(atkS, e);
+      const survS = checkSurvival(atkE, s);
+
+      const isOhkoS = survE.isLethal && !survE.survivesAt1HP;
+      const isThreatS = atkS.mult >= 2 || survE.isLethal;
       
-      const isOhkoE = atkE.ohko || atkE.ohkoProb > 50;
-      const isThreatE = atkE.mult >= 2 || isOhkoE;
+      const isOhkoE = survS.isLethal && !survS.survivesAt1HP;
+      const isThreatE = atkE.mult >= 2 || survS.isLethal;
 
       // ZONA 3: Radar de Fuego Cruzado (Mobile-First) con Health Bars
       if (isThreatS) {
         const moveName = formatName(getTranslation(atkS.move, "move") || atkS.move);
         targetThreatsCount[e.name] = (targetThreatsCount[e.name] || 0) + 1;
         
-        const moveColor = isOhkoS ? 'var(--red, #e74c3c)' : 'var(--orange, #f39c12)';
-        const resPill = isOhkoS ? `<span style="background: rgba(231, 76, 60, 0.2); color: var(--red, #e74c3c); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">OHKO</span>` : `<span style="background: rgba(243, 156, 18, 0.2); color: var(--orange, #f39c12); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">x${atkS.mult}</span>`;
-
-        crossfireRowsHtml += `
-          <div class="crossfire-row">
-             <img src="${s.sprite}" style="width: 24px; height: 24px;">
-             <div class="vector-line" style="color: ${moveColor};">${moveName}</div>
-             <div style="display:flex; align-items:center; gap: 4px;">
-                <img src="${e.sprite}" style="width: 24px; height: 24px;"> ${resPill}
-             </div>
-          </div>
-        `;
+        const badgeHtml = getCrossfireBadge(atkS, survE.survivesAt1HP);
+        crossfireRowsHtml += buildAllyVector(s, e, atkS, badgeHtml);
         
         // ZONA 4: Feed Táctico (Opportunity)
         if (sFaster) {
-          const hpBarHtml = getPredictiveHpBar(atkS.minPct, atkS.maxPct, atkS.ohkoProb);
+          const hpBarHtml = getPredictiveHpBar(atkS.minPct, atkS.maxPct, atkS.ohkoProb, survE.survivesAt1HP);
+          const headerText = survE.survivesAt1HP 
+             ? `${formatName(s.displayName || s.name)} ataca, pero ${formatName(e.displayName || e.name)} resiste con 1 HP`
+             : `${formatName(s.displayName || s.name)} elimina a ${formatName(e.displayName || e.name)}`;
+             
           tacticalFeedHtml += `
             <article class="tactical-feed-card type-opportunity">
               <div class="tf-header">
                  <i data-lucide="crosshair"></i>
-                 <span>${formatName(s.displayName || s.name)} elimina a ${formatName(e.displayName || e.name)}</span>
+                 <span>${headerText}</span>
               </div>
               <div class="math-terminal" style="padding-bottom: 12px;">
-                <div>> Ataque: <span class="term-accent">${moveName}</span></div>
+                <div>> Ataque: <span class="term-accent" style="cursor:pointer; text-decoration:underline dashed;" onclick="showInfoTooltip(event, 'move', '${(atkS.move || '').toLowerCase().replace(/[^a-z0-9]/g, '')}')">${moveName}</span></div>
                 <div>> Modificadores: ${atkS.tags && atkS.tags.length > 0 ? atkS.tags.join(' · ') : 'Ninguno'}</div>
                 <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
                    <div style="flex: 1;">${hpBarHtml}</div>
-                   <span style="font-size: 0.65rem; opacity: 0.8;">${isOhkoS ? 'OHKO' : `${atkS.minPct}-${atkS.maxPct}%`}</span>
+                   <span style="font-size: 0.65rem; opacity: 0.8;">${isOhkoS ? 'OHKO' : (survE.survivesAt1HP ? '1 HP' : `${atkS.minPct}-${atkS.maxPct}%`)}</span>
                 </div>
               </div>
             </article>
@@ -6289,23 +6770,27 @@ function renderTurn1Simulator() {
         targetThreatsCount[s.name] = (targetThreatsCount[s.name] || 0) + 1;
         
         if (!enemyThreatsGrouped[s.name]) enemyThreatsGrouped[s.name] = [];
-        enemyThreatsGrouped[s.name].push({ enemy: e, atk: atkE, isOhko: isOhkoE, moveName });
+        enemyThreatsGrouped[s.name].push({ enemy: e, atk: atkE, isOhko: isOhkoE, moveName, survS });
         
         // ZONA 4: Feed Táctico (Critical)
         if (!sFaster) {
-           const hpBarHtml = getPredictiveHpBar(atkE.minPct, atkE.maxPct, atkE.ohkoProb);
+           const hpBarHtml = getPredictiveHpBar(atkE.minPct, atkE.maxPct, atkE.ohkoProb, survS.survivesAt1HP);
+           const headerText = survS.survivesAt1HP 
+               ? `${formatName(e.displayName || e.name)} ataca, pero ${formatName(s.displayName || s.name)} resiste con 1 HP`
+               : `${formatName(e.displayName || e.name)} elimina a ${formatName(s.displayName || s.name)}`;
+               
            tacticalFeedHtml += `
             <article class="tactical-feed-card type-critical">
               <div class="tf-header">
                  <i data-lucide="alert-triangle"></i>
-                 <span>${formatName(e.displayName || e.name)} elimina a ${formatName(s.displayName || s.name)}</span>
+                 <span>${headerText}</span>
               </div>
               <div class="math-terminal" style="padding-bottom: 12px;">
-                <div>> Ataque: <span class="term-accent">${moveName}</span></div>
+                <div>> Ataque: <span class="term-accent" style="cursor:pointer; text-decoration:underline dashed;" onclick="showInfoTooltip(event, 'move', '${(atkE.move || '').toLowerCase().replace(/[^a-z0-9]/g, '')}')">${moveName}</span></div>
                 <div>> Modificadores: ${atkE.tags && atkE.tags.length > 0 ? atkE.tags.join(' · ') : 'Ninguno'}</div>
                 <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
                    <div style="flex: 1;">${hpBarHtml}</div>
-                   <span style="font-size: 0.65rem; opacity: 0.8;">${isOhkoE ? 'OHKO' : `${atkE.minPct}-${atkE.maxPct}%`}</span>
+                   <span style="font-size: 0.65rem; opacity: 0.8;">${isOhkoE ? 'OHKO' : (survS.survivesAt1HP ? '1 HP' : `${atkE.minPct}-${atkE.maxPct}%`)}</span>
                 </div>
               </div>
             </article>
@@ -6322,32 +6807,12 @@ function renderTurn1Simulator() {
       const ally = allyObj ? allyObj.mon : null;
       if (!ally) return;
       if (threats.length >= 2) {
-          crossfireRowsHtml += `
-            <div class="crossfire-row">
-               <div style="display:flex; gap:2px;">
-                 <img src="${threats[0].enemy.sprite}" style="width: 24px; height: 24px;">
-                 <img src="${threats[1].enemy.sprite}" style="width: 24px; height: 24px;">
-               </div>
-               <div class="vector-line" style="color: var(--red, #e74c3c); font-weight:bold;">⚠️ Foco de Presión</div>
-               <div style="display:flex; align-items:center; gap: 4px;">
-                  <img src="${ally.sprite}" style="width: 24px; height: 24px;">
-                  <span style="background: rgba(139, 0, 0, 0.3); color: #ff4d4d; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; border: 1px solid #ff4d4d;">RIESGO CRÍTICO</span>
-               </div>
-            </div>
-          `;
+          const survObj = threats[0].survS || threats[1].survS;
+          crossfireRowsHtml += buildDoubleEnemyVector(ally, threats[0].enemy, threats[1].enemy, survObj);
       } else if (threats.length === 1) {
           const t = threats[0];
-          const resPill = t.isOhko ? `<span style="background: rgba(231, 76, 60, 0.2); color: var(--red, #e74c3c); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">OHKO</span>` : `<span style="background: rgba(243, 156, 18, 0.2); color: var(--orange, #f39c12); padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">x${t.atk.mult}</span>`;
-          const moveColor = t.isOhko ? 'var(--red, #e74c3c)' : 'var(--orange, #f39c12)';
-          crossfireRowsHtml += `
-            <div class="crossfire-row">
-               <img src="${t.enemy.sprite}" style="width: 24px; height: 24px;">
-               <div class="vector-line" style="color: ${moveColor};">${t.moveName}</div>
-               <div style="display:flex; align-items:center; gap: 4px;">
-                  <img src="${ally.sprite}" style="width: 24px; height: 24px;"> ${resPill}
-               </div>
-            </div>
-          `;
+          const badgeHtml = getCrossfireBadge(t.atk, t.survS?.survivesAt1HP);
+          crossfireRowsHtml += buildEnemyVector(ally, t.enemy, t.atk, badgeHtml);
       }
   });
 
@@ -6388,18 +6853,21 @@ function renderTurn1Simulator() {
       </article>
   `;
 
+  let conditionCards = [];
+  const safeNormArray = (arr) => (arr || []).map(m => String(m).toLowerCase().replace(/[^a-z]/g, ''));
+
   const TRICK_ROOM = new Set(["trickroom", "espacioraro"]);
-  const trickRoomUsers = leads.filter(x => (x.mon.set?.moves || []).some(m => TRICK_ROOM.has(String(m).toLowerCase().replace(/[^a-z]/g, ''))));
+  const trickRoomUsers = leads.filter(x => safeNormArray(x.mon.set?.moves).some(m => TRICK_ROOM.has(m)));
   if (trickRoomUsers.length > 0) {
     const userNames = trickRoomUsers.map(u => formatName(u.mon.displayName || u.mon.name)).join(', ');
-    tacticalFeedHtml += buildCondition('speed', 'clock', 'Alerta de Campo', 'Espacio Raro Posible', `Detectado en: <b>${userNames}</b>. Puede invertir el orden de turnos.`);
+    conditionCards.push(buildCondition('speed', 'clock', 'Alerta de Campo', 'Espacio Raro Posible', `Detectado en: <b>${userNames}</b>. Puede invertir el orden de turnos.`));
   }
 
   const antiPriorityAbilities = new Set(['innerfocus', 'armortail', 'dazzling', 'queenlymajesty', 'shielddust']);
   let validFakeOutUsers = [];
   
   for (const foUser of leads) {
-    const hasFakeOut = (foUser.mon.set?.moves || []).some(m => FAKE_OUT_MOVES.has(String(m).toLowerCase().replace(/[^a-z]/g, '')));
+    const hasFakeOut = safeNormArray(foUser.mon.set?.moves).some(m => FAKE_OUT_MOVES.has(m));
     if (!hasFakeOut) continue;
     
     const opponents = foUser.side === 'self' ? enemyLeads : selfLeads;
@@ -6416,8 +6884,10 @@ function renderTurn1Simulator() {
 
   if (validFakeOutUsers.length > 0) {
      const userNames = validFakeOutUsers.map(u => formatName(u.mon.displayName || u.mon.name)).join(', ');
-     tacticalFeedHtml += buildCondition('priority', 'hand', 'Alerta de Prioridad', 'Amenaza con Sorpresa', `Detectado en: <b>${userNames}</b>. Oponentes válidos en riesgo de retroceso.`);
+     conditionCards.push(buildCondition('priority', 'hand', 'Alerta de Prioridad', 'Amenaza con Sorpresa', `Detectado en: <b>${userNames}</b>. Oponentes válidos en riesgo de retroceso.`));
   }
+  
+  tacticalFeedHtml += conditionCards.join('');
 
   // Render Final
   list.innerHTML = `
@@ -7784,6 +8254,123 @@ document.addEventListener("pointerleave", (e) => {
 
 document.addEventListener("click", () => {
   if (scoutTooltipContainer) scoutTooltipContainer.classList.remove('show');
+}, true);
+
+// --- INFO TOOLTIP (Habilidades y Objetos) ---
+const infoTooltipContainer = document.createElement("div");
+infoTooltipContainer.id = "infoTooltip";
+Object.assign(infoTooltipContainer.style, {
+  position: 'fixed',
+  zIndex: '9999',
+  background: 'rgba(18, 22, 33, 0.95)',
+  border: '1px solid rgba(255, 255, 255, 0.15)',
+  padding: '14px',
+  borderRadius: '16px',
+  boxShadow: '0 12px 36px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  pointerEvents: 'none',
+  opacity: '0',
+  transform: 'translateY(8px)',
+  transition: 'opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+  maxWidth: '260px',
+  textAlign: 'left',
+  color: '#fff'
+});
+document.body.appendChild(infoTooltipContainer);
+
+window.showInfoTooltip = function(e, kind, slug) {
+  if (e) e.stopPropagation(); // Evita que se cierre instantáneamente por el evento global
+  if (!slug || slug === 'sinobjeto' || slug === 'desconocida') return;
+  
+  let data = null;
+  let title = '';
+  let icon = '';
+  let color = '';
+  
+  if (kind === 'item' && window.GameDB?.items?.[slug]) {
+    data = window.GameDB.items[slug];
+    title = typeof getTranslation === 'function' ? getTranslation(data.name || slug, 'item') : formatName(slug);
+    icon = 'package';
+    color = 'var(--blue)';
+  } else if (kind === 'ability' && window.GameDB?.abilities?.[slug]) {
+    data = window.GameDB.abilities[slug];
+    title = typeof getTranslation === 'function' ? getTranslation(data.name || slug, 'ability') : formatName(slug);
+    icon = 'zap';
+    color = 'var(--gold)';
+  } else if (kind === 'move' && window.GameDB?.moves?.[slug]) {
+    data = window.GameDB.moves[slug];
+    title = typeof getTranslation === 'function' ? getTranslation(data.name || slug, 'move') : formatName(slug);
+    icon = 'swords';
+    color = 'var(--red)';
+  }
+  
+  if (!data) {
+    title = formatName(slug);
+    data = { desc: 'No hay descripción detallada disponible en este momento.' };
+    icon = kind === 'item' ? 'package' : 'zap';
+    color = kind === 'item' ? 'var(--blue)' : 'var(--gold)';
+  }
+  
+  const desc = data.desc || 'No hay descripción detallada disponible en este momento.';
+  
+  infoTooltipContainer.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 8px;">
+      <i data-lucide="${icon}" style="color: ${color}; width: 16px; height: 16px;"></i>
+      <strong style="color: #fff; font-size: 0.9rem; font-family: 'Cabinet Grotesk', sans-serif;">${title}</strong>
+    </div>
+    <div style="font-size: 0.75rem; color: var(--muted); line-height: 1.45;">
+      ${desc}
+    </div>
+  `;
+  
+  if (typeof lucide !== "undefined" && lucide.createIcons) {
+    lucide.createIcons({ root: infoTooltipContainer });
+  }
+  
+  infoTooltipContainer.style.opacity = '1';
+  infoTooltipContainer.style.transform = 'translateY(0)';
+  
+  let clientX = e ? e.clientX : window.innerWidth / 2;
+  let clientY = e ? e.clientY : window.innerHeight / 2;
+  if (e && e.currentTarget) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!clientX) clientX = rect.left + rect.width / 2;
+    if (!clientY) clientY = rect.top;
+  }
+
+  requestAnimationFrame(() => {
+    const bounds = infoTooltipContainer.getBoundingClientRect();
+    let left = clientX - (bounds.width / 2);
+    let top = clientY - bounds.height - 15;
+    
+    if (top < 10) top = clientY + 25; // Si sale por arriba, mostrar por debajo
+    if (left + bounds.width > window.innerWidth - 10) left = window.innerWidth - bounds.width - 10;
+    if (left < 10) left = 10;
+    
+    infoTooltipContainer.style.left = `${left}px`;
+    infoTooltipContainer.style.top = `${top}px`;
+  });
+  
+  clearTimeout(infoTooltipContainer.timeout);
+  infoTooltipContainer.timeout = setTimeout(() => {
+    infoTooltipContainer.style.opacity = '0';
+    infoTooltipContainer.style.transform = 'translateY(8px)';
+  }, 10000);
+};
+
+document.addEventListener("click", () => {
+  if (infoTooltipContainer) {
+    infoTooltipContainer.style.opacity = '0';
+    infoTooltipContainer.style.transform = 'translateY(8px)';
+  }
+}, true);
+
+window.addEventListener("scroll", () => {
+  if (infoTooltipContainer && infoTooltipContainer.style.opacity === '1') {
+     infoTooltipContainer.style.opacity = '0';
+     infoTooltipContainer.style.transform = 'translateY(8px)';
+  }
 }, true);
 
 // --- Team Config Drawer ---

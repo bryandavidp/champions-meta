@@ -1093,129 +1093,135 @@ tbody th {
   color: #ffc8c2;
 }
 
-/* --- VELOCITY TRACK (Contenedor Principal) --- */
-.velocity-track {
+/* --- LÍNEA DE TIEMPO DE TURNOS (TIMELINE) --- */
+.tactical-timeline-track {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 24px;
+  position: relative;
+  padding: 30px 16px 20px 16px;
+  margin-top: 10px;
   overflow-x: auto;
-  padding: 16px 8px 24px 8px; /* Padding extra abajo para la barra de scroll */
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
-
-/* --- NODOS INDIVIDUALES --- */
-.velocity-node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  position: relative;
-  flex-shrink: 0;
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.velocity-scarf-warning {
+/* Línea horizontal de fondo */
+.tactical-timeline-track::before {
+  content: '';
   position: absolute;
-  top: -8px;
-  right: -8px;
-  background: var(--panel2);
-  border-radius: 50%;
-  padding: 2px;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-  animation: pulse-warn 2s infinite;
-  z-index: 5;
-}
-@keyframes pulse-warn {
-  0% { box-shadow: 0 0 0 0 rgba(255, 179, 77, 0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(255, 179, 77, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 179, 77, 0); }
+  top: 56px; /* A la altura de los avatares */
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  z-index: 0;
 }
 
-.velocity-node:hover {
-  transform: translateY(-4px);
-}
-
-/* Avatar del Pokémon */
-.velocity-avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.4);
-  display: grid;
-  place-items: center;
-  position: relative;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-}
-
-.velocity-avatar img {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-}
-
-/* Identificadores de Bando (Jugador vs Rival) */
-.velocity-avatar--self {
-  border: 2px solid var(--blue);
-  box-shadow: 0 0 12px rgba(50, 173, 230, 0.25);
-}
-
-.velocity-avatar--enemy {
-  border: 2px solid var(--red);
-  box-shadow: 0 0 12px rgba(255, 59, 48, 0.25);
-}
-
-/* Número de velocidad (pequeño y discreto) */
-.velocity-stat {
-  font-family: var(--poke-stat-font);
-  font-size: 0.75rem;
-  font-weight: 900;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.05);
-  padding: 2px 8px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* --- FLECHAS DE CONEXIÓN --- */
-.velocity-connector {
-  color: var(--line2);
-  flex-shrink: 0;
+/* Cajas de empates de velocidad (Speed Ties) */
+.timeline-tie-box {
   display: flex;
-  align-items: center;
-}
-
-/* --- SPEED TIES (Empates) --- */
-.velocity-tie-column {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 16px;
+  gap: 16px;
+  padding: 12px 16px 4px 16px;
   border: 1px dashed var(--orange);
-  background: rgba(255, 179, 77, 0.05);
+  border-radius: 12px;
   position: relative;
-  flex-shrink: 0;
+  background: rgba(255, 179, 77, 0.05);
 }
-
-.velocity-tie-badge {
+.timeline-tie-label {
   position: absolute;
   top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--orange);
   color: #000;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   font-weight: 900;
-  text-transform: uppercase;
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: 6px;
   display: flex;
   align-items: center;
   gap: 4px;
-  box-shadow: 0 2px 6px rgba(255, 179, 77, 0.4);
+  text-transform: uppercase;
+}
+.timeline-tie-label i { width: 10px; height: 10px; }
+
+.timeline-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1;
+  gap: 8px;
+  min-width: 60px;
+}
+.timeline-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #2a2a36;
+  display: grid;
+  place-items: center;
+  position: relative;
+  transition: all 0.3s ease;
+}
+.timeline-avatar img {
+  width: 120%;
+  height: 120%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+}
+.timeline-side-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #1a1a24;
+}
+.timeline-side-badge.self { background: var(--blue, #0a84ff); }
+.timeline-side-badge.enemy { background: var(--red, #ff3b30); }
+
+/* Etiquetas de Modificador */
+.timeline-mod-label {
+  position: absolute;
+  top: -26px;
+  white-space: nowrap;
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+  z-index: 2;
+}
+.timeline-mod-label i { width: 12px; height: 12px; }
+.timeline-mod-label.priority { background: #332b00; color: var(--gold, #ffd700); border: 1px solid var(--gold, #ffd700); }
+.timeline-mod-label.buff { background: #2a2a36; color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+
+/* Estadísticas de Velocidad */
+.timeline-stats {
+  text-align: center;
+  background: #1a1a24;
+  padding: 4px 0;
+}
+.stat-eff {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.stat-base {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .strategy-row {
@@ -1451,6 +1457,7 @@ tbody th {
   display: grid;
   place-items: center;
   cursor: pointer;
+  position: relative;
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease,
@@ -3226,7 +3233,7 @@ tbody th {
 .shock-projection__eyebrow { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--blue); margin-bottom: 4px; }
 .shock-projection__title { font-family: "Cabinet Grotesk", sans-serif; font-size: 1.25rem; font-weight: 800; color: var(--text); margin: 0 0 4px 0; }
 .shock-projection__subtitle { font-size: 0.8rem; color: var(--muted); margin: 0; }
-.shock-projection__matchup { display: flex; flex-direction: column; gap: 16px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 16px; }
+.shock-projection__matchup { display: flex; flex-direction: column; gap: 16px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 16px; margin: 24px 0; }
 @media (min-width: 560px) { .shock-projection__matchup { flex-direction: row; justify-content: space-between; } .matchup-lane { flex: 1; } }
 .matchup-lane { display: flex; flex-direction: column; gap: 8px; }
 .matchup-lane--self .matchup-lane__label { color: var(--blue); }
@@ -4630,40 +4637,31 @@ tbody th {
 
 /* ===== NUEVOS COMPONENTES (Global State, Badges, Tags, Survival) ===== */
 
-/* 1. Global State Banner */
-.global-field-state {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 10px 16px;
-  margin: 16px 0;
+/* --- BANNER DE CLIMA / TERRENO --- */
+#t1GlobalFieldState {
+  display: flex; gap: 8px; justify-content: center; width: 100%;
 }
-
-.global-state-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: 'Rajdhani', sans-serif;
-  font-weight: 700;
-  font-size: 0.85rem;
-  padding: 4px 10px;
+.global-state-pill {
+  padding: 6px 24px;
   border-radius: 20px;
-  background: var(--panel);
+  font-weight: 900;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  border-top: 1px solid rgba(255,255,255,0.2);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
 }
+.weather-pill-sun { background: linear-gradient(90deg, transparent, rgba(238, 129, 48, 0.3), transparent); color: #ffb74d; border-color: #EE8130; }
+.weather-pill-rain { background: linear-gradient(90deg, transparent, rgba(99, 144, 240, 0.3), transparent); color: #90caf9; border-color: #6390F0; }
+.weather-pill-sand { background: linear-gradient(90deg, transparent, rgba(182, 161, 54, 0.3), transparent); color: #fff59d; border-color: #B6A136; }
+.weather-pill-snow { background: linear-gradient(90deg, transparent, rgba(150, 217, 214, 0.3), transparent); color: #e0f7fa; border-color: #96D9D6; }
 
-.global-state-item.weather-sun { color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.1); }
-.global-state-item.weather-rain { color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.1); }
-.global-state-item.weather-sand { color: #d97706; border: 1px solid rgba(217, 119, 6, 0.3); background: rgba(217, 119, 6, 0.1); }
-.global-state-item.weather-snow { color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.1); }
-
-.global-state-item.terrain-psychic { color: #d946ef; border: 1px solid rgba(217, 70, 239, 0.3); }
-.global-state-item.terrain-grassy { color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
-.global-state-item.terrain-electric { color: #eab308; border: 1px solid rgba(234, 179, 8, 0.3); }
-.global-state-item.terrain-misty { color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.3); }
+.terrain-pill-psychic { background: linear-gradient(90deg, transparent, rgba(217, 70, 239, 0.3), transparent); color: #d946ef; border-color: rgba(217, 70, 239, 0.3); }
+.terrain-pill-grassy { background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.3), transparent); color: #22c55e; border-color: rgba(34, 197, 94, 0.3); }
+.terrain-pill-electric { background: linear-gradient(90deg, transparent, rgba(234, 179, 8, 0.3), transparent); color: #eab308; border-color: rgba(234, 179, 8, 0.3); }
+.terrain-pill-misty { background: linear-gradient(90deg, transparent, rgba(236, 72, 153, 0.3), transparent); color: #ec4899; border-color: rgba(236, 72, 153, 0.3); }
 
 /* 2. Lead Cards (Timeline, Stats, Ability) */
 .incident-card__actor {
@@ -4762,74 +4760,17 @@ tbody th {
 
 /* --- TURN 1 SIMULATOR REFACTOR: ZONAS 1-4 --- */
 
-/* ZONA 1: Timeline */
+/* ZONA 1: Timeline Wrapper */
 .zone-timeline {
   padding: 16px 0;
-  overflow-x: auto;
   margin-bottom: 24px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
 }
 .zone-timeline.trick-room-active {
-  border: 2px solid var(--purple, #9b59b6);
-  background: rgba(155, 89, 182, 0.05);
-  border-radius: 8px;
+  border: 2px dashed var(--purple);
+  background: rgba(167, 139, 250, 0.05);
 }
-.timeline-track {
-  display: flex;
-  flex-direction: row;
-  gap: 24px;
-  align-items: flex-end;
-  min-height: 80px;
-  padding: 0 16px;
-}
-.timeline-node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-  transition: transform 0.3s ease;
-}
-.timeline-node.priority-lane {
-  transform: translateY(-24px);
-}
-.timeline-avatar-container {
-  position: relative;
-}
-.timeline-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: 2px solid var(--line, #444);
-  background: var(--surface, #222);
-  object-fit: cover;
-}
-.speed-badge {
-  position: absolute;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 2px 6px;
-  background: var(--surface, #111);
-  color: white;
-  border: 1px solid currentColor;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-}
-.speed-badge.item-badge { top: -6px; right: -12px; border-color: var(--blue, #3498db); color: var(--blue, #3498db); }
-.speed-badge.ability-badge { bottom: -6px; right: -6px; border-color: var(--orange, #f39c12); color: var(--orange, #f39c12); width: 22px; height: 22px; padding: 0; }
-.speed-badge.priority-badge { top: -6px; left: -6px; border-color: var(--gold, #f1c40f); color: var(--gold, #f1c40f); width: 22px; height: 22px; padding: 0; }
-.speed-badge svg { width: 12px; height: 12px; }
-
-.speed-info {
-  margin-top: 8px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-}
-.speed-effective { font-size: 18px; font-weight: 900; color: var(--text-color, #fff); font-family: 'Rajdhani', sans-serif; line-height: 1; }
-.speed-base { font-size: 11px; opacity: 0.5; margin-top: 2px; }
 
 /* ZONA 2 & 3: HUD y Vectores */
 .hud-arena-wrapper {
@@ -4944,6 +4885,8 @@ tbody th {
   border-radius: 6px;
   border: 1px solid rgba(255,255,255,0.08);
   color: #aaa;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 .badge-item svg, .badge-ability svg {
   width: 14px;
@@ -4951,18 +4894,47 @@ tbody th {
   flex-shrink: 0;
   opacity: 0.7;
 }
+.badge-item:hover, .badge-ability:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.25);
+  color: #fff;
+}
 .truncate {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.badge-ability.glow-active {
-  color: #2ecc71;
-  border-color: rgba(46, 204, 113, 0.4);
-  background: rgba(46, 204, 113, 0.1);
-  box-shadow: inset 0 0 10px rgba(46, 204, 113, 0.15);
+.badge-sash-saved {
+  background: rgba(255, 149, 0, 0.2);
+  color: #ff9500;
+  border: 1px solid #ff9500;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 800;
+  white-space: nowrap;
 }
-.badge-ability.glow-active svg { opacity: 1; }
+.badge-ability.glow-active,
+.t1-slot-ability-badge.glow-active,
+.badge-item.glow-active {
+  border: 1px solid var(--gold, #ffd700);
+  background: rgba(255, 215, 0, 0.1);
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+  color: var(--gold, #ffd700);
+  animation: pulse-border 2s infinite;
+}
+.badge-item:active, .badge-ability:active {
+  transform: scale(0.96);
+}
+.badge-ability.glow-active svg,
+.t1-slot-ability-badge.glow-active svg,
+.badge-item.glow-active svg { opacity: 1; }
+
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 4px rgba(255, 215, 0, 0.4); }
+  50% { box-shadow: 0 0 12px rgba(255, 215, 0, 0.8); }
+  100% { box-shadow: 0 0 4px rgba(255, 215, 0, 0.4); }
+}
 
 .arena-vectors {
   display: flex;
@@ -5063,6 +5035,7 @@ tbody th {
   flex-direction: column;
   gap: 8px;
   border: 1px solid rgba(255,255,255,0.05);
+  margin: 10px 0;
 }
 .mobile-combatant-card.card-ally {
   border-left: 3px solid var(--blue, #3498db);
@@ -5128,29 +5101,69 @@ tbody th {
 \n
 /* --- PHASE 2: TIES & VECTORS --- */
 .crossfire-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  background: rgba(255,255,255,0.03);
-  padding: 6px 12px;
+  background: rgba(255,255,255, 0.02);
+  padding: 6px 10px;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 6px;
 }
+
+.vector-ally {
+  border-left: 3px solid var(--blue, #0a84ff);
+}
+
+.vector-enemy {
+  border-right: 3px solid var(--red, #ff3b30);
+}
+
 .vector-line {
   display: flex;
   align-items: center;
+  gap: 6px;
+  flex: 1;
   font-size: 0.75rem;
-  color: var(--muted, #aaa);
   white-space: nowrap;
-  text-align: center;
 }
+
+.vector-line-right {
+  color: var(--blue, #0a84ff);
+  justify-content: flex-end;
+}
+
+.vector-line-left {
+  color: var(--red, #ff3b30);
+  justify-content: flex-start;
+}
+
+/* Líneas sutiles a los lados del texto del ataque */
 .vector-line::before, .vector-line::after {
   content: '';
   flex: 1;
   height: 1px;
   background: rgba(255,255,255,0.1);
-  margin: 0 4px;
+}
+
+/* Sistema de Badges (Pills) */
+.vector-badge {
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 3px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.badge-lethal { background: rgba(255,59,48,0.2); color: #ff3b30; border: 1px solid #ff3b30; animation: pulse-danger 2s infinite; }
+.badge-sash { background: rgba(255,215,0,0.2); color: #ffd700; border: 1px solid #ffd700; }
+.badge-critical { background: rgba(255,149,0,0.2); color: #ff9500; border: 1px solid #ff9500; }
+.badge-warning { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+.badge-immune { background: rgba(100,100,100,0.3); color: #aaa; border: 1px dashed #666; }
+
+@keyframes pulse-danger {
+  0% { box-shadow: 0 0 0 rgba(255,59,48,0.4); }
+  50% { box-shadow: 0 0 8px rgba(255,59,48,0.8); }
+  100% { box-shadow: 0 0 0 rgba(255,59,48,0.4); }
 }
 
 .speed-tie-box {
@@ -5193,5 +5206,70 @@ tbody th {
 }
 .btn-emergency-switch:hover {
   background: rgba(50, 173, 230, 0.3);
+}
+.speed-badge.item-badge i { width: 10px; height: 10px; margin-right: 2px; }
+
+/* --- MEJORA DE MICRO-BADGES (ROSTER 6V6) --- */
+
+/* Contenedor principal de badges (columna de la derecha) */
+.mobile-combatant-stats-badges {
+    display: flex !important;
+    flex-direction: column;
+    gap: 4px; /* Espacio uniforme entre badges */
+    padding-top: 2px;
+    padding-right: 2px;
+    height: auto !important; /* Evita cortes por altura fija */
+    overflow: visible !important; /* Asegura que el contenido se vea */
+    align-items: flex-end; /* Alinea badges a la derecha */
+}
+
+/* Estilo base uniforme para todos los badges (+Atk, -Atk, Turno) */
+.mobile-combatant-stats-badges .combatant-stat-badge,
+.battle-log-header .battle-id {
+    background: #333; /* Fondo base para badges normales */
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+    text-align: center;
+    color: #fff;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    min-width: 40px; /* Ancho mínimo para consistencia */
+    white-space: nowrap; /* Evita que el texto salte de línea */
+}
+
+/* Colores profesionales para Boosts (+1 Atk, +1 Spe, etc.) */
+.mobile-combatant-stats-badges .combatant-stat-badge:not(.stat-drop) {
+    background: #195c19; /* Verde oscuro VGC */
+}
+
+/* Colores profesionales para Drops (-1 Atk, etc.) y corrección de corte */
+.mobile-combatant-stats-badges .combatant-stat-badge.stat-drop {
+    background: #8b1e1e; /* Rojo oscuro VGC */
+}
+
+/* Reestilización del Número de Turno (no rompe contenedor) */
+.battle-id-badge {
+    background: #233156; /* Azul oscuro VGC */
+    color: #ddd;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 3px 6px;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+/* Pequeño ajuste para emojis en badges si se usan */
+.mobile-combatant-stats-badges .combatant-stat-badge span.emoji,
+.battle-log-header .battle-id span.emoji {
+    margin-right: 3px;
+    font-size: 1.2em;
 }
 .speed-badge.item-badge i { width: 10px; height: 10px; margin-right: 2px; }
