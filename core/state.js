@@ -75,6 +75,8 @@ export function createInitialState() {
     selectedMatrixCell: null,
     turn1Custom: false,
     battleSheet: { open: false, side: null, slotKey: null, cell: null },
+    setEditor: { index: null },
+    setChoice: { kind: "", moveIndex: null, options: [], query: "" },
   };
 }
 

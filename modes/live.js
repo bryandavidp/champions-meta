@@ -1,2 +1,23 @@
-// modes/live.js
-export const MODULE_READY = true;
+export {
+  attachLiveStateListeners,
+  closeBattleSheet,
+  getCandidateActions,
+  getFilledIndices,
+  getFocusedIndices,
+  getFocusedTeam,
+  getTacticalMeaning,
+  getTacticalReasons,
+  isBattleFocusActive,
+  normalizeActiveSlots,
+  openBattleSheet,
+  renderActiveMatchupStrip,
+  renderBattleSheet,
+  renderLiveBattleToolbar,
+  renderLiveRecommendations,
+  renderLiveStatePanel,
+  scoreBoard,
+  setActiveBattleSlot,
+  setBattleFocus,
+  suggestBestAction,
+  simulateTurn,
+} from '../app-core.js';

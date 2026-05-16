@@ -1,2 +1,5 @@
 // matrix/explainer.js
-export const MODULE_READY = true;
+// Responsabilidad: Textos explicativos, badges y tooltips para la lectura de la matriz
+
+export function renderMatrixExplainer() {}
+export function toggleMatrixHelp() {}
