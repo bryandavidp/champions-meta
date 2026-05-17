@@ -1,0 +1,77 @@
+export const POKEMON_ALIASES = {
+  "charizard-mega-y": ["char y", "zard y", "mega charizard y", "charizard y", "megay"],
+  "charizard-mega-x": ["char x", "zard x", "mega charizard x", "charizard x", "megax"],
+  "rotom-wash": ["rotom agua", "rotom wash", "lavadora", "wash rotom", "rotom w"],
+  "rotom-heat": ["rotom fuego", "rotom heat", "horno", "heat rotom", "rotom h"],
+  "rotom-mow": ["rotom planta", "rotom mow", "cortacesped", "mow rotom", "rotom m"],
+  "urshifu-rapid-strike": ["urshifu agua", "rapid strike", "urshifu rapid", "urshi agua", "urshifu rs"],
+  "urshifu-single-strike": ["urshifu dark", "single strike", "urshifu single", "urshi dark", "urshifu ss"],
+  "samurott-hisui": ["samurott hisui", "hisui samurott", "samurott h", "h samurott"],
+  "landorus-therian": ["lando t", "landot", "lando therian", "landorus t"],
+  "tornadus-therian": ["torn t", "tornadus t", "torn therian"],
+  "thundurus-therian": ["thund t", "thundurus t", "thund therian"],
+  "ninetales-alola": ["alolan ninetales", "ninetales alola", "ninetales a", "a tales"],
+  "slowking-galar": ["slowking galar", "galar slowking", "slowking g", "gking"],
+  "arcanine-hisui": ["arcanine hisui", "hisui arcanine", "arcanine h", "harcanine"],
+  "zoroark-hisui": ["zoroark hisui", "hisui zoroark", "zoroark h", "hzoroark"],
+  "goodra-hisui": ["goodra hisui", "hisui goodra", "goodra h", "hgoodra"],
+  "tauros-paldea-aqua": ["tauros agua", "paldea tauros agua", "aqua tauros"],
+  "tauros-paldea-blaze": ["tauros fuego", "paldea tauros fuego", "blaze tauros"],
+};
+
+export const FORM_TOKENS = {
+  mega: ["mega", "megax", "megay", "x", "y"],
+  hisui: ["hisui", "hisuian", "h"],
+  galar: ["galar", "galarian", "g"],
+  alola: ["alola", "alolan", "a"],
+  paldea: ["paldea", "paldean"],
+  therian: ["therian", "t"],
+  incarnate: ["incarnate", "i"],
+  wash: ["wash"],
+  heat: ["heat"],
+  mow: ["mow"],
+  rapid: ["rapid", "rapidstrike"],
+  single: ["single", "singlestrike"],
+};
+
+export const TYPE_ALIASES = {
+  normal: ["normal"],
+  fire: ["fire", "fuego"],
+  water: ["water", "agua"],
+  electric: ["electric", "electrico", "eléctrico"],
+  grass: ["grass", "planta"],
+  ice: ["ice", "hielo"],
+  fighting: ["fighting", "lucha"],
+  poison: ["poison", "veneno"],
+  ground: ["ground", "tierra"],
+  flying: ["flying", "volador", "voladora"],
+  psychic: ["psychic", "psiquico", "psíquico"],
+  bug: ["bug", "bicho"],
+  rock: ["rock", "roca"],
+  ghost: ["ghost", "fantasma"],
+  dragon: ["dragon", "dragón"],
+  dark: ["dark", "siniestro"],
+  steel: ["steel", "acero"],
+  fairy: ["fairy", "hada"],
+};
+
+export const ROLE_TAGS = {
+  fakeout: ["fake out", "sorpresa", "fakeout"],
+  tailwind: ["tailwind", "viento afin", "viento afín"],
+  trickroom: ["trick room", "espacio raro", "tr"],
+  redirect: ["follow me", "rage powder", "redireccion", "redirección", "señuelo", "polvo ira"],
+  rain: ["rain", "lluvia", "drizzle", "llovizna"],
+  sun: ["sun", "sol", "drought", "sequia", "sequía"],
+  sand: ["sand", "arena", "sand stream", "chorro arena"],
+  snow: ["snow", "nieve", "snow warning", "nevada"],
+  priority: ["priority", "prioridad", "extreme speed", "sucker punch", "aqua jet", "bullet punch"],
+  support: ["support", "soporte", "encore", "taunt", "snarl", "parting shot"],
+};
+
+export const ALIAS_FALLBACK_TYPES = {
+  "landorus-therian": ["ground", "flying"],
+  "tornadus-therian": ["flying"],
+  "thundurus-therian": ["electric", "flying"],
+  "urshifu-rapid-strike": ["fighting", "water"],
+  "urshifu-single-strike": ["fighting", "dark"],
+};

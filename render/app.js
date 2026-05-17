@@ -7,7 +7,7 @@ import { UIMODE_KEY } from '../core/constants.js';
 import { flowLog } from '../utils/debug.js';
 import { renderDock } from './dock.js';
 import { getRows, renderMatrix } from '../matrix/render.js';
-import { renderThreats, renderOpportunities, renderStrategies, renderSpeedTiers, renderDefensiveAlerts } from './analysis.js';
+import { renderThreats, renderOpportunities, renderStrategies, renderSpeedTiers, renderDefensiveAlerts, renderTurnBranches, renderSpeedOrderPanel } from './analysis.js';
 import {
   evaluateAllCombos,
   renderTurn1Simulator,
@@ -76,6 +76,8 @@ export function _doRender(force = false) {
     }
     renderTurn1Simulator();
     renderQuickLayer();
+    renderTurnBranches();
+    renderSpeedOrderPanel();
   }
 
   if (isExpert || force) {
@@ -87,12 +89,16 @@ export function _doRender(force = false) {
     renderWeaknessSummary();
     renderSpeedTiers();
     renderDefensiveAlerts();
+    renderTurnBranches();
+    renderSpeedOrderPanel();
   }
 
   if (isLive || force) {
     const rows = getRows();
     renderMatrix(rows);
     renderLiveStatePanel();
+    renderTurnBranches();
+    renderSpeedOrderPanel();
     renderLiveRecommendations();
   }
 
@@ -151,6 +157,7 @@ export function renderUiMode() {
   if (matrixSection) matrixSection.style.display = hideExpertPanels ? 'none' : 'block';
   if (UI_MODES.insightGrid) UI_MODES.insightGrid.style.display = hideExpertPanels ? 'none' : 'grid';
   if (UI_MODES.defensiveAlertFloat) UI_MODES.defensiveAlertFloat.style.display = hideExpertPanels ? 'none' : 'flex';
+  if (UI_MODES.turnBranchesPanel) UI_MODES.turnBranchesPanel.style.display = (isQuick || isLive || state.uiMode === 'expert') ? 'block' : 'none';
 }
 
 export function setBatchUpdating(val) {

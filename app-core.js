@@ -26,6 +26,7 @@ import { isSupportMove, fetchMoveInfo, getMoveCandidates } from './battle/moves.
 import { getSpeedModifier, calculateSpeed } from './battle/speed.js';
 import { getWeatherAndTerrainMultipliers, applyRegistryDamageModifiers, calculateDamageRolls, estimateMoveDamage, bestAttack } from './battle/damage.js';
 import { scoreThreat, inferStrategies } from './analysis/threats.js';
+import { evaluateKoConditions, renderKoConditionChips } from './analysis/ko-conditions.js';
 import { tickField, recalculateActiveField, applySwitchInEffects, applyHazardsOnSwitchIn, applyMoveResolutionEffects } from './battle/effects.js';
 import {
   STORAGE_KEY,
@@ -2625,6 +2626,7 @@ export function renderTurn1Simulator() {
             atk: atkS,
             surv: survE,
             prio: sPriority,
+            prioD: ePriority,
             spe: speS,
             sortScore: sPriority * 10000 + speS
         });
@@ -2663,6 +2665,7 @@ export function renderTurn1Simulator() {
             atk: atkE,
             surv: survS,
             prio: ePriority,
+            prioD: sPriority,
             spe: speE,
             sortScore: ePriority * 10000 + speE
         });
@@ -2791,6 +2794,17 @@ export function renderTurn1Simulator() {
       if (event.targets && event.targets.length > 0) {
           innerHtml = event.targets.map(t => {
               const isLethal = t.isOhko;
+              const koInfo = evaluateKoConditions(event.attacker.mon, t.defender.mon, t.atk, {
+                  field: simFieldLocal,
+                  attackerSide: event.attacker.side,
+                  defenderSide: t.defender.side,
+                  attackerEntry: event.attacker,
+                  defenderEntry: t.defender,
+                  attackerPriority: event.prio,
+                  defenderPriority: t.prioD,
+                  maxVisible: 3
+              });
+              const koChipsHtml = renderKoConditionChips(koInfo);
               let hpBarHtml = '';
               let dmgLabel = '';
 
@@ -2833,6 +2847,7 @@ export function renderTurn1Simulator() {
                    <span class="tag-pill" style="background: rgba(255,255,255,0.1); color: #fff; font-size: 0.6rem; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.2);">${dmgClass}</span>
                    ${isChoice ? `<span class="tag-pill tag-pill--danger" style="font-size: 0.6rem; padding: 2px 6px;"><i data-lucide="lock" style="width:10px;height:10px; margin-right:4px;"></i> Bloqueado en ${moveName}</span>` : ''}
                  </div>
+                 ${koChipsHtml}
 
                  ${hpBarHtml}
                  <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; margin-top: 8px; color: var(--muted);">
@@ -2889,6 +2904,17 @@ export function renderTurn1Simulator() {
       }
 
       const badgeHtml = getCrossfireBadge(v.atk, v.surv.survivesAt1HP);
+      const koInfo = evaluateKoConditions(v.attacker.mon, v.defender.mon, v.atk, {
+          field: simFieldLocal,
+          attackerSide: v.attacker.side,
+          defenderSide: v.defender.side,
+          attackerEntry: v.attacker,
+          defenderEntry: v.defender,
+          attackerPriority: v.prio,
+          defenderPriority: v.prioD,
+          maxVisible: 3
+      });
+      const koChipsHtml = renderKoConditionChips(koInfo, { compact: true });
       const prioText = v.prio !== 0 ? `<span style="color:var(--gold);">[Prio ${v.prio > 0 ? '+'+v.prio : v.prio}]</span>` : '';
       const focusText = (!v.isAlly && targetThreatsCount[v.defender.mon.name] >= 2) ? `<span style="color:var(--red); font-weight:bold; font-size:0.6rem; margin-right:4px;">⚠️ FOCO</span>` : '';
       const speedHtml = `<span style="font-size:0.55rem; color:var(--muted); display:flex; gap:4px; align-items:center; justify-content:center; margin-top:2px;">${focusText} ${prioText} Vel ${Math.abs(v.spe)}</span>`;
@@ -2907,6 +2933,7 @@ export function renderTurn1Simulator() {
             <div style="display:flex; align-items:center; gap: 4px;">
                 <span style="font-weight: 800;">${moveName}</span> ${spreadBadge} ${rollText}
             </div>
+            ${koChipsHtml}
             ${speedHtml}
           </div>
           <i data-lucide="arrow-right" style="width:14px; height:14px; flex-shrink: 0; margin-left: 4px; color: inherit;"></i>
@@ -3426,6 +3453,22 @@ export function renderBattleSheet() {
     const reasons = getTacticalReasons(data);
     const meaning = getTacticalMeaning(data);
     const effBadgeHtml = getEffectivenessBadgeHtml(mult !== null ? mult : 1);
+    const sheetKoConditions = data.koConditions?.length
+      ? { tags: data.koConditions, visible: data.koConditions.slice(0, 3), hiddenCount: Math.max(0, data.koConditions.length - 3) }
+      : evaluateKoConditions(attackerObj, defenderObj, {
+          ...data,
+          move: moveName,
+          type: moveType,
+          minPct,
+          maxPct,
+          ohkoProb: data.ohkoProb || 0,
+        }, {
+          field: state.field,
+          attackerSide: data.offensive ? 'self' : 'enemy',
+          defenderSide: data.offensive ? 'enemy' : 'self',
+          maxVisible: 3,
+        });
+    const sheetKoChipsHtml = renderKoConditionChips(sheetKoConditions);
 
     body.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
@@ -3451,6 +3494,7 @@ export function renderBattleSheet() {
          <div class="sheet-tactical-val" style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
            ${typeDot(moveType)} <span style="font-size:1rem; font-weight:700;">${moveName}</span>
          </div>
+         ${sheetKoChipsHtml}
          <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--muted);">
             <span>Daño: <strong style="color:#fff;">${minPct}% - ${maxPct}%</strong></span>
             ${effBadgeHtml}

@@ -32,7 +32,8 @@ export const UI_MODES = {
     get toggleGroup() { return getEl("uiModeToggle"); },
     get matrixSectionTitle() { return getEl("matrixSectionTitle"); },
     get insightGrid() { return document.querySelector(".insight-grid"); }, // Excepción con querySelector
-    get defensiveAlertFloat() { return getEl("defensiveAlertFloat"); }
+    get defensiveAlertFloat() { return getEl("defensiveAlertFloat"); },
+    get turnBranchesPanel() { return getEl("turnBranchesPanel"); }
 };
 
 // 3. Matrix & Controls
@@ -53,6 +54,16 @@ export const ANALYSIS = {
     get opportunityList() { return getEl("opportunityList"); },
     get strategyList() { return getEl("strategyList"); },
     get speedTierList() { return getEl("speedTierList"); }
+};
+
+export const TURN_BRANCHES = {
+    get panel() { return getEl("turnBranchesPanel"); },
+    get content() { return getEl("turnBranchesContent"); }
+};
+
+export const SPEED_ORDER = {
+    get panel() { return getEl("speedOrderPanel"); },
+    get content() { return getEl("speedOrderContent"); }
 };
 
 // 5. Quick Mode & Turn 1

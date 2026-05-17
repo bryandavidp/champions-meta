@@ -2,16 +2,307 @@
 // Responsabilidad: Paneles de análisis visual debajo de la matriz (Threats, Opportunities, Strategies, Speed Tiers, Defensive Alerts)
 
 import { state } from '../core/state.js';
-import { ANALYSIS } from '../core/dom.js';
+import { ANALYSIS, SPEED_ORDER, TURN_BRANCHES } from '../core/dom.js';
 import { getFocusedTeam } from '../app-core.js';
 import { updateIcons } from '../render/app.js';
 import { getEffectivenessBadgeHtml } from '../matrix/render.js';
 import { TYPE_META, TYPE_CHART } from '../core/constants.js';
 import { getTranslation } from '../utils/text.js';
 import { scoreThreat, inferStrategies } from '../analysis/threats.js';
+import { buildTurnBranches } from '../analysis/turn-branches.js';
+import { evaluateKoConditions, renderKoConditionChips } from '../analysis/ko-conditions.js';
+import { buildSpeedOrder } from '../analysis/speed-order.js';
 import { calculateSpeed } from '../battle/speed.js';
 import { getNatureSpeModifier } from '../battle/stats.js';
 import { getContrastColor, effectiveness } from '../utils/types.js';
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getFilledTurnIndices(side) {
+  return state[side].map((mon, index) => (mon ? index : null)).filter((index) => index !== null);
+}
+
+function getQuickTurnIndices(side) {
+  const team = state[side];
+  const filled = getFilledTurnIndices(side);
+  const picked = (state.leads?.[side] || []).filter((index) => team[index]);
+  const out = [...picked];
+
+  if (side === 'self' && state.chosenFour?.length) {
+    for (const index of state.chosenFour) {
+      if (out.length >= 2) break;
+      if (team[index] && !out.includes(index)) out.push(index);
+    }
+  }
+
+  for (const index of filled) {
+    if (out.length >= 2) break;
+    if (!out.includes(index)) out.push(index);
+  }
+  return out.slice(0, 2);
+}
+
+function getBranchActiveMons(side) {
+  if (state.uiMode === 'quick') {
+    return getQuickTurnIndices(side).map((index) => state[side][index]).filter(Boolean);
+  }
+
+  if (state.uiMode === 'live' || (state.uiMode === 'expert' && state.battleFocus === 'active')) {
+    const focused = getFocusedTeam(side).slice(0, 2);
+    if (focused.length) return focused;
+  }
+
+  return getFilledTurnIndices(side).slice(0, 2).map((index) => state[side][index]).filter(Boolean);
+}
+
+function renderBranchAction(action, side) {
+  if (!action) return '';
+  const actor = escapeHtml(action.actor);
+  const move = escapeHtml(getTranslation(action.move, 'move') || action.move);
+  const target = escapeHtml(action.target);
+  const ko = action.damage?.ko || action.damage?.ohkoProb >= 50;
+  const damage = action.damage
+    ? `<span class="turn-action-damage ${ko ? 'is-ko' : ''}">${action.damage.minPct}-${action.damage.maxPct}%</span>`
+    : '';
+
+  return `
+    <div class="turn-branch-action turn-branch-action--${side}">
+      <span class="turn-action-actor">${actor}</span>
+      <span class="turn-action-move">${move}</span>
+      <span class="turn-action-target">${target}</span>
+      ${damage}
+    </div>
+  `;
+}
+
+function renderBranchCard(branch, index) {
+  const isMain = index === 0;
+  const styleClass = String(branch.style || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_-]/gi, '');
+  const selfActions = branch.actions.self.length
+    ? branch.actions.self.map((action) => renderBranchAction(action, 'self')).join('')
+    : '<div class="muted-small">Sin accion propia clara.</div>';
+  const enemyActions = branch.actions.enemy.length
+    ? branch.actions.enemy.map((action) => renderBranchAction(action, 'enemy')).join('')
+    : '<div class="muted-small">Respuesta rival difusa.</div>';
+  const conditions = branch.conditions.length
+    ? branch.conditions.map((item) => `<span class="turn-branch-chip">${escapeHtml(item)}</span>`).join('')
+    : '<span class="turn-branch-chip">Sin condicion fuerte</span>';
+  const invalidators = branch.invalidators.length
+    ? branch.invalidators.map((item) => `<span class="turn-branch-chip turn-branch-chip--warn">${escapeHtml(item)}</span>`).join('')
+    : '<span class="turn-branch-chip">No detectados</span>';
+
+  const body = `
+    <div class="turn-branch-card-head">
+      <div>
+        <div class="turn-branch-label">${escapeHtml(branch.label)}</div>
+        <div class="turn-branch-outcome">${escapeHtml(branch.outcome)}</div>
+      </div>
+      <div class="turn-branch-score">
+        <strong>${branch.score}</strong>
+        <span>${Math.round((branch.confidence || 0) * 100)}%</span>
+      </div>
+    </div>
+    <div class="turn-branch-actions">
+      <div>
+        <div class="turn-branch-side-label">Tus acciones</div>
+        ${selfActions}
+      </div>
+      <div>
+        <div class="turn-branch-side-label">Respuesta rival</div>
+        ${enemyActions}
+      </div>
+    </div>
+    <div class="turn-branch-meta">
+      <div class="turn-branch-side-label">Condiciones</div>
+      <div class="turn-branch-chip-row">${conditions}</div>
+      <div class="turn-branch-side-label">Puede fallar si</div>
+      <div class="turn-branch-chip-row">${invalidators}</div>
+    </div>
+  `;
+
+  if (isMain) {
+    return `
+      <article class="turn-branch-card turn-branch-card--main turn-branch-card--${styleClass}">
+        <div class="turn-branch-main-kicker">Tu mejor linea</div>
+        ${body}
+      </article>
+    `;
+  }
+
+  return `
+    <details class="turn-branch-card turn-branch-card--${styleClass}" ${state.uiMode === 'live' ? 'open' : ''}>
+      <summary>
+        <span>${escapeHtml(branch.label)}</span>
+        <span class="turn-branch-summary-score">${branch.score}</span>
+      </summary>
+      ${body}
+    </details>
+  `;
+}
+
+export function renderTurnBranches() {
+  const panel = TURN_BRANCHES.panel;
+  const content = TURN_BRANCHES.content;
+  if (!panel || !content) return;
+
+  const isSupportedMode = ['quick', 'live', 'expert'].includes(state.uiMode);
+  panel.style.display = isSupportedMode ? 'block' : 'none';
+  if (!isSupportedMode) return;
+
+  const selfActive = getBranchActiveMons('self');
+  const enemyActive = getBranchActiveMons('enemy');
+  const branches = buildTurnBranches({
+    selfActive,
+    enemyActive,
+    field: state.field,
+    maxBranches: 5,
+  });
+
+  const isExpert = state.uiMode === 'expert';
+  const title = state.uiMode === 'quick'
+    ? 'Arbol de turno'
+    : state.uiMode === 'live'
+      ? 'Linea de turno en vivo'
+      : 'Arbol de turno probable';
+  const subtitle = state.uiMode === 'quick'
+    ? 'Ramas heuristicas sobre tus leads y los leads rivales.'
+    : state.uiMode === 'live'
+      ? 'Lectura de acciones probables sobre los activos actuales.'
+      : 'Panel opcional basado en los slots enfocados.';
+
+  if (!branches.length) {
+    content.innerHTML = `
+      <div class="turn-branch-empty">
+        <strong>${title}</strong>
+        <span>Añade al menos un slot por lado para generar ramas probables.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const cards = branches.map(renderBranchCard).join('');
+  content.innerHTML = `
+    <details class="turn-branches-shell" ${isExpert ? '' : 'open'}>
+      <summary class="turn-branches-shell-summary">
+        <span>
+          <strong>${title}</strong>
+          <small>${subtitle}</small>
+        </span>
+        <span class="tiny-chip">${branches.length} ramas</span>
+      </summary>
+      <div class="turn-branches-list">
+        ${cards}
+      </div>
+    </details>
+  `;
+
+  updateIcons();
+}
+
+function renderSpeedOrderEntry(entry, firstMoverId) {
+  const isFirst = entry.id === firstMoverId;
+  const sideLabel = entry.side === 'self' ? 'Tu lado' : 'Rival';
+  const modifiers = entry.modifiers.length
+    ? entry.modifiers.slice(0, 3).map((item) => `<span class="speed-order-chip">${escapeHtml(item.label)}</span>`).join('')
+    : '<span class="speed-order-chip">sin boost</span>';
+  const ties = entry.tieCandidates.length
+    ? `<span class="speed-order-chip speed-order-chip--tie">Tie con ${entry.tieCandidates.map((item) => escapeHtml(item.name)).join(', ')}</span>`
+    : '';
+  const priority = entry.priorityWindows
+    .filter((item) => item.priority !== 0)
+    .slice(0, 2)
+    .map((item) => `<span class="speed-order-chip speed-order-chip--prio">${escapeHtml(item.move)} ${item.priority > 0 ? '+' : ''}${item.priority}</span>`)
+    .join('');
+  const blocked = entry.blockedPriorityReason
+    ? `<span class="speed-order-chip speed-order-chip--blocked">${escapeHtml(entry.blockedPriorityReason)}</span>`
+    : '';
+
+  return `
+    <article class="speed-order-card ${entry.side === 'self' ? 'speed-order-card--self' : 'speed-order-card--enemy'} ${isFirst ? 'is-first' : ''}">
+      <div class="speed-order-rank">${entry.rank}</div>
+      <img src="${entry.sprite}" alt="${escapeHtml(entry.name)}" class="speed-order-sprite">
+      <div class="speed-order-main">
+        <div class="speed-order-name-row">
+          <strong>${escapeHtml(entry.name)}</strong>
+          <span>${sideLabel}</span>
+        </div>
+        <div class="speed-order-cause">${escapeHtml(entry.cause)}</div>
+        <div class="speed-order-chip-row">
+          ${priority}
+          ${blocked}
+          ${modifiers}
+          ${ties}
+        </div>
+      </div>
+      <div class="speed-order-values">
+        <strong>${Math.abs(entry.effectiveSpeed)}</strong>
+        <span>raw ${entry.rawSpeed}</span>
+      </div>
+    </article>
+  `;
+}
+
+export function renderSpeedOrderPanel() {
+  const panel = SPEED_ORDER.panel;
+  const content = SPEED_ORDER.content;
+  if (!panel || !content) return;
+
+  const isSupportedMode = ['quick', 'live', 'expert'].includes(state.uiMode);
+  panel.style.display = isSupportedMode ? 'block' : 'none';
+  if (!isSupportedMode) return;
+
+  const selfActive = getBranchActiveMons('self');
+  const enemyActive = getBranchActiveMons('enemy');
+  const model = buildSpeedOrder({
+    selfActive,
+    enemyActive,
+    field: state.field,
+  });
+
+  if (!model.entries.length) {
+    content.innerHTML = `
+      <div class="speed-order-empty">
+        <strong>Orden del turno</strong>
+        <span>Añade activos en ambos lados para calcular quien mueve antes.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const firstMoverId = model.firstMover?.id || null;
+  const fieldChips = [
+    model.field.trickRoom ? 'Trick Room' : null,
+    model.field.weather ? `Clima: ${model.field.weather}` : null,
+    model.field.terrain ? `Terreno: ${model.field.terrain}` : null,
+    model.field.tailwindSelf ? 'Tu Tailwind' : null,
+    model.field.tailwindEnemy ? 'Tailwind rival' : null,
+  ].filter(Boolean);
+
+  content.innerHTML = `
+    <details class="speed-order-sheet" open>
+      <summary class="speed-order-summary">
+        <span>
+          <strong>Orden del turno</strong>
+          <small>Quien mueve antes y por que.</small>
+        </span>
+        <span class="tiny-chip">${model.entries.length} slots</span>
+      </summary>
+      <div class="speed-order-field-row">
+        ${fieldChips.length ? fieldChips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join('') : '<span>Campo neutral</span>'}
+      </div>
+      <div class="speed-order-list">
+        ${model.entries.map((entry) => renderSpeedOrderEntry(entry, firstMoverId)).join('')}
+      </div>
+    </details>
+  `;
+}
 
 export function renderThreats() {
   const enemy = getFocusedTeam('enemy');
@@ -151,13 +442,22 @@ export function renderOpportunities(rows) {
         <div class="target-executioners">
           ${target.executioners.map(hit => {
              const typeMeta = TYPE_META[hit.type] || { color: '#8aa2c6' };
+             const koChipsHtml = renderKoConditionChips(evaluateKoConditions(hit.attacker, hit.defender, hit, {
+               attackerSide: 'self',
+               defenderSide: 'enemy',
+               field: state.field,
+               maxVisible: 3,
+             }), { compact: true });
              return `
                <div class="target-execution-row">
                  <img src="${hit.attacker.sprite}" class="sprite-micro" title="${hit.attacker.displayName}">
-                 <div style="display:flex; align-items:center; gap:4px;">
-                   <span class="target-move-name">${getTranslation(hit.move, "move") || hit.type}</span>
-                   <div class="type-icon-circle" style="position: static; width:14px; height:14px; background-color: ${typeMeta.color};"></div>
-                   ${getEffectivenessBadgeHtml(hit.mult)}
+                 <div style="display:grid; gap:4px; min-width:0;">
+                   <div style="display:flex; align-items:center; gap:4px; min-width:0;">
+                     <span class="target-move-name">${getTranslation(hit.move, "move") || hit.type}</span>
+                     <div class="type-icon-circle" style="position: static; width:14px; height:14px; background-color: ${typeMeta.color};"></div>
+                     ${getEffectivenessBadgeHtml(hit.mult)}
+                   </div>
+                   ${koChipsHtml}
                  </div>
                </div>
              `;
@@ -320,6 +620,7 @@ export function renderSpeedTiers() {
   const toggleTrickRoomBtn = document.getElementById("toggleTrickRoomBtn");
   if(toggleTrickRoomBtn) toggleTrickRoomBtn.className = `btn small ${state.field.trickRoom ? "gold" : "ghost"}`;
 
+  renderSpeedOrderPanel();
   updateIcons();
 }
 

@@ -15,6 +15,7 @@ import { escapeHtml, getTranslation, localizeMoveName } from '../utils/text.js';
 import { DEBUG_MODE } from '../utils/debug.js';
 import { calculateEffectiveStats } from '../battle/stats.js';
 import { estimateMoveDamage, bestAttack } from '../battle/damage.js';
+import { evaluateKoConditions, renderKoConditionChips } from '../analysis/ko-conditions.js';
 
 export function getRows() {
   const self = getFocusedTeam('self');
@@ -338,6 +339,13 @@ export function buildMatrixCellMarkup(rowAttacker, rawCell, offensive, compact =
   const phrase = getTacticalPhrase(cell, offensive);
 
   const tags = buildMatrixContextTags(cell, offensive, isCompact);
+  const koConditions = evaluateKoConditions(rowAttacker, cell.defender, cell, {
+    attackerSide: offensive ? 'self' : 'enemy',
+    defenderSide: offensive ? 'enemy' : 'self',
+    field: state.field,
+    maxVisible: 3,
+  });
+  const koChipsHtml = renderKoConditionChips(koConditions, { compact: isCompact });
   const payloadObject = {
     attacker: rowAttacker,
     defender: cell.defender,
@@ -355,6 +363,7 @@ export function buildMatrixCellMarkup(rowAttacker, rawCell, offensive, compact =
     blocked: !!cell.blocked,
     offensive: offensive,
     tags: tags.map((tag) => tag.label),
+    koConditions: koConditions.tags,
     label: phrase,
     shortNote: metaLine,
     dataIssue: cell.dataIssue,
@@ -401,6 +410,7 @@ export function buildMatrixCellMarkup(rowAttacker, rawCell, offensive, compact =
         <div class="cell__move ${cell.move ? '' : 'matrix-cell-move--muted'}">
           ${escapeHtml(moveLabel)}
         </div>
+        ${koChipsHtml}
         <div class="cell__range">
           ${escapeHtml(metaLine)}
         </div>
@@ -419,6 +429,7 @@ export function buildMatrixCellMarkup(rowAttacker, rawCell, offensive, compact =
           <span class="cell__dmg-range">${rangeLabel}</span>
           <span class="cell__dmg-mult">${multLabel}</span>
         </div>
+        ${koChipsHtml}
         <div class="cell__note">${escapeHtml(phrase)}</div>
       </div>
     `;

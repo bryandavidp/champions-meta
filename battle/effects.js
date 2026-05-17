@@ -1,6 +1,7 @@
 import { state } from '../core/state.js';
 import { getRegistryBridge } from '../core/runtime.js';
 import { effectiveness } from '../utils/types.js';
+import { DEBUG_MODE } from '../utils/debug.js';
 import { calculateSpeed } from './speed.js';
 
 // Dependency Injection to avoid circular dependencies with UI logic
@@ -300,7 +301,7 @@ export function applyMoveResolutionEffects(attacker, move) {
 
   if (!entry || !Array.isArray(entry.events)) return;
 
-  if (DEBUG_MODE && entry && entry.reasons && entry.reasons.length > 0) {
+  if (typeof DEBUG_MODE !== 'undefined' && DEBUG_MODE && entry && entry.reasons && entry.reasons.length > 0) {
      console.groupCollapsed(`🎬 [MOVE RESOLUTION] ${attacker.displayName || attacker.name} usó ${move.name || move.move || move} y generó efectos`);
      console.log(`Efectos causados por: ${entry.reasons.join(', ')}`);
      if (entry.events && entry.events.length > 0) {
