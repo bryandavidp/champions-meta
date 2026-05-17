@@ -110,6 +110,7 @@ export function _doRender(force = false) {
     if (LIVE.battleToolbar) LIVE.battleToolbar.style.display = 'flex';
   }
 
+  updateIcons();
   flowLog('_doRender: Fin');
 }
 

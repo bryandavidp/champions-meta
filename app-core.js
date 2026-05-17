@@ -3084,6 +3084,7 @@ async function initApp() {
   flowLog('initApp: Iniciando aplicación');
   loadUiMode();
   loadMatrixPreferences();
+  updateIcons();
   
   try {
     const res = await fetch('./data/data-bundle.json');
@@ -3108,6 +3109,7 @@ async function initApp() {
   
   ensurePokedex();
   await rehydrateCurrentTeamsSets();
+  updateIcons();
   renderAll();
   toggleMatrixHelp(state.matrixHelpOpen);
   flowLog('initApp: Aplicación inicializada con éxito');
@@ -3116,6 +3118,8 @@ async function initApp() {
 export function bootstrapApp() {
   if (bootstrapped) return;
   bootstrapped = true;
+
+  updateIcons();
 
   configureUiBridges({
     renderAll,
