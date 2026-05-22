@@ -66,6 +66,7 @@ export function buildDefaultSetForSpecies(speciesId, side = "self", slotIndex = 
     item: chooseBestItem(entry.Items || {}, side, slotIndex, speciesId),
     nature: spread.nature || "",
     evs: spread.evs || null,
+    _evScale: spread.evScale || "full",
     moves,
     teammates,
     raw: {

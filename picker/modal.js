@@ -15,6 +15,19 @@ import { renderPokemonResults } from './render-results.js';
 import { registerRecentPick } from './recent-picks.js';
 import { bindPickerKeyboard } from './keyboard.js';
 
+let pendingPickerRender = false;
+let pickingInProgress = false;
+
+function isTouchViewport() {
+  return typeof window !== 'undefined'
+    && (window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth <= 760);
+}
+
+function focusSearchInput() {
+  if (isTouchViewport()) return;
+  setTimeout(() => PICKER.searchInput.focus(), 20);
+}
+
 export function ensurePokedex() {
   if (!state.metaRanked.length) {
     state.pokedex = [];
@@ -61,14 +74,17 @@ export function openModal(side, index) {
   state.pickerSearch.highlightedIndex = 0;
   ensurePokemonSearchIndex();
   renderPokedex('');
-  setTimeout(() => PICKER.searchInput.focus(), 20);
+  focusSearchInput();
 }
 
-export function closeModal() {
+export function closeModal(options = {}) {
   PICKER.modal.classList.remove('open');
+  if (options.flushRender === false || !pendingPickerRender) return;
+  pendingPickerRender = false;
+  requestAnimationFrame(() => renderAll());
 }
 
-export async function pickPokemonIntoSlot(side, index, name) {
+export async function pickPokemonIntoSlot(side, index, name, options = {}) {
   flowLog('pickPokemonIntoSlot: Inicio', { side, index, name });
   if (side === 'self') {
     const speciesId = normalizeText(name);
@@ -92,9 +108,8 @@ export async function pickPokemonIntoSlot(side, index, name) {
     state[side][index] = mon;
     state.leads[side] = state.leads[side].filter((i) => i !== index);
 
-    scheduleMoveWarmup();
-    flowLog('pickPokemonIntoSlot: scheduleMoveWarmup finalizado, solicitando renderAll', { side, index });
-    renderAll();
+    scheduleMoveWarmup({ render: options.deferRender !== true });
+    flowLog('pickPokemonIntoSlot: scheduleMoveWarmup finalizado', { side, index, deferRender: options.deferRender === true });
     return true;
   } catch (err) {
     flowLog('pickPokemonIntoSlot: Error', err);
@@ -104,6 +119,8 @@ export async function pickPokemonIntoSlot(side, index, name) {
 }
 
 PICKER.resultList.addEventListener('click', async (event) => {
+  if (pickingInProgress) return;
+
   const toggleBtn = event.target.closest('[data-action="toggle-picker-filters"]');
   if (toggleBtn) {
     state.pickerSearch.quickFiltersOpen = state.pickerSearch.quickFiltersOpen === false;
@@ -118,8 +135,16 @@ PICKER.resultList.addEventListener('click', async (event) => {
   const currentIndex = state.modal.index;
   const name = btn.dataset.name;
 
-  const picked = await pickPokemonIntoSlot(side, currentIndex, name);
+  pickingInProgress = true;
+  btn.disabled = true;
+
+  const picked = await pickPokemonIntoSlot(side, currentIndex, name, { deferRender: true })
+    .finally(() => {
+      pickingInProgress = false;
+      btn.disabled = false;
+    });
   if (!picked) return;
+  pendingPickerRender = true;
   registerRecentPick(name, side);
 
   const nextIndex = state[side].findIndex((mon) => !mon);
@@ -132,7 +157,7 @@ PICKER.resultList.addEventListener('click', async (event) => {
     PICKER.searchInput.value = '';
     state.pickerSearch.highlightedIndex = 0;
     renderPokedex('');
-    setTimeout(() => PICKER.searchInput.focus(), 20);
+    focusSearchInput();
   } else {
     closeModal();
   }

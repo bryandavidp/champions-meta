@@ -1,5 +1,6 @@
 import { CACHE_KEY_PREFIX, POKEAPI_SPECIES_SLUG } from '../core/constants.js';
 import { state } from '../core/state.js';
+import { getResolvedEvs } from '../battle/stats.js';
 import { normalizeText, slugFromSmogonName, displayFromSmogonName } from '../utils/text.js';
 
 export function serializeSetSummary(set) {
@@ -9,10 +10,11 @@ export function serializeSetSummary(set) {
   if (set.item) lines.push(`Obj: ${set.item}`);
   if (set.nature) lines.push(`Nat: ${set.nature}`);
   if (set.evs && typeof set.evs === "object") {
+    const resolvedEvs = getResolvedEvs(set);
     const evOrder = ["hp", "atk", "def", "spa", "spd", "spe"];
     const activeEVs = evOrder
-      .filter((k) => Number(set.evs[k]) > 0)
-      .map((k) => `${set.evs[k]} ${k.toUpperCase()}`);
+      .filter((k) => Number(resolvedEvs[k]) > 0)
+      .map((k) => `${resolvedEvs[k]} ${k.toUpperCase()}`);
     if (activeEVs.length) lines.push(activeEVs.join(" / "));
   }
   return lines;

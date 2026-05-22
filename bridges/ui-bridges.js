@@ -1,4 +1,5 @@
 import { state } from '../core/state.js';
+import { clearComboSpeedCache, clearDamageCache } from '../core/runtime.js';
 import { warmupRegistries } from '../battle/registry.js';
 import { recalculateActiveField } from '../battle/effects.js';
 
@@ -31,11 +32,14 @@ export function setBatchUpdatingBridge(value) {
   setBatchUpdatingCallback(value);
 }
 
-export function scheduleMoveWarmup() {
+export function scheduleMoveWarmup(options = {}) {
+  const shouldRender = options.render !== false;
+  clearDamageCache();
+  clearComboSpeedCache();
   warmupRegistries();
   recalculateActiveField();
-  renderAllCallback();
-  if (state.setEditor.index !== null) {
+  if (shouldRender) renderAllCallback();
+  if (shouldRender && state.setEditor.index !== null) {
     renderSetEditorCallback();
     if (state.setChoice.kind) renderSetChoiceListCallback();
   }

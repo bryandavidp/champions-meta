@@ -175,48 +175,41 @@
       <header class="shock-projection__header">
         <div class="shock-projection__eyebrow">Centro de Comando Táctico</div>
         <h2 class="shock-projection__title">Proyección de Choque Inicial</h2>
-        <p class="shock-projection__subtitle">Análisis de inercia, fuego cruzado y letalidad antes de mover.</p>
       </header>
+
+      <div id="veredictoT1Container"></div>
 
       <div id="t1EmptyState"
         style="display: none; padding: 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; margin-bottom: 16px;">
         Selecciona una combinación arriba para ver cómo se ve el choque inicial.
       </div>
 
-      <div id="t1GlobalStateBanner" class="global-state-banner" style="display: none;"></div>
+      <div class="active-board-container" id="activeBoardContainer" style="display: none; background: rgba(0,0,0,0.15); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+        <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; color: var(--muted); text-align: center;">Tablero Activo</div>
+        
+        <div class="shock-projection__matchup" id="turn1PickZone" style="margin-bottom: 16px;">
+          <div class="matchup-lane matchup-lane--self">
+            <div class="matchup-lane__label">Tu equipo</div>
+            <div class="matchup-lane__slots" id="t1SelfPickRow" aria-label="Seleccionar leads propios">
+              <!-- slots -->
+            </div>
+          </div>
 
-      <div class="shock-projection__matchup" id="turn1PickZone">
-        <div class="matchup-lane matchup-lane--self">
-          <div class="matchup-lane__label">Tu equipo</div>
-          <div class="matchup-lane__slots" id="t1SelfPickRow" aria-label="Seleccionar leads propios">
-            <!-- slots -->
+          <div class="matchup-lane matchup-lane--enemy">
+            <div class="matchup-lane__label">Rival</div>
+            <div class="matchup-lane__slots" id="t1EnemyPickRow" aria-label="Seleccionar leads rivales">
+              <!-- slots -->
+            </div>
           </div>
         </div>
 
-        <div class="matchup-lane matchup-lane--enemy">
-          <div class="matchup-lane__label">Rival</div>
-          <div class="matchup-lane__slots" id="t1EnemyPickRow" aria-label="Seleccionar leads rivales">
-            <!-- slots -->
-          </div>
-        </div>
+        <div id="t1GlobalStateBanner" class="global-state-banner" style="display: none;"></div>
+
+        <!-- TABLERO GLOBAL DE ESTADOS DINÁMICOS -->
+        <div id="t1GlobalFieldState" class="global-field-state" style="display: none; justify-content: center; margin-bottom: 16px;"></div>
+
+        <div id="t1TimelineContainer"></div>
       </div>
-
-      <section class="momentum-panel" id="momentumPanel" style="display: none;">
-        <div class="momentum-panel__header">
-          <span class="momentum-panel__side momentum-panel__side--self">Tu inercia</span>
-          <span class="momentum-panel__side momentum-panel__side--enemy">Inercia rival</span>
-        </div>
-        <div class="momentum-panel__track">
-          <div class="momentum-panel__fill" id="momentumFill"></div>
-          <div class="momentum-panel__marker"></div>
-        </div>
-        <div class="momentum-panel__rail" id="momentumRail">
-          <!-- secuencia probable del turno -->
-        </div>
-      </section>
-
-      <!-- TABLERO GLOBAL DE ESTADOS DINÁMICOS -->
-      <div id="t1GlobalFieldState" class="global-field-state" style="display: none;"></div>
 
       <section class="tactical-feed" id="t1InsightsList">
         <!-- Contenido inyectado por JS -->

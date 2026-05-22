@@ -143,8 +143,10 @@ export function evaluateKoConditions(attacker, defender, atk, options = {}) {
   const maxPct = Number(atk?.maxPct || 0);
   const lethal = minPct >= 100 || maxPct >= 100 || Number(atk?.ohkoProb || 0) > 0 || !!atk?.ohko;
   const protect = hasProtect(defender);
-  const sash = hasSash(defender);
-  const sturdy = hasSturdy(defender);
+  const currentHpPct = Math.max(0, Math.min(100, Number(defender?.battle?.hpPct ?? 100)));
+  const fullHp = currentHpPct >= 99;
+  const sash = fullHp && hasSash(defender);
+  const sturdy = fullHp && hasSturdy(defender);
   const spread = isSpreadMove(atk);
   const weatherBoost = Number(atk?.wMul || 1) > 1 && !!context.field?.weather;
   const before = movesBefore(attacker, defender, atk, context);

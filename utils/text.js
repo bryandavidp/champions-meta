@@ -27,7 +27,11 @@ export function fetchTranslation(englishName, category) {
 
 export function normalizeText(text) {
   if (!text) return "";
-  return String(text).toLowerCase().replace(/[^a-z0-9]/g, "");
+  return String(text)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 export function formatName(str) {

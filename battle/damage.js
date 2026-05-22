@@ -65,6 +65,34 @@ export function calculateDamageRolls(baseTotal) {
   return { maxDamage: Math.max(...rolls), minDamage: Math.min(...rolls), critDamage: Math.floor(baseTotal * 1.5) };
 }
 
+function getProtectionBlock(attacker, defender, cand, field) {
+  const moveName = typeof cand === 'string' ? cand : (cand?.move || cand?.name || '');
+  const moveId = String(moveName).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const bypassProtect = ['feint', 'amago', 'hyperspacehole', 'hyperspacefury'].includes(moveId);
+  if (bypassProtect) return null;
+
+  const defenderSide = defender?.battle?.side || defender?.side || null;
+  const isSpread = !!cand?.isSpread || SPREAD_MOVES.has(String(moveName).toLowerCase());
+  const priority = Number.isFinite(cand?.priority) ? cand.priority : (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[moveId] || 0);
+  const attackerSide = attacker?.battle?.side || attacker?.side || null;
+  const defenderTypes = (defender?.types || []).map(t => String(t).toLowerCase());
+  const defenderAbility = (defender?.set?.ability || defender?.ability || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+  const defenderItem = (defender?.set?.item || defender?.item || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+  const grounded = !defenderTypes.includes('flying') && !['levitate', 'levitacion'].includes(defenderAbility) && !['airballoon', 'globohelio'].includes(defenderItem);
+
+  if (defender?.battle?.protected) {
+    return { type: 'volatile', name: defender.battle.protectedBy || 'Protección' };
+  }
+  if (field?.terrain === 'psychic' && priority > 0 && attackerSide && defenderSide && attackerSide !== defenderSide && grounded) {
+    return { type: 'field', name: 'Campo Psiquico' };
+  }
+  if (defenderSide === 'self' && field?.wideGuardSelf && isSpread) return { type: 'field', name: 'Wide Guard' };
+  if (defenderSide === 'enemy' && field?.wideGuardEnemy && isSpread) return { type: 'field', name: 'Wide Guard' };
+  if (defenderSide === 'self' && field?.quickGuardSelf && priority > 0) return { type: 'field', name: 'Quick Guard' };
+  if (defenderSide === 'enemy' && field?.quickGuardEnemy && priority > 0) return { type: 'field', name: 'Quick Guard' };
+  return null;
+}
+
 export function estimateMoveDamage(attacker, defender, cand, field) {
   if (!attacker || !defender || !cand) return { damage: 0, minDamage: 0, maxDamage: 0 };
 
@@ -73,7 +101,8 @@ export function estimateMoveDamage(attacker, defender, cand, field) {
   const spaStage = attacker.battle?.stages?.spa || 0;
   const defStage = defender.battle?.stages?.def || 0;
   const spdStage = defender.battle?.stages?.spd || 0;
-  const cacheKey = `${attacker.name}(${atkStage},${spaStage})-${defender.name}(${defStage},${spdStage})-${moveNameStr}-${field?.weather || 'none'}-${field?.terrain || 'none'}`;
+  const protectionSig = `${defender.battle?.protected ? 'protect' : 'open'}-${field?.wideGuardSelf ? 'wgs' : ''}${field?.wideGuardEnemy ? 'wge' : ''}${field?.quickGuardSelf ? 'qgs' : ''}${field?.quickGuardEnemy ? 'qge' : ''}`;
+  const cacheKey = `${attacker.name}(${atkStage},${spaStage})-${defender.name}(${defStage},${spdStage})-${moveNameStr}-${field?.weather || 'none'}-${field?.terrain || 'none'}-${protectionSig}`;
 
   // SHORT-CIRCUIT: Salir inmediatamente, cero logs, cero lag
   if (getDamageCache()[cacheKey]) {
@@ -83,6 +112,12 @@ export function estimateMoveDamage(attacker, defender, cand, field) {
   let basePower = cand.power || 0;
   const info = state.moveTypeCache[cand.move];
   const dmgClass = cand.damageClass || info?.damageClass || "physical";
+  const protectionBlock = getProtectionBlock(attacker, defender, cand, field);
+  if (protectionBlock) {
+      const res = { damage: 0, minDamage: 0, maxDamage: 0, blocked: true, immunityData: protectionBlock };
+      getDamageCache()[cacheKey] = res;
+      return res;
+  }
   if (basePower <= 0 || dmgClass === "status") {
       const res = { damage: 0, minDamage: 0, maxDamage: 0, blocked: false };
       getDamageCache()[cacheKey] = res;
@@ -176,10 +211,11 @@ export function estimateMoveDamage(attacker, defender, cand, field) {
   }
   // --- FIN DE INTERCEPTACIÓN ---
 
-  const blocked = (field.terrain === 'psychic' && (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || 0) > 0) || regResult.blockedByRegistry || immunityData !== null;
+  const movePriority = Number.isFinite(cand?.priority) ? cand.priority : (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[moveId] || 0);
+  const blocked = regResult.blockedByRegistry || immunityData !== null;
 
   if (blocked) {
-    if (!immunityData && field.terrain === 'psychic' && (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || 0) > 0) {
+    if (!immunityData && field.terrain === 'psychic' && movePriority > 0) {
         immunityData = { type: 'field', name: 'Campo Psíquico' };
     }
     const res = { damage: 0, minDamage: 0, maxDamage: 0, blocked: true, wMul, terrMul, registry: regResult.registry, immunityData };

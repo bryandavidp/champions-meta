@@ -638,17 +638,54 @@ export const MOVE_PRIORITY_LEVELS = {
 };
 
 // Movimientos típicos de spread en dobles
-export const SPREAD_MOVES = new Set([
+const normalizeMoveKey = (name) =>
+  String(name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+const SPREAD_MOVE_NAMES = [
   'Rock Slide',
+  'Avalancha',
   'Heat Wave',
+  'Onda Ignea',
   'Earthquake',
+  'Terremoto',
+  'Bulldoze',
+  'Terratemblor',
   'Snarl',
+  'Alarido',
   'Dazzling Gleam',
+  'Brillo Magico',
   'Make It Rain',
+  'Fiebre Dorada',
   'Bleakwind Storm',
-  'Hurricane', // según formato, ajústalo
-  // añade aquí los que uses más en Champions OU
-]);
+  'Icy Wind',
+  'Viento Hielo',
+  'Electroweb',
+  'Red Viscosa',
+  'Muddy Water',
+  'Agua Lodosa',
+  'Discharge',
+  'Chispazo',
+  'Blizzard',
+  'Ventisca',
+  'Hyper Voice',
+  'Vozarron',
+  'Water Spout',
+  'Salpicar',
+  'Eruption',
+  'Estallido',
+  'Hurricane',
+];
+
+export const SPREAD_MOVES = new Set(
+  SPREAD_MOVE_NAMES.flatMap((move) => {
+    const raw = String(move);
+    return [raw, raw.toLowerCase(), normalizeMoveKey(raw)];
+  })
+);
 
 // Multi-hits garantizados (aprox. corto plazo)
 export const GUARANTEED_MULTI_HITS = {

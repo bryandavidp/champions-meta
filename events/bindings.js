@@ -534,6 +534,12 @@ export function initEventBindings(callbacks = {}) {
   }, true);
 
   document.addEventListener('click', (e) => {
+    if (e.target && typeof e.target.closest === 'function' && quickMode.handleTurn1SimulatorClick?.(e.target)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     if (!e.target || typeof e.target.closest !== 'function') return;
     const btnLock = e.target.closest('#lockBestFourBtn');
     if (btnLock) {
@@ -546,6 +552,13 @@ export function initEventBindings(callbacks = {}) {
     if (comboCard) {
       const idxs = comboCard.dataset.combo.split(',').map((value) => Number(value));
       quickMode.applyQuickCombo(idxs);
+    }
+  });
+
+  document.addEventListener('change', (e) => {
+    if (e.target && typeof e.target.closest === 'function' && quickMode.handleTurn1SimulatorChange?.(e.target)) {
+      e.preventDefault();
+      e.stopPropagation();
     }
   });
 

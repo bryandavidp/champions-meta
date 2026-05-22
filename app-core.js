@@ -15,7 +15,7 @@ import {
   escapeHtml, localizeMoveName, localizeTypeName 
 } from './utils/text.js';
 import { hexToRgba, typeDot, typeChip, effectiveness, fmtMult, effClass, topKey } from './utils/types.js';
-import { parseSpread, getNatureSpeModifier, natureMod, getBaseStatRaw, calcMonHP, stageMultiplier, calcOtherStatLv50, calculateEffectiveStats } from './battle/stats.js';
+import { parseSpread, natureMod, getBaseStatRaw, calcMonHP, stageMultiplier, calcOtherStatLv50, calculateEffectiveStats } from './battle/stats.js';
 import { state, createInitialState } from './core/state.js';
 import { LIVE } from './core/dom.js';
 import { serializeSetSummary, getCacheKey, buildMetaIndex } from './data/meta.js';
@@ -69,14 +69,24 @@ window.openModal = openModal;
 window.setUiMode = setUiMode;
 setEffectsActiveIndicesCallback((side) => state.uiMode === 'quick' ? quickMode.getTurn1ResolvedLeadIndices(side) : (side === 'self' ? state.activeSelfSlots : state.activeEnemySlots));
 
-export function getPriority(moveName) {
+export function getPriority(moveName, mon = null) {
   if (!moveName) return 0;
-  const m = String(moveName).toLowerCase().replace(/[^a-z]/g, '');
-  if (['fakeout', 'sorpresa', 'firstimpression', 'escaramuza'].includes(m)) return 3;
-  if (['extremespeed', 'velocidadextrema'].includes(m)) return 2;
-  if (['suckerpunch', 'golpebajo', 'aquajet', 'acuajet', 'machpunch', 'ultrapuño', 'bulletpunch', 'puñobala', 'iceshard', 'cantohelado', 'shadowsneak', 'sombravil', 'grassyglide', 'fitimpulso'].includes(m)) return 1;
-  if (['trickroom', 'espacioraro'].includes(m)) return -7;
-  return typeof MOVE_PRIORITY_LEVELS !== 'undefined' ? (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || 0) : 0;
+  const m = getMoveSlug(moveName);
+  let prio = 0;
+  if (['helpinghand', 'refuerzo'].includes(m)) prio = 5;
+  else if (['protect', 'proteccion', 'detect', 'deteccion', 'spikyshield', 'barreraespinosa', 'kingsshield', 'escudoreal', 'banefulbunker', 'bunker', 'obstruct', 'obstruccion', 'silktrap'].includes(m)) prio = 4;
+  else if (['wideguard', 'vastaguardia', 'quickguard', 'anticipo'].includes(m)) prio = 3;
+  else if (['fakeout', 'sorpresa', 'firstimpression', 'escaramuza'].includes(m)) prio = 3;
+  else if (['extremespeed', 'velocidadextrema', 'feint', 'amago', 'followme', 'senuelo', 'seuelo', 'ragepowder', 'polvoira'].includes(m)) prio = 2;
+  else if (['suckerpunch', 'golpebajo', 'aquajet', 'acuajet', 'machpunch', 'ultrapuno', 'bulletpunch', 'punobala', 'iceshard', 'cantohelado', 'shadowsneak', 'sombravil', 'grassyglide', 'fitimpulso'].includes(m)) prio = 1;
+  else if (['trickroom', 'espacioraro'].includes(m)) prio = -7;
+  else prio = typeof MOVE_PRIORITY_LEVELS !== 'undefined' ? (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[m] || 0) : 0;
+
+  const ability = (mon?.set?.ability || mon?.ability || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+  if (['prankster', 'bromista'].includes(ability) && isStatusMoveForSimulation(moveName) && prio >= 0) {
+    prio += 1;
+  }
+  return prio;
 }
 
 window.loggedMessages = window.loggedMessages || new Set();
@@ -2012,6 +2022,942 @@ export function getTurn1ResolvedLeadIndices(side) {
   return out.slice(0, 2);
 }
 
+function ensureTurn1BattleSession() {
+  if (!state.turn1Battle) {
+    state.turn1Battle = { active: false, turn: 1, log: [], lastActionId: 0, actedThisTurn: {}, lastResolvedOrder: null, pendingSwitch: null };
+  }
+  if (!Array.isArray(state.turn1Battle.log)) state.turn1Battle.log = [];
+  if (!state.turn1Battle.actedThisTurn || typeof state.turn1Battle.actedThisTurn !== 'object') state.turn1Battle.actedThisTurn = {};
+  if (!Number.isFinite(state.turn1Battle.turn)) state.turn1Battle.turn = 1;
+  if (!Number.isFinite(state.turn1Battle.lastActionId)) state.turn1Battle.lastActionId = 0;
+  if (!('lastResolvedOrder' in state.turn1Battle)) state.turn1Battle.lastResolvedOrder = null;
+  if (!('pendingSwitch' in state.turn1Battle)) state.turn1Battle.pendingSwitch = null;
+  return state.turn1Battle;
+}
+
+function setMonBattleDefaults(mon, side) {
+  if (!mon) return;
+  ensureBattleState(mon);
+  mon.battle.side = side;
+  if (!Number.isFinite(mon.battle.hpPct)) mon.battle.hpPct = 100;
+  if (!mon.battle.status) mon.battle.status = 'none';
+  if (!mon.battle.stages) mon.battle.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+}
+
+function pushTurn1BattleLog(kind, title, text, meta = {}) {
+  const session = ensureTurn1BattleSession();
+  session.lastActionId += 1;
+  session.log.unshift({
+    id: session.lastActionId,
+    kind,
+    title,
+    text,
+    turn: session.turn,
+    time: Date.now(),
+    ...meta,
+  });
+  session.log = session.log.slice(0, 18);
+}
+
+function describeTurnPriority(prio, spe = null) {
+  if (prio) return `prioridad ${prio > 0 ? '+' : ''}${prio}`;
+  return spe === null ? 'prioridad normal' : `Vel ${Math.abs(spe)}`;
+}
+
+function clearTurn1Caches() {
+  window.currentDamageCache = {};
+  window.comboBestAttackCache = {};
+}
+
+function getTurnActionKey(side, idx) {
+  return `${side}:${idx}`;
+}
+
+function canMoveBypassTurnLock(moveName) {
+  const slug = getMoveSlug(moveName);
+  return ['instruct', 'mandato'].includes(slug);
+}
+
+function getMoveSlug(moveName) {
+  return String(moveName || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function isProtectMove(moveName) {
+  const slug = getMoveSlug(moveName);
+  return ['protect', 'proteccion', 'detect', 'deteccion', 'spikyshield', 'barreraespinosa', 'kingsshield', 'escudoreal', 'banefulbunker', 'bunker'].includes(slug);
+}
+
+function isStatusMoveForSimulation(moveName) {
+  if (!moveName) return false;
+  const info = getMoveInfoForSimulation(moveName);
+  return info.damageClass === 'status' || (!info.power && info.damageClass !== 'physical' && info.damageClass !== 'special');
+}
+
+function hasTurnActionBeenUsed(side, idx) {
+  const session = ensureTurn1BattleSession();
+  return !!session.actedThisTurn?.[getTurnActionKey(side, idx)];
+}
+
+function getTurnActionLockLabel(side, idx) {
+  const used = ensureTurn1BattleSession().actedThisTurn?.[getTurnActionKey(side, idx)];
+  return used?.move ? `Ya actuó con ${formatName(getTranslation(used.move, 'move') || used.move)}` : 'Ya actuó este turno';
+}
+
+function clearTurnVolatiles(mon) {
+  if (!mon?.battle) return;
+  mon.battle.flinched = false;
+  mon.battle.flinchedBy = null;
+  mon.battle.protected = false;
+  mon.battle.protectedBy = null;
+  mon.battle.enteredThisTurn = false;
+}
+
+function advanceMonTurnState(mon) {
+  if (!mon?.battle) return;
+  clearTurnVolatiles(mon);
+  if (mon.battle.tauntTurns) {
+    mon.battle.tauntTurns = Math.max(0, Number(mon.battle.tauntTurns) - 1);
+    if (!mon.battle.tauntTurns) {
+      mon.battle.taunted = false;
+      mon.battle.tauntTurns = 0;
+    }
+  }
+}
+
+function getHardTurnBlockReason(mon) {
+  if (!mon) return 'no esta en mesa';
+  const hpPct = mon.battle?.hpPct ?? 100;
+  if (mon.fainted || hpPct <= 0) return 'esta debilitado';
+  if (mon.battle?.enteredThisTurn) return 'acaba de entrar este turno';
+  if (mon.battle?.flinched) {
+    return mon.battle.flinchedBy ? `retrocede por ${mon.battle.flinchedBy}` : 'retrocede este turno';
+  }
+  if (mon.battle?.status === 'slp') return 'esta dormido';
+  if (mon.battle?.status === 'frz') return 'esta congelado';
+  return null;
+}
+
+function getActionBlockReason(mon, moveName = null) {
+  const hardReason = getHardTurnBlockReason(mon);
+  if (hardReason) return hardReason;
+  if (moveName && mon?.battle?.taunted && isStatusMoveForSimulation(moveName)) {
+    return 'Mofa bloquea movimientos de estado';
+  }
+  return null;
+}
+
+function getTurn1PendingActionQueue({ requestedSide = null, requestedIdx = null, requestedMove = null } = {}) {
+  ensureTurn1LeadDefaults();
+  const entries = [];
+  const sides = ['self', 'enemy'];
+  sides.forEach(side => {
+    getTurn1ResolvedLeadIndices(side).forEach(idx => {
+      const mon = state[side]?.[idx];
+      if (!mon) return;
+      setMonBattleDefaults(mon, side);
+      if (mon.fainted || (mon.battle?.hpPct ?? 100) <= 0) return;
+      if (getHardTurnBlockReason(mon)) return;
+      if (hasTurnActionBeenUsed(side, idx)) return;
+      const isRequested = side === requestedSide && Number(idx) === Number(requestedIdx);
+      const requestedPrio = requestedMove ? getPriority(requestedMove, mon) : 0;
+      const prio = isRequested ? requestedPrio : 0;
+      const spe = calculateSpeed(mon, side, state.field);
+      entries.push({ side, idx, mon, prio, spe });
+    });
+  });
+  return entries.sort((a, b) => {
+    if (b.prio !== a.prio) return b.prio - a.prio;
+    if (b.spe !== a.spe) return b.spe - a.spe;
+    if (a.side !== b.side) return a.side === 'self' ? -1 : 1;
+    return a.idx - b.idx;
+  });
+}
+
+function getTurn1ActionOrderBlock(side, idx, moveName) {
+  const session = ensureTurn1BattleSession();
+  if (!session.active) return null;
+  if (session.pendingSwitch) {
+    const switchMon = state[session.pendingSwitch.side]?.[session.pendingSwitch.sourceIdx];
+    const switchName = formatName(
+      session.pendingSwitch.sourceName
+      || switchMon?.displayName
+      || switchMon?.name
+      || 'ese Pokemon'
+    );
+    return `Antes debes elegir el relevo de ${switchName}`;
+  }
+  const mon = state[side]?.[idx];
+  const requestedPrio = getPriority(moveName, mon);
+  const requestedSpe = mon ? calculateSpeed(mon, side, state.field) : 0;
+  const last = session.lastResolvedOrder;
+  if (last) {
+    if (requestedPrio > last.prio) {
+      return `La ventana de ${describeTurnPriority(requestedPrio)} ya pasÃ³`;
+    }
+    if (requestedPrio === last.prio && requestedSpe > last.spe) {
+      return `Ese punto de velocidad ya pasÃ³; ya resolviste una acciÃ³n mÃ¡s lenta de ${describeTurnPriority(requestedPrio)}`;
+    }
+  }
+  if (requestedPrio > 0) return null;
+  const queue = getTurn1PendingActionQueue({ requestedSide: side, requestedIdx: idx, requestedMove: moveName });
+  const current = queue.find(entry => entry.side === side && Number(entry.idx) === Number(idx));
+  if (!current) return null;
+  const first = queue[0];
+  if (!first || (first.side === side && Number(first.idx) === Number(idx))) return null;
+  if (first.prio === current.prio && first.spe === current.spe) return null;
+  const firstName = formatName(first.mon.displayName || first.mon.name);
+  const prioText = describeTurnPriority(first.prio, first.spe);
+  return `Antes debe actuar ${firstName} (${prioText})`;
+}
+
+function applyManualSelfMoveEffects(attacker, moveName, side = 'self') {
+  if (!attacker) return null;
+  const slug = getMoveSlug(moveName);
+  const attackerName = formatName(attacker.displayName || attacker.name);
+  const f = state.field;
+  const isSelfSide = side !== 'enemy';
+
+  if (['tailwind', 'vientoafin'].includes(slug)) {
+    if (isSelfSide) {
+      f.tailwindSelf = true;
+      f.tailwindSelfTurns = 4;
+    } else {
+      f.tailwindEnemy = true;
+      f.tailwindEnemyTurns = 4;
+    }
+    return `${attackerName} activa Viento Afin para su lado durante 4 turnos.`;
+  }
+
+  if (['trickroom', 'espacioraro'].includes(slug)) {
+    f.trickRoom = !f.trickRoom;
+    f.trickRoomTurns = f.trickRoom ? 5 : 0;
+    return `${attackerName} ${f.trickRoom ? 'activa' : 'desactiva'} Trick Room.`;
+  }
+
+  if (['reflect', 'reflejo'].includes(slug)) {
+    if (isSelfSide) {
+      f.reflectSelf = true;
+      f.reflectSelfTurns = 5;
+    } else {
+      f.reflectEnemy = true;
+      f.reflectEnemyTurns = 5;
+    }
+    return `${attackerName} levanta Reflejo.`;
+  }
+
+  if (['lightscreen', 'pantallaluz'].includes(slug)) {
+    if (isSelfSide) {
+      f.lightScreenSelf = true;
+      f.lightScreenSelfTurns = 5;
+    } else {
+      f.lightScreenEnemy = true;
+      f.lightScreenEnemyTurns = 5;
+    }
+    return `${attackerName} levanta Pantalla Luz.`;
+  }
+
+  if (['auroraveil', 'veloaurora'].includes(slug)) {
+    if (isSelfSide) {
+      f.auroraVeilSelf = true;
+      f.auroraVeilSelfTurns = 5;
+    } else {
+      f.auroraVeilEnemy = true;
+      f.auroraVeilEnemyTurns = 5;
+    }
+    return `${attackerName} activa Velo Aurora.`;
+  }
+
+  if (['wideguard', 'vastaguardia'].includes(slug)) {
+    if (isSelfSide) f.wideGuardSelf = true;
+    else f.wideGuardEnemy = true;
+    return `${attackerName} protege a su lado de movimientos de area.`;
+  }
+
+  if (['quickguard', 'anticipo'].includes(slug)) {
+    if (isSelfSide) f.quickGuardSelf = true;
+    else f.quickGuardEnemy = true;
+    return `${attackerName} protege a su lado de movimientos de prioridad.`;
+  }
+
+  if (['followme', 'senuelo', 'seuelo', 'ragepowder', 'polvoira'].includes(slug)) {
+    if (isSelfSide) f.redirectionSelf = attacker.name || attacker.displayName || true;
+    else f.redirectionEnemy = attacker.name || attacker.displayName || true;
+    return `${attackerName} redirige la presion rival hacia si.`;
+  }
+
+  if (!isProtectMove(moveName)) return null;
+  ensureBattleState(attacker);
+  attacker.battle.protected = true;
+  attacker.battle.protectedBy = formatName(getTranslation(moveName, 'move') || moveName);
+  return `${attackerName} queda protegido hasta el final del turno.`;
+}
+
+function formatBattleStatus(status) {
+  const map = {
+    none: 'Sin estado',
+    brn: 'Quemado',
+    par: 'Paralizado',
+    slp: 'Dormido',
+    psn: 'Envenenado',
+    tox: 'Tóxico',
+    frz: 'Congelado',
+  };
+  return map[status] || formatName(status || 'Sin estado');
+}
+
+function getMoveInfoForSimulation(moveName) {
+  const info = fetchMoveInfo(moveName) || {};
+  return {
+    move: moveName,
+    type: info.type || 'normal',
+    power: info.power || 0,
+    damageClass: info.damageClass || 'status',
+    hits: info.hits || GUARANTEED_MULTI_HITS[moveName] || 1,
+    isSpread: info.isSpread || SPREAD_MOVES.has(getMoveSlug(moveName)),
+  };
+}
+
+function isSwitchAfterMove(moveName) {
+  const slug = getMoveSlug(moveName);
+  return [
+    'partingshot',
+    'ultimapalabra',
+    'uturn',
+    'idayvuelta',
+    'voltswitch',
+    'voltiocambio',
+    'flipturn',
+  ].includes(slug);
+}
+
+function getTurn1BenchIndices(side) {
+  const active = new Set(getTurn1ResolvedLeadIndices(side));
+  return state[side]
+    .map((mon, idx) => ({ mon, idx }))
+    .filter(({ mon, idx }) => mon && !active.has(idx) && !(mon.fainted || (mon.battle?.hpPct ?? 100) <= 0))
+    .map(({ idx }) => idx);
+}
+
+function getSpreadTargetEntries(targetSide) {
+  return getTurn1ResolvedLeadIndices(targetSide)
+    .map((idx) => ({ idx, mon: state[targetSide]?.[idx] }))
+    .filter(({ mon }) => mon && !(mon.fainted || (mon.battle?.hpPct ?? 100) <= 0));
+}
+
+function applyManualMoveSideEffects(attacker, defender, moveName, targetSide) {
+  const slug = getMoveSlug(moveName);
+  if (!defender) return null;
+  setMonBattleDefaults(defender, targetSide);
+
+  const statusMoves = {
+    willowisp: 'brn',
+    fuegofatuo: 'brn',
+    thunderwave: 'par',
+    ondatrueno: 'par',
+    spore: 'slp',
+    espora: 'slp',
+    sleeppowder: 'slp',
+    somnifero: 'slp',
+    toxic: 'tox',
+    toxico: 'tox',
+    poisonpowder: 'psn',
+    venenopolvo: 'psn',
+  };
+
+  if (statusMoves[slug] && (!defender.battle.status || defender.battle.status === 'none')) {
+    defender.battle.status = statusMoves[slug];
+    return `${formatName(defender.displayName || defender.name)} queda ${formatBattleStatus(statusMoves[slug]).toLowerCase()}.`;
+  }
+
+  if (['icywind', 'vientohielo', 'electroweb', 'redviscosa', 'bulldoze'].includes(slug)) {
+    defender.battle.stages.spe = Math.max(-6, (defender.battle.stages.spe || 0) - 1);
+    return `${formatName(defender.displayName || defender.name)} pierde 1 nivel de Velocidad.`;
+  }
+
+  if (['partingshot', 'ultimapalabra'].includes(slug)) {
+    defender.battle.stages.atk = Math.max(-6, (defender.battle.stages.atk || 0) - 1);
+    defender.battle.stages.spa = Math.max(-6, (defender.battle.stages.spa || 0) - 1);
+    return `${formatName(defender.displayName || defender.name)} recibe -1 Atk / -1 SpA.`;
+  }
+
+  if (['taunt', 'mofa'].includes(slug)) {
+    defender.battle.taunted = true;
+    defender.battle.tauntTurns = 3;
+    return `${formatName(defender.displayName || defender.name)} queda bajo Mofa.`;
+  }
+
+  if (['fakeout', 'sorpresa'].includes(slug)) {
+    defender.battle.flinched = true;
+    defender.battle.flinchedBy = formatName(attacker?.displayName || attacker?.name || getTranslation(moveName, 'move') || moveName);
+    return `${formatName(defender.displayName || defender.name)} queda marcado por retroceso este turno.`;
+  }
+
+  return null;
+}
+
+export function startTurn1BattleSimulation({ resetLog = false } = {}) {
+  const session = ensureTurn1BattleSession();
+  pruneInvalidTurn1Slots();
+  ensureTurn1LeadDefaults();
+  state.activeSelfSlots = getTurn1ResolvedLeadIndices('self');
+  state.activeEnemySlots = getTurn1ResolvedLeadIndices('enemy');
+
+  state.self.forEach(mon => setMonBattleDefaults(mon, 'self'));
+  state.enemy.forEach(mon => setMonBattleDefaults(mon, 'enemy'));
+
+  if (!session.active || resetLog) {
+    session.turn = 1;
+    session.actedThisTurn = {};
+    session.lastResolvedOrder = null;
+    session.pendingSwitch = null;
+    state.self.forEach(clearTurnVolatiles);
+    state.enemy.forEach(clearTurnVolatiles);
+    if (resetLog) session.log = [];
+  }
+  session.active = true;
+
+  recalculateActiveField();
+  pushTurn1BattleLog(
+    'start',
+    'Simulación iniciada',
+    'Se fija la mesa activa, se aplican entradas de campo y el simulador empieza a acumular turnos.',
+  );
+  clearTurn1Caches();
+  renderAll();
+}
+
+export function resetTurn1BattleSimulation() {
+  state.turn1Battle = { active: false, turn: 1, log: [], lastActionId: 0, actedThisTurn: {}, lastResolvedOrder: null, pendingSwitch: null };
+  state.self.forEach(mon => {
+    if (!mon) return;
+    ensureBattleState(mon);
+    mon.battle.hpPct = 100;
+    mon.battle.status = 'none';
+    mon.battle.taunted = false;
+    mon.battle.tauntTurns = 0;
+    mon.battle.flinched = false;
+    mon.battle.flinchedBy = null;
+    mon.battle.protected = false;
+    mon.battle.protectedBy = null;
+    mon.battle.enteredThisTurn = false;
+    mon.battle.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+    mon.fainted = false;
+  });
+  state.enemy.forEach(mon => {
+    if (!mon) return;
+    ensureBattleState(mon);
+    mon.battle.hpPct = 100;
+    mon.battle.status = 'none';
+    mon.battle.taunted = false;
+    mon.battle.tauntTurns = 0;
+    mon.battle.flinched = false;
+    mon.battle.flinchedBy = null;
+    mon.battle.protected = false;
+    mon.battle.protectedBy = null;
+    mon.battle.enteredThisTurn = false;
+    mon.battle.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+    mon.fainted = false;
+  });
+  recalculateActiveField();
+  clearTurn1Caches();
+  renderAll();
+}
+
+export function advanceTurn1BattleSimulation() {
+  const session = ensureTurn1BattleSession();
+  if (!session.active) {
+    startTurn1BattleSimulation();
+    return;
+  }
+  if (session.pendingSwitch) {
+    const pendingMon = state[session.pendingSwitch.side]?.[session.pendingSwitch.sourceIdx];
+    const pendingName = formatName(
+      session.pendingSwitch.sourceName
+      || pendingMon?.displayName
+      || pendingMon?.name
+      || 'ese Pokemon'
+    );
+    pushTurn1BattleLog('blocked', 'Cambio pendiente', `No puedes avanzar de turno hasta elegir el relevo de ${pendingName}.`);
+    renderAll();
+    return;
+  }
+  tickField(state);
+  state.self.forEach(advanceMonTurnState);
+  state.enemy.forEach(advanceMonTurnState);
+  session.actedThisTurn = {};
+  session.lastResolvedOrder = null;
+  session.pendingSwitch = null;
+  session.turn += 1;
+  pushTurn1BattleLog('turn', `Turno ${session.turn}`, 'Se reducen duraciones de clima, campo, Tailwind, pantallas y flags temporales.');
+  clearTurn1Caches();
+  renderAll();
+}
+
+export function applyTurn1FieldControl(kind, value, side = null) {
+  const session = ensureTurn1BattleSession();
+  session.active = true;
+  const f = state.field;
+  let label = '';
+
+  if (kind === 'weather') {
+    f.weather = f.weather === value ? null : value;
+    f.weatherTurns = f.weather ? 5 : 0;
+    label = f.weather ? `Clima: ${WEATHER_LABELS[f.weather] || weatherNames[f.weather] || formatName(f.weather)}` : 'Clima despejado';
+  } else if (kind === 'terrain') {
+    f.terrain = f.terrain === value ? null : value;
+    f.terrainTurns = f.terrain ? 5 : 0;
+    label = f.terrain ? `Terreno: ${TERRAIN_LABELS[f.terrain] || formatName(f.terrain)}` : 'Terreno neutral';
+  } else if (kind === 'trickRoom') {
+    f.trickRoom = !f.trickRoom;
+    f.trickRoomTurns = f.trickRoom ? 5 : 0;
+    label = f.trickRoom ? 'Trick Room activo' : 'Trick Room desactivado';
+  } else if (kind === 'tailwind') {
+    const flag = side === 'enemy' ? 'tailwindEnemy' : 'tailwindSelf';
+    const turns = side === 'enemy' ? 'tailwindEnemyTurns' : 'tailwindSelfTurns';
+    f[flag] = !f[flag];
+    f[turns] = f[flag] ? 4 : 0;
+    label = `${side === 'enemy' ? 'Rival' : 'Propio'}: ${f[flag] ? 'Tailwind activo' : 'Tailwind apagado'}`;
+  }
+
+  pushTurn1BattleLog('field', 'Campo ajustado', label || 'Se ajusta una propiedad del campo.');
+  clearTurn1Caches();
+  renderAll();
+}
+
+function applyTurn1MoveSelectionRuntime(payload = {}) {
+  const session = ensureTurn1BattleSession();
+  if (!session.active) {
+    startTurn1BattleSimulation();
+  }
+
+  const side = payload.side;
+  const userIndex = Number(payload.userIdx);
+  const targetSide = payload.targetSide;
+  const targetIndex = Number(payload.targetIdx);
+  const targetMode = payload.targetMode || null;
+  const moveName = payload.move;
+  const attacker = state[side]?.[userIndex];
+
+  if (!attacker || !moveName) return;
+  setMonBattleDefaults(attacker, side);
+
+  const actionKey = getTurnActionKey(side, userIndex);
+  const attackerName = formatName(attacker.displayName || attacker.name);
+  const moveLabel = formatName(getTranslation(moveName, 'move') || moveName);
+
+  if (session.pendingSwitch) {
+    const pendingMon = state[session.pendingSwitch.side]?.[session.pendingSwitch.sourceIdx];
+    const pendingName = formatName(
+      session.pendingSwitch.sourceName
+      || pendingMon?.displayName
+      || pendingMon?.name
+      || 'ese Pokemon'
+    );
+    pushTurn1BattleLog('blocked', 'Cambio pendiente', `Antes de seguir debes elegir el relevo de ${pendingName}.`);
+    renderAll();
+    return;
+  }
+
+  if (attacker.fainted || (attacker.battle?.hpPct ?? 100) <= 0) {
+    pushTurn1BattleLog('blocked', 'Accion invalida', `${attackerName} esta debilitado y no puede actuar.`);
+    renderAll();
+    return;
+  }
+  const actionBlockReason = getActionBlockReason(attacker, moveName);
+  if (actionBlockReason) {
+    pushTurn1BattleLog('blocked', 'Accion impedida', `${attackerName} no puede usar ${moveLabel}: ${actionBlockReason}.`);
+    renderAll();
+    return;
+  }
+  if (session.actedThisTurn[actionKey] && !canMoveBypassTurnLock(moveName)) {
+    pushTurn1BattleLog('blocked', 'Accion ya usada', `${attackerName} ya actuo este turno. Avanza al siguiente turno para volver a mover.`);
+    renderAll();
+    return;
+  }
+  const orderBlockReason = getTurn1ActionOrderBlock(side, userIndex, moveName);
+  if (orderBlockReason) {
+    pushTurn1BattleLog('blocked', 'Orden de turno', `${attackerName} no puede resolver ${moveLabel} todavia. ${orderBlockReason}.`);
+    renderAll();
+    return;
+  }
+
+  ensureMoveRegistry(moveName);
+  ensureAbilityRegistry(attacker.set?.ability);
+  ensureItemRegistry(attacker.set?.item);
+
+  const moveCandidate = getMoveInfoForSimulation(moveName);
+  moveCandidate.priority = getPriority(moveName, attacker);
+  const resolvedTargetSide = targetSide || (side === 'self' ? 'enemy' : 'self');
+  const isSpreadSelection = targetMode === 'spread-foes' || (!!moveCandidate.isSpread && resolvedTargetSide !== side);
+  let logText = `${attackerName} usa ${moveLabel}.`;
+  const selfEffectText = applyManualSelfMoveEffects(attacker, moveName, side);
+  if (selfEffectText) logText = selfEffectText;
+
+  const targetEntries = isSpreadSelection
+    ? getSpreadTargetEntries(resolvedTargetSide)
+    : (Number.isFinite(targetIndex)
+      ? [{ idx: targetIndex, mon: state[resolvedTargetSide]?.[targetIndex] }]
+      : []);
+  let hadSuccessfulTargetEffect = false;
+
+  if (targetEntries.length) {
+    const logSegments = [];
+    for (const targetEntry of targetEntries) {
+      const defender = targetEntry.mon;
+      if (!defender) continue;
+      setMonBattleDefaults(defender, resolvedTargetSide);
+      const defenderName = formatName(defender.displayName || defender.name);
+      if (defender.fainted || (defender.battle?.hpPct ?? 100) <= 0) {
+        logSegments.push(`${defenderName} ya estaba fuera de combate.`);
+        continue;
+      }
+
+      const attackerAbility = (attacker.set?.ability || attacker.ability || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z]/g, '');
+      const pranksterBoosted = ['prankster', 'bromista'].includes(attackerAbility)
+        && isStatusMoveForSimulation(moveName)
+        && getPriority(moveName, attacker) > getPriority(moveName, null);
+      const defenderIsDark = (defender.types || []).map((t) => String(t).toLowerCase()).includes('dark');
+      if (pranksterBoosted && resolvedTargetSide !== side && defenderIsDark) {
+        logSegments.push(`${defenderName} bloquea ${moveLabel} por ser de tipo Siniestro frente a Bromista.`);
+        continue;
+      }
+
+      const result = estimateMoveDamage(attacker, defender, moveCandidate, state.field);
+      const baseHP = calcMonHP(defender);
+      const currentPct = defender.battle.hpPct ?? 100;
+      const currentHP = Math.max(0, Math.floor((baseHP * currentPct) / 100));
+      const rawNewHP = Math.max(0, currentHP - (result.damage || 0));
+      let nextPct = Math.max(0, Math.floor((rawNewHP / baseHP) * 100));
+
+      const itemId = (defender.set?.item || defender.item || '').toLowerCase().replace(/[^a-z]/g, '');
+      const abilityId = (defender.set?.ability || defender.ability || '').toLowerCase().replace(/[^a-z]/g, '');
+      const canHoldAtOne = currentPct >= 99 && nextPct <= 0 && ['focussash', 'bandafocus'].includes(itemId);
+      const sturdyHold = currentPct >= 99 && nextPct <= 0 && ['sturdy', 'robustez'].includes(abilityId);
+      if (canHoldAtOne || sturdyHold) {
+        nextPct = 1;
+        defender.battle.turn1Triggers = {
+          ...(defender.battle.turn1Triggers || {}),
+          [canHoldAtOne ? 'sash' : 'sturdy']: true,
+        };
+      }
+
+      if (!result.blocked && result.damage > 0) {
+        defender.battle.hpPct = nextPct;
+        defender.fainted = nextPct <= 0;
+        hadSuccessfulTargetEffect = true;
+        logSegments.push(`${defenderName} recibe ${Math.max(0, currentPct - nextPct)}% y queda al ${nextPct}%${canHoldAtOne || sturdyHold ? ' aguantando a 1 PS' : ''}.`);
+      } else if (result.blocked) {
+        const blockName = result.immunityData?.name || 'proteccion o inmunidad';
+        logSegments.push(`${defenderName} lo bloquea con ${formatName(blockName)}.`);
+      }
+
+      const sideEffectText = !result.blocked
+        ? applyManualMoveSideEffects(attacker, defender, moveName, resolvedTargetSide)
+        : null;
+      if (sideEffectText) {
+        hadSuccessfulTargetEffect = true;
+        logSegments.push(sideEffectText);
+      }
+    }
+
+    if (logSegments.length) {
+      logText = `${attackerName} usa ${moveLabel}${isSpreadSelection ? ' sobre ambos rivales' : ''}: ${logSegments.join(' ')}`;
+    }
+  }
+
+  if (!selfEffectText) {
+    applyMoveResolutionEffects(attacker, { name: moveName, move: moveName });
+  }
+
+  if (isSwitchAfterMove(moveName) && hadSuccessfulTargetEffect) {
+    const benchOptions = getTurn1BenchIndices(side);
+    if (benchOptions.length) {
+      session.pendingSwitch = {
+        side,
+        sourceIdx: userIndex,
+        sourceName: attackerName,
+        move: moveName,
+        turn: session.turn,
+      };
+      logText += ` ${attackerName} debe retirarse ahora; elige un relevo.`;
+    } else {
+      logText += ` ${attackerName} deberia pivotar, pero no queda relevo disponible.`;
+    }
+  }
+
+  if (!canMoveBypassTurnLock(moveName)) {
+    session.actedThisTurn[actionKey] = {
+      move: moveName,
+      turn: session.turn,
+      targetSide: resolvedTargetSide,
+      targetIndex: Number.isFinite(targetIndex) ? targetIndex : null,
+      targetMode: isSpreadSelection ? 'spread-foes' : null,
+    };
+    session.lastResolvedOrder = {
+      prio: getPriority(moveName, attacker),
+      spe: calculateSpeed(attacker, side, state.field),
+      side,
+      idx: userIndex,
+      move: moveName,
+    };
+  }
+
+  pushTurn1BattleLog('move', moveLabel, logText, {
+    side,
+    userIndex,
+    targetSide: resolvedTargetSide,
+    targetIndex: Number.isFinite(targetIndex) ? targetIndex : null,
+    targetMode: isSpreadSelection ? 'spread-foes' : null,
+  });
+  clearTurn1Caches();
+  renderAll();
+}
+
+export function applyTurn1MoveSelection(payload = {}) {
+  return applyTurn1MoveSelectionRuntime(payload);
+  const session = ensureTurn1BattleSession();
+  if (!session.active) {
+    startTurn1BattleSimulation();
+  }
+
+  const side = payload.side;
+  const userIndex = Number(payload.userIdx);
+  const targetSide = payload.targetSide;
+  const targetIndex = Number(payload.targetIdx);
+  const targetMode = payload.targetMode || null;
+  const moveName = payload.move;
+  const attacker = state[side]?.[userIndex];
+
+  if (!attacker || !moveName) return;
+  setMonBattleDefaults(attacker, side);
+
+  const actionKey = getTurnActionKey(side, userIndex);
+  const attackerName = formatName(attacker.displayName || attacker.name);
+  const moveLabel = formatName(getTranslation(moveName, 'move') || moveName);
+  if (session.pendingSwitch) {
+    const pendingMon = state[session.pendingSwitch.side]?.[session.pendingSwitch.sourceIdx];
+    const pendingName = formatName(
+      session.pendingSwitch.sourceName
+      || pendingMon?.displayName
+      || pendingMon?.name
+      || 'ese Pokemon'
+    );
+    pushTurn1BattleLog('blocked', 'Cambio pendiente', `Antes de seguir debes elegir el relevo de ${pendingName}.`);
+    renderAll();
+    return;
+  }
+  if (attacker.fainted || (attacker.battle?.hpPct ?? 100) <= 0) {
+    pushTurn1BattleLog('blocked', 'Acción inválida', `${attackerName} está debilitado y no puede actuar.`);
+    renderAll();
+    return;
+  }
+  const actionBlockReason = getActionBlockReason(attacker, moveName);
+  if (actionBlockReason) {
+    pushTurn1BattleLog('blocked', 'Acción impedida', `${attackerName} no puede usar ${moveLabel}: ${actionBlockReason}.`);
+    renderAll();
+    return;
+  }
+  if (session.actedThisTurn[actionKey] && !canMoveBypassTurnLock(moveName)) {
+    pushTurn1BattleLog('blocked', 'Acción ya usada', `${attackerName} ya actuó este turno. Avanza al siguiente turno para volver a mover.`);
+    renderAll();
+    return;
+  }
+  const orderBlockReason = getTurn1ActionOrderBlock(side, userIndex, moveName);
+  if (orderBlockReason) {
+    pushTurn1BattleLog('blocked', 'Orden de turno', `${attackerName} no puede resolver ${moveLabel} todavía. ${orderBlockReason}.`);
+    renderAll();
+    return;
+  }
+
+  ensureMoveRegistry(moveName);
+  ensureAbilityRegistry(attacker.set?.ability);
+  ensureItemRegistry(attacker.set?.item);
+
+  const moveCandidate = getMoveInfoForSimulation(moveName);
+  moveCandidate.priority = getPriority(moveName, attacker);
+  let logText = `${attackerName} usa ${moveLabel}.`;
+  const selfEffectText = applyManualSelfMoveEffects(attacker, moveName, side);
+  if (selfEffectText) logText = selfEffectText;
+
+  if (defender) {
+    const defenderName = formatName(defender.displayName || defender.name);
+    if (defender.fainted || (defender.battle?.hpPct ?? 100) <= 0) {
+      pushTurn1BattleLog('blocked', 'Objetivo debilitado', `${attackerName} intenta ${moveLabel}, pero ${defenderName} ya está fuera de combate.`);
+      renderAll();
+      return;
+    }
+    const attackerAbility = (attacker.set?.ability || attacker.ability || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+    const pranksterBoosted = ['prankster', 'bromista'].includes(attackerAbility) && isStatusMoveForSimulation(moveName) && getPriority(moveName, attacker) > getPriority(moveName, null);
+    const defenderIsDark = (defender.types || []).map(t => String(t).toLowerCase()).includes('dark');
+    if (pranksterBoosted && targetSide !== side && defenderIsDark) {
+      pushTurn1BattleLog('blocked', 'Bromista bloqueado', `${attackerName} intenta ${moveLabel}, pero ${defenderName} es de tipo Siniestro y bloquea movimientos de estado con Bromista.`);
+      if (!canMoveBypassTurnLock(moveName)) {
+        session.actedThisTurn[actionKey] = { move: moveName, turn: session.turn, targetSide, targetIndex };
+        session.lastResolvedOrder = {
+          prio: getPriority(moveName, attacker),
+          spe: calculateSpeed(attacker, side, state.field),
+          side,
+          idx: userIndex,
+          move: moveName,
+        };
+      }
+      renderAll();
+      return;
+    }
+    const result = estimateMoveDamage(attacker, defender, moveCandidate, state.field);
+    const baseHP = calcMonHP(defender);
+    const currentPct = defender.battle.hpPct ?? 100;
+    const currentHP = Math.max(0, Math.floor((baseHP * currentPct) / 100));
+    const rawNewHP = Math.max(0, currentHP - (result.damage || 0));
+    let nextPct = Math.max(0, Math.floor((rawNewHP / baseHP) * 100));
+
+    const itemId = (defender.set?.item || defender.item || '').toLowerCase().replace(/[^a-z]/g, '');
+    const abilityId = (defender.set?.ability || defender.ability || '').toLowerCase().replace(/[^a-z]/g, '');
+    const canHoldAtOne = currentPct >= 99 && nextPct <= 0 && ['focussash', 'bandafocus'].includes(itemId);
+    const sturdyHold = currentPct >= 99 && nextPct <= 0 && ['sturdy', 'robustez'].includes(abilityId);
+    if (canHoldAtOne || sturdyHold) {
+      nextPct = 1;
+      defender.battle.turn1Triggers = { ...(defender.battle.turn1Triggers || {}), [canHoldAtOne ? 'sash' : 'sturdy']: true };
+    }
+
+    if (!result.blocked && result.damage > 0) {
+      defender.battle.hpPct = nextPct;
+      defender.fainted = nextPct <= 0;
+      logText = `${attackerName} usa ${moveLabel} sobre ${defenderName}: ${Math.max(0, currentPct - nextPct)}% aplicado (${nextPct}% restante).`;
+      if (canHoldAtOne || sturdyHold) logText += ` ${defenderName} aguanta a 1 PS.`;
+    } else if (result.blocked) {
+      const blockName = result.immunityData?.name || 'protección o inmunidad';
+      logText = `${attackerName} intenta ${moveLabel} sobre ${defenderName}, pero lo bloquea ${formatName(blockName)}.`;
+    }
+
+    const sideEffectText = !result.blocked ? applyManualMoveSideEffects(attacker, defender, moveName, targetSide) : null;
+    if (sideEffectText) logText += ` ${sideEffectText}`;
+  }
+
+  if (!selfEffectText) {
+    applyMoveResolutionEffects(attacker, { name: moveName, move: moveName });
+  }
+  if (!canMoveBypassTurnLock(moveName)) {
+    session.actedThisTurn[actionKey] = { move: moveName, turn: session.turn, targetSide, targetIndex };
+    session.lastResolvedOrder = {
+      prio: getPriority(moveName, attacker),
+      spe: calculateSpeed(attacker, side, state.field),
+      side,
+      idx: userIndex,
+      move: moveName,
+    };
+  }
+  pushTurn1BattleLog('move', moveLabel, logText, { side, userIndex, targetSide, targetIndex });
+  clearTurn1Caches();
+  renderAll();
+}
+
+export function handleTurn1SimulatorClick(target) {
+  if (document.activeElement?.matches?.('[data-t1-hp], [data-t1-status]')) {
+    handleTurn1SimulatorChange(document.activeElement);
+  }
+
+  const command = target.closest?.('[data-t1-sim-command]');
+  if (command) {
+    const value = command.dataset.t1SimCommand;
+    if (value === 'start') startTurn1BattleSimulation();
+    if (value === 'next') advanceTurn1BattleSimulation();
+    if (value === 'reset') resetTurn1BattleSimulation();
+    return true;
+  }
+
+  const field = target.closest?.('[data-t1-field-kind]');
+  if (field) {
+    applyTurn1FieldControl(field.dataset.t1FieldKind, field.dataset.t1FieldValue, field.dataset.t1Side || null);
+    return true;
+  }
+
+  const action = target.closest?.('[data-t1-action="move"]');
+  if (action) {
+    applyTurn1MoveSelection(action.dataset);
+    return true;
+  }
+
+  return false;
+}
+
+export function handleTurn1SimulatorChange(target) {
+  const hpInput = target.closest?.('[data-t1-hp]');
+  if (hpInput) {
+    const side = hpInput.dataset.side;
+    const idx = Number(hpInput.dataset.idx);
+    const mon = state[side]?.[idx];
+    if (!mon) return true;
+    setMonBattleDefaults(mon, side);
+    mon.battle.hpPct = Math.max(0, Math.min(100, Number(hpInput.value) || 0));
+    mon.fainted = mon.battle.hpPct <= 0;
+    ensureTurn1BattleSession().active = true;
+    clearTurn1Caches();
+    renderAll();
+    return true;
+  }
+
+  const statusSelect = target.closest?.('[data-t1-status]');
+  if (statusSelect) {
+    const side = statusSelect.dataset.side;
+    const idx = Number(statusSelect.dataset.idx);
+    const mon = state[side]?.[idx];
+    if (!mon) return true;
+    setMonBattleDefaults(mon, side);
+    mon.battle.status = statusSelect.value || 'none';
+    ensureStatusRegistry(mon.battle.status);
+    ensureTurn1BattleSession().active = true;
+    pushTurn1BattleLog('state', 'Estado manual', `${formatName(mon.displayName || mon.name)} ahora está: ${formatBattleStatus(mon.battle.status)}.`);
+    clearTurn1Caches();
+    renderAll();
+    return true;
+  }
+
+  return false;
+}
+
+function initTurn1SimulatorRuntimeBindings() {
+  if (window.__turn1SimulatorRuntimeBindingsReady) return;
+  window.__turn1SimulatorRuntimeBindingsReady = true;
+  document.addEventListener('click', (e) => {
+    if (!e.target || typeof e.target.closest !== 'function') return;
+    if (!e.target.closest('#turn1SimulatorPanel')) return;
+    if (handleTurn1SimulatorClick(e.target)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+  document.addEventListener('change', (e) => {
+    if (!e.target || typeof e.target.closest !== 'function') return;
+    if (!e.target.closest('#turn1SimulatorPanel')) return;
+    if (handleTurn1SimulatorChange(e.target)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+  document.addEventListener('input', (e) => {
+    if (!e.target || typeof e.target.closest !== 'function') return;
+    if (!e.target.closest('#turn1SimulatorPanel')) return;
+    const hpInput = e.target.closest('[data-t1-hp]');
+    if (!hpInput) return;
+    const mon = state[hpInput.dataset.side]?.[Number(hpInput.dataset.idx)];
+    if (!mon) return;
+    setMonBattleDefaults(mon, hpInput.dataset.side);
+    mon.battle.hpPct = Math.max(0, Math.min(100, Number(hpInput.value) || 0));
+    mon.fainted = mon.battle.hpPct <= 0;
+    ensureTurn1BattleSession().active = true;
+    clearTurn1Caches();
+  }, true);
+}
+
 export function renderTurn1PickRows() {
   const selfRow = document.getElementById("t1SelfPickRow");
   const enemyRow = document.getElementById("t1EnemyPickRow");
@@ -2029,19 +2975,28 @@ export function renderTurn1PickRows() {
         const mon = team[i];
         const on = picks.includes(i);
         const cls = ["t1-slot"];
+        const isKo = !!mon && (mon.fainted || (mon.battle?.hpPct ?? 100) <= 0);
         
         if (!mon) cls.push("t1-slot--empty");
         if (mon && on)
           cls.push(side === "self" ? "t1-slot--on-self" : "t1-slot--on-enemy");
+        if (isKo) cls.push("t1-slot--ko");
         
         const isOptimal = side === "self" && mon && optimalNames.includes(mon.name);
-        const badge = isOptimal ? `<div class="optimal-badge"><i data-lucide="star"></i> ÓPTIMO</div>` : '';
+        const koBadge = isKo ? `<div class="t1-slot-state-badge t1-slot-state-badge--ko">KO</div>` : '';
+        const badge = isOptimal ? `<div class="optimal-badge t1-slot-effect"><i data-lucide="star"></i> ÓPTIMO</div>` : '';
         
         const inner = mon
-          ? `<img src="${mon.sprite}" alt="" loading="lazy">${badge}`
+          ? `<img src="${mon.sprite}" alt="" loading="lazy">`
           : '<span class="t1-slot-ph">—</span>';
         const dis = mon ? "" : " disabled";
-        return `<button type="button" class="${cls.join(" ")}" data-t1-slot data-side="${side}" data-idx="${i}" ${mon && side === "enemy" ? `data-scout="${mon.name}"` : ""}${dis}>${inner}</button>`;
+        return `
+          <div class="t1-slot-frame ${isOptimal ? 't1-slot-frame--optimal' : ''} ${isKo ? 't1-slot-frame--ko' : ''}">
+            <button type="button" class="${cls.join(" ")}" data-t1-slot data-side="${side}" data-idx="${i}" ${mon && side === "enemy" ? `data-scout="${mon.name}"` : ""}${dis}>${inner}</button>
+            ${badge}
+            ${koBadge}
+            <div class="t1-slot-effects" aria-hidden="true"></div>
+          </div>`;
       })
       .join("");
   };
@@ -2059,6 +3014,8 @@ export function renderTurn1Simulator() {
   const list = document.getElementById("t1InsightsList");
   const emptyState = document.getElementById("t1EmptyState");
   const pickZone = document.getElementById("turn1PickZone");
+  const activeBoard = document.getElementById("activeBoardContainer");
+  const veredictoContainer = document.getElementById("veredictoT1Container");
   
   const selfTeam = state.self.filter(Boolean);
   const enemyTeam = state.enemy.filter(Boolean);
@@ -2073,7 +3030,8 @@ export function renderTurn1Simulator() {
   if (state.uiMode === 'quick' && (!state.chosenFour || state.chosenFour.length < 4)) {
     panel.style.display = "block";
     emptyState.style.display = "block";
-    pickZone.style.display = "none";
+    if (activeBoard) activeBoard.style.display = "none";
+    if (veredictoContainer) veredictoContainer.style.display = "none";
     list.innerHTML = "";
     flowLog('renderTurn1Simulator: Esperando bloqueo (lockBestFourBtn) en UI Rápida');
     return;
@@ -2081,7 +3039,8 @@ export function renderTurn1Simulator() {
 
   panel.style.display = "block";
   emptyState.style.display = "none";
-  pickZone.style.display = "grid";
+  if (activeBoard) activeBoard.style.display = "block";
+  if (veredictoContainer) veredictoContainer.style.display = "block";
 
   pruneInvalidTurn1Slots();
   ensureTurn1LeadDefaults();
@@ -2117,7 +3076,9 @@ export function renderTurn1Simulator() {
     if (ab === 'mistysurge') simFieldLocal.terrain = 'misty';
   };
   
-  initialLeads.forEach(l => applyHazards(l.mon));
+  if (!state.turn1Battle?.active) {
+    initialLeads.forEach(l => applyHazards(l.mon));
+  }
 
   // 2. SEGUNDO: RECALCULAR VELOCIDADES CON EL CAMPO FINAL (Climas aplicados)
   const leads = initialLeads.map(l => ({
@@ -2144,8 +3105,15 @@ export function renderTurn1Simulator() {
       if (ability === 'electricsurge') terrains.push({ type: 'electric', text: `Campo Eléctrico (vía ${formatName(name)})`, icon: 'zap' });
       if (ability === 'mistysurge') terrains.push({ type: 'misty', text: `Campo de Niebla (vía ${formatName(name)})`, icon: 'sparkles' });
     }
-    const activeWeather = weathers.length > 0 ? weathers[0] : null;
-    const activeTerrain = terrains.length > 0 ? terrains[0] : null;
+    const manualWeatherType = simFieldLocal.weather === 'sandstorm' ? 'sand' : simFieldLocal.weather;
+    const manualWeatherIcon = { sun: 'sun', rain: 'cloud-rain', sand: 'wind', snow: 'snowflake' };
+    const manualTerrainIcon = { electric: 'zap', grassy: 'leaf', psychic: 'orbit', misty: 'sparkles' };
+    const activeWeather = state.turn1Battle?.active && manualWeatherType
+      ? { type: manualWeatherType, text: WEATHER_LABELS[manualWeatherType] || weatherNames[manualWeatherType] || formatName(manualWeatherType), icon: manualWeatherIcon[manualWeatherType] || 'cloud-sun' }
+      : (weathers.length > 0 ? weathers[0] : null);
+    const activeTerrain = state.turn1Battle?.active && simFieldLocal.terrain
+      ? { type: simFieldLocal.terrain, text: TERRAIN_LABELS[simFieldLocal.terrain] || formatName(simFieldLocal.terrain), icon: manualTerrainIcon[simFieldLocal.terrain] || 'sparkles' }
+      : (terrains.length > 0 ? terrains[0] : null);
     if (!activeWeather && !activeTerrain) {
       globalStateBanner.style.display = 'none';
     } else {
@@ -2167,8 +3135,7 @@ export function renderTurn1Simulator() {
   }
 
 // === RENDER LEAD BADGES (TIMELINE, STATS, ABILITY GLOW) ===
-  document.querySelectorAll('.t1-slot-timeline-badge').forEach(e => e.remove());
-  document.querySelectorAll('.t1-slot-stat-badge').forEach(e => e.remove());
+  document.querySelectorAll('.t1-slot-effects').forEach(e => e.innerHTML = '');
   document.querySelectorAll('.t1-slot.t1-slot-ability-glow').forEach(e => e.classList.remove('t1-slot-ability-glow'));
 
   // Clonar leads para preservar estado
@@ -2177,55 +3144,135 @@ export function renderTurn1Simulator() {
   // Limpiamos caché para que tome en cuenta los stages actualizados
   window.currentDamageCache = {};
 
-  let selfLeads = simLeads.filter(x => x.side === "self");
-  let enemyLeads = simLeads.filter(x => x.side === "enemy");
+  const session = ensureTurn1BattleSession();
+  const canRemainOnBoard = (entry) => !!entry?.mon && !entry.mon.fainted && (entry.mon.battle?.hpPct ?? 100) > 0;
+  const canActThisTurn = (entry) => canRemainOnBoard(entry) && !getHardTurnBlockReason(entry.mon);
+  const visibleSelfLeads = simLeads.filter(x => x.side === "self");
+  const visibleEnemyLeads = simLeads.filter(x => x.side === "enemy");
+  let selfLeads = visibleSelfLeads.filter(canActThisTurn);
+  let enemyLeads = visibleEnemyLeads.filter(canActThisTurn);
+
+  const getUsedTurnAction = (entry) => entry ? session.actedThisTurn?.[getTurnActionKey(entry.side, entry.realIdx)] : null;
+  const getAppliedTargetLabel = (used) => {
+    if (!used) return '';
+    if (used.targetMode === 'spread-foes') {
+      return used.targetSide === 'self' ? 'Objetivos: ambos aliados activos' : 'Objetivos: ambos rivales activos';
+    }
+    if (used.targetSide == null || !Number.isFinite(Number(used.targetIndex))) return '';
+    const target = state[used.targetSide]?.[Number(used.targetIndex)];
+    return target ? `Objetivo: ${formatName(target.displayName || target.name)}` : '';
+  };
+  const getActionVisualState = (entry, moveName, fallbackLabel = 'Aplicar') => {
+    const isUnavailable = !entry || !canRemainOnBoard(entry);
+    if (isUnavailable) {
+      return { state: 'ko', disabled: true, icon: 'ban', label: 'KO', title: 'No puede actuar: está debilitado', detail: 'Fuera de combate' };
+    }
+    const used = getUsedTurnAction(entry);
+    const acted = !!used && !canMoveBypassTurnLock(moveName);
+    const exactApplied = acted && used.move === moveName;
+    if (exactApplied) {
+      const targetText = getAppliedTargetLabel(used);
+      return { state: 'applied', disabled: true, icon: 'check-circle-2', label: 'Aplicado', title: targetText || 'Movimiento aplicado en este turno', detail: targetText || 'Acción resuelta' };
+    }
+    if (acted) {
+      return { state: 'closed', disabled: true, icon: 'circle-slash-2', label: 'Cerrado', title: getTurnActionLockLabel(entry.side, entry.realIdx), detail: `Ya actuó con ${formatName(getTranslation(used.move, 'move') || used.move)}` };
+    }
+    const blockReason = getActionBlockReason(entry.mon, moveName);
+    if (blockReason) {
+      return { state: 'blocked', disabled: true, icon: 'lock', label: 'Bloqueado', title: `No puede actuar: ${blockReason}`, detail: blockReason };
+    }
+    const orderBlockReason = getTurn1ActionOrderBlock(entry.side, entry.realIdx, moveName);
+    if (orderBlockReason) {
+      return { state: 'waiting', disabled: true, icon: 'clock-3', label: 'En espera', title: orderBlockReason, detail: orderBlockReason };
+    }
+    const prio = getPriority(moveName, entry.mon);
+    return { state: prio > 0 ? 'priority-ready' : 'ready', disabled: false, icon: prio > 0 ? 'zap' : 'play-circle', label: fallbackLabel, title: 'Aplicar este resultado a la simulación', detail: prio > 0 ? `Ventana de ${describeTurnPriority(prio)}` : 'Listo para resolver' };
+  };
+  const buildActionControl = (entry, moveName, label = 'Aplicar', className = 't1-apply-move-btn', attrs = '') => {
+    const visual = getActionVisualState(entry, moveName, label);
+    return `
+      <button type="button" class="${className} is-${visual.state}" title="${escapeHtml(visual.title)}" ${visual.disabled ? 'disabled aria-disabled="true"' : ''} data-t1-action="move" data-side="${entry?.side || ''}" data-user-idx="${entry?.realIdx ?? ''}" ${attrs} data-move="${escapeHtml(moveName)}">
+        <i data-lucide="${visual.icon}"></i>
+        <span>${visual.label}</span>
+      </button>`;
+  };
 
   let selfIntimidate = selfLeads.some(l => (l.mon.set?.ability || l.mon.ability || '').toLowerCase().includes('intimidate'));
   let enemyIntimidate = enemyLeads.some(l => (l.mon.set?.ability || l.mon.ability || '').toLowerCase().includes('intimidate'));
 
-  let turnOrderLeads = simLeads.map(l => {
-      let maxPrio = 0;
+  let turnOrderLeads = simLeads.filter(canActThisTurn).map(l => {
+      let maxPrio = Math.max(0, ...(l.mon.set?.moves || []).filter(Boolean).map(m => getPriority(m, l.mon)));
       const targets = l.side === 'self' ? enemyLeads : selfLeads;
       targets.forEach(t => {
           const atk = bestAttack(l.mon, t.mon, simFieldLocal);
-          const currentPrio = getPriority(atk.move);
+          const currentPrio = getPriority(atk.move, l.mon);
           if (currentPrio > maxPrio) maxPrio = currentPrio;
       });
-      return { ...l, prio: maxPrio, spe: l.spe };
-  }).sort((a, b) => {
-      if (b.prio !== a.prio) return b.prio - a.prio;
-      return b.spe - a.spe;
-  });
+      return {
+        ...l,
+        prioHint: maxPrio,
+        hasPriorityOption: maxPrio > 0,
+        spe: l.spe
+      };
+  }).sort((a, b) => b.spe - a.spe);
   
   turnOrderLeads.forEach((l, idx) => l.turnRank = idx + 1);
 
   simLeads.forEach((l, index) => {
     const slotEl = document.querySelector(`.t1-slot[data-side="${l.side}"][data-idx="${l.realIdx}"]`);
     if (!slotEl) return;
+    const slotFrame = slotEl.closest('.t1-slot-frame') || slotEl;
+    const slotEffects = slotFrame.querySelector?.('.t1-slot-effects') || slotFrame;
+    const isSlotKo = !canRemainOnBoard(l);
+    slotEl.classList.toggle('t1-slot--ko', isSlotKo);
+    slotFrame.classList.toggle('t1-slot-frame--ko', isSlotKo);
     
-    const hasPriority = l.mon.set?.moves?.some(m => (MOVE_PRIORITY_LEVELS[String(m).toLowerCase()] || 0) > 0);
-    const prioIcon = hasPriority ? '<i data-lucide="zap" style="width: 10px; height: 10px; color: var(--gold); margin-right: 2px;"></i>' : '';
+    const hasPriority = l.mon.set?.moves?.some(m => getPriority(m, l.mon) > 0);
     const orderBadge = document.createElement('div');
-    orderBadge.className = 't1-slot-timeline-badge';
+    orderBadge.className = `t1-slot-effect t1-slot-timeline-badge ${hasPriority ? 'has-priority' : ''}`;
     
     // Obtener rank actualizado
     const turnL = turnOrderLeads.find(t => t.realIdx === l.realIdx && t.side === l.side);
-    orderBadge.innerHTML = `${prioIcon}${turnL ? turnL.turnRank : index + 1}<span>️⃣</span>`;
-    slotEl.appendChild(orderBadge);
+    const turnBlockReason = getHardTurnBlockReason(l.mon);
+    orderBadge.innerHTML = canActThisTurn(l)
+      ? `${hasPriority ? '<i data-lucide="zap"></i>' : ''}<span>${turnL ? turnL.turnRank : index + 1}</span>`
+      : `<span>${canRemainOnBoard(l) ? 'STOP' : 'KO'}</span>`;
+    if (turnBlockReason && canRemainOnBoard(l)) orderBadge.title = turnBlockReason;
+    slotEffects.appendChild(orderBadge);
     
-    const atkStage = l.mon.battle?.stages?.atk || 0;
-    if (atkStage < 0) {
+    const stageLabels = { atk: 'Atk', def: 'Def', spa: 'SpA', spd: 'SpD', spe: 'Vel' };
+    const stages = l.mon.battle?.stages || {};
+    const stageEntries = Object.entries(stageLabels)
+      .map(([key, label]) => ({ label, stage: stages[key] || 0 }))
+      .filter(x => x.stage);
+    stageEntries.slice(0, 2).forEach(({ label, stage }) => {
       const statBadge = document.createElement('div');
-      statBadge.className = 't1-slot-stat-badge';
-      statBadge.innerHTML = `${atkStage} Atk`;
-      slotEl.appendChild(statBadge);
-    } else if (atkStage > 0) {
-      const statBadge = document.createElement('div');
-      statBadge.className = 't1-slot-stat-badge';
-      statBadge.innerHTML = `+${atkStage} Atk`;
-      statBadge.style.background = 'var(--green)';
-      statBadge.style.color = 'black';
-      slotEl.appendChild(statBadge);
+      statBadge.className = `t1-slot-effect t1-slot-stat-badge ${stage > 0 ? 'is-positive' : 'is-negative'}`;
+      statBadge.textContent = `${stage > 0 ? '+' : ''}${stage} ${label}`;
+      slotEffects.appendChild(statBadge);
+    });
+    if (stageEntries.length > 2) {
+      const moreBadge = document.createElement('div');
+      moreBadge.className = 't1-slot-effect t1-slot-stat-badge is-neutral';
+      moreBadge.textContent = `+${stageEntries.length - 2}`;
+      slotEffects.appendChild(moreBadge);
+    }
+    if (l.mon.battle?.protected) {
+      const protectBadge = document.createElement('div');
+      protectBadge.className = 't1-slot-effect t1-slot-protect-badge';
+      protectBadge.innerHTML = '<i data-lucide="shield"></i>';
+      slotEffects.appendChild(protectBadge);
+    }
+    if (turnBlockReason && canRemainOnBoard(l)) {
+      const stopBadge = document.createElement('div');
+      stopBadge.className = 't1-slot-effect t1-slot-stop-badge';
+      stopBadge.textContent = turnBlockReason.includes('retrocede') ? 'Flinch' : (l.mon.battle?.status === 'slp' ? 'Sleep' : (l.mon.battle?.status === 'frz' ? 'Freeze' : 'Stop'));
+      slotEffects.appendChild(stopBadge);
+    } else if (l.mon.battle?.taunted) {
+      const stopBadge = document.createElement('div');
+      stopBadge.className = 't1-slot-effect t1-slot-stop-badge is-taunt';
+      stopBadge.textContent = 'Mofa';
+      slotEffects.appendChild(stopBadge);
     }
     
     const ability = (l.mon.set?.ability || l.mon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -2254,7 +3301,7 @@ export function renderTurn1Simulator() {
       <div class="tactical-timeline-track">
         ${`` + (() => {
           const renderTimelineNode = (l) => {
-            const isPrio = l.maxPrio > 0;
+            const hasPriorityOption = !!l.hasPriorityOption;
             const ability = (l.mon.set?.ability || l.mon.ability || '').toLowerCase().replace(/\s/g, '');
             const obj = (l.mon.set?.item || '').toLowerCase().replace(/[^a-z]/g, '');
             const weather = state.field.weather || (weathers.length > 0 ? weathers[0].type : null);
@@ -2273,19 +3320,11 @@ export function renderTurn1Simulator() {
             else if (obj === 'choicescarf' || obj === 'pañueloeleccion') { modReason = 'Pañuelo'; ringColor = '#A98FF3'; }
             else if ((l.side === 'self' && state.field.tailwindSelf) || (l.side === 'enemy' && state.field.tailwindEnemy)) { modReason = 'Viento Afín'; ringColor = '#96D9D6'; }
 
-            if (isPrio) {
-                modReason = 'Prioridad';
-                if (!ringColor) ringColor = 'var(--gold, #ffd700)';
-            }
-
             const baseSpe = l.mon.baseStats?.speed || 100;
-            const evsSpe = l.mon.set?.evs?.spe || 0;
-            const nature = l.mon.set?.nature || "";
-            let rawSpe = Math.floor(((2 * baseSpe + 31 + Math.floor(evsSpe / 4)) * 50) / 100) + 5;
-            rawSpe = Math.floor(rawSpe * getNatureSpeModifier(nature));
 
             let ringStyle = ringColor ? `box-shadow: 0 0 0 3px #1a1a24, 0 0 0 5px ${ringColor};` : '';
-            let labelHtml = modReason ? `<div class="timeline-mod-label ${isPrio ? 'priority' : 'buff'}">${isPrio ? '<i data-lucide="zap"></i>' : ''} ${modReason}</div>` : '';
+            let labelHtml = modReason ? `<div class="timeline-mod-label buff">${modReason}</div>` : '<div class="timeline-mod-label timeline-mod-label--ghost">Base</div>';
+            let priorityHtml = hasPriorityOption ? `<div class="timeline-option-badge"><i data-lucide="zap"></i> Prioridad</div>` : '';
 
             return `
               <div class="timeline-node" title="${l.mon.displayName}">
@@ -2296,8 +3335,9 @@ export function renderTurn1Simulator() {
                 </div>
                 <div class="timeline-stats">
                   <div class="stat-eff" style="${l.spe < 0 ? 'color: var(--purple);' : ''}">${Math.abs(l.spe)}</div>
-                  <div class="stat-base">Base ${rawSpe}</div>
+                  <div class="stat-base">Base ${baseSpe}</div>
                 </div>
+                ${priorityHtml}
               </div>
             `;
           };
@@ -2309,7 +3349,7 @@ export function renderTurn1Simulator() {
                   currentGroup.push(l);
               } else {
                   const last = currentGroup[currentGroup.length - 1];
-                  if (last.spe === l.spe && last.maxPrio === l.maxPrio) {
+                  if (last.spe === l.spe) {
                       currentGroup.push(l);
                   } else {
                       groupedLeads.push(currentGroup);
@@ -2359,6 +3399,21 @@ export function renderTurn1Simulator() {
     }).join('');
     const ability = mon.set?.ability || mon.ability || 'Desconocida';
     const item = mon.set?.item || 'Sin objeto';
+    const hpPct = Math.max(0, Math.min(100, Math.round(mon.battle?.hpPct ?? 100)));
+    const status = mon.battle?.status || 'none';
+    const isFainted = mon.fainted || hpPct <= 0;
+    const isProtected = !!mon.battle?.protected;
+    const hardBlockReason = getHardTurnBlockReason(mon);
+    const isTurnBlocked = !!hardBlockReason && !isFainted;
+    const hpTone = hpPct <= 25 ? 'danger' : (hpPct <= 55 ? 'warning' : 'healthy');
+    const stateLineHtml = `
+      <div class="combatant-state-line">
+        <div class="combatant-hp combatant-hp--${hpTone}">
+          <span style="width:${hpPct}%;"></span>
+        </div>
+        <b>${hpPct}%</b>
+        ${isFainted ? `<em class="is-ko">Debilitado</em>` : (isTurnBlocked ? `<em class="is-blocked" title="${escapeHtml(hardBlockReason)}">No actúa</em>` : (isProtected ? `<em class="is-protected">Protegido</em>` : (status && status !== 'none' ? `<em>${formatBattleStatus(status)}</em>` : (mon.battle?.taunted ? `<em class="is-blocked">Mofa</em>` : ''))))}
+      </div>`;
 
     const translatedAbility = typeof getTranslation === 'function' && ability !== 'Desconocida' ? getTranslation(ability, 'ability') || formatName(ability) : formatName(ability);
     const translatedItem = typeof getTranslation === 'function' && item !== 'Sin objeto' ? getTranslation(item, 'item') || formatName(item) : formatName(item);
@@ -2406,6 +3461,40 @@ export function renderTurn1Simulator() {
     // Determinar Badges
     let badgeHtml = '';
     let activeModifiersHtml = '';
+    
+    // Determinar Rol Táctico
+    let tacticalRoleText = '';
+    let tacticalRoleColor = 'var(--muted)';
+    
+    const movesLower = (mon.set?.moves || []).map(m => getMoveSlug(m));
+    if (isFainted) {
+        tacticalRoleText = 'Debilitado';
+        tacticalRoleColor = 'var(--muted)';
+    } else if (side === 'self' && (isDouble || allyOhkoThreats.has(mon.name))) {
+        tacticalRoleText = 'Objetivo rival';
+        tacticalRoleColor = 'var(--red)';
+    } else if (side === 'enemy' && isDouble) {
+        tacticalRoleText = 'Objetivo viable';
+        tacticalRoleColor = 'var(--green)';
+    } else if (side === 'enemy' && fakeOutThreats.some(fo => fo.mon.name === mon.name)) {
+        tacticalRoleText = 'Amenaza Sorpresa';
+        tacticalRoleColor = 'var(--orange)';
+    } else if (movesLower.some(m => ['trickroom', 'espacioraro', 'tailwind', 'vientoafin', 'followme', 'senuelo', 'seuelo', 'ragepowder', 'polvoira', 'fakeout', 'sorpresa'].includes(m))) {
+        tacticalRoleText = 'Support';
+        tacticalRoleColor = 'var(--blue)';
+    } else if ((mon.baseStats?.attack > 110) || (mon.baseStats?.['special-attack'] > 110)) {
+        tacticalRoleText = 'Presión';
+        tacticalRoleColor = 'var(--gold)';
+        if (mon.baseStats?.hp < 80 && mon.baseStats?.defense < 80 && mon.baseStats?.['special-defense'] < 80) {
+            tacticalRoleText = 'Wincon frágil';
+            tacticalRoleColor = 'var(--purple)';
+        }
+    } else {
+        tacticalRoleText = 'Flexible';
+    }
+
+    const roleBadgeHtml = `<div style="font-size: 0.6rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; color: ${tacticalRoleColor}; border: 1px solid ${tacticalRoleColor}; padding: 1px 4px; border-radius: 4px; display: inline-block; margin-bottom: 2px;">${tacticalRoleText}</div>`;
+
     const atkStage = mon.battle?.stages?.atk || 0;
     if (atkStage > 0) {
        activeModifiersHtml += `<span style="background: rgba(48, 209, 88, 0.15); border: 1px solid rgba(48, 209, 88, 0.4); color: #d4ffe3; padding: 2px 4px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;">Atk +1 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></span>`;
@@ -2417,7 +3506,7 @@ export function renderTurn1Simulator() {
         activeModifiersHtml = `<div class="combatant-modifiers" style="display: flex; flex-direction: row; gap: 4px; margin-top: 4px; flex-wrap: wrap;">${activeModifiersHtml}</div>`;
     }
 
-    if (side === 'self') {
+    if (!isFainted && side === 'self') {
       const mySpeed = Math.abs((turnOrderLeads || []).find(l => l && l.mon && l.mon.name === mon?.name)?.spe || 0);
       const isFakeOutTarget = (fakeOutThreats || []).some(fo => Math.abs(fo.spe) > mySpeed);
       if (isFakeOutTarget && abilitySlug !== 'innerfocus') {
@@ -2426,7 +3515,7 @@ export function renderTurn1Simulator() {
     }
 
     let emergencyBtnHtml = '';
-    if (side === 'self' && allyOhkoThreats.has(mon.name)) {
+    if (!isFainted && side === 'self' && allyOhkoThreats.has(mon.name)) {
         // Encontrar un reemplazo usando getSuggestedReserves
         // Pasamos offensive: false, y los datos del defensor
         const attackerName = enemyLeads[0]?.mon?.name || 'unknown';
@@ -2446,19 +3535,21 @@ export function renderTurn1Simulator() {
     }
 
     return `
-      <div class="mobile-combatant-card card-${side === 'self' ? 'ally' : 'enemy'}">
-        ${isDouble ? '<div class="double-target-warning" style="top: -6px; right: -6px; left: auto; transform: none; font-size: 9px; padding: 2px 6px;">⚠️ FOCO</div>' : ''}
+      <div class="mobile-combatant-card card-${side === 'self' ? 'ally' : 'enemy'} ${isFainted ? 'is-fainted' : ''}">
+        ${!isFainted && isDouble ? `<div class="double-target-warning" style="top: -6px; right: 25px; left: auto; transform: none; font-size: 9px; padding: 2px 6px;">${side === 'self' ? 'EN RIESGO' : 'FOCO ÚTIL'}</div>` : ''}
         <div class="combatant-header" style="flex-direction: row; gap: 8px;">
           <div class="sprite-container" style="position: relative; display: inline-block;">
             <img src="${mon.sprite}" style="width: 40px; height: 40px; object-fit: cover; background: rgba(255,255,255,0.05); border-radius: 6px;">
             ${badgeHtml}
           </div>
           <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; overflow: hidden;">
+            ${roleBadgeHtml}
             <div class="combatant-name" style="font-size: 14px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">${formatName(mon.displayName || mon.name)}</div>
             <div class="combatant-types" style="font-size: 10px;">${typesHtml}</div>
             ${activeModifiersHtml}
           </div>
         </div>
+        ${stateLineHtml}
         <div class="combatant-footer" style="display: flex; flex-direction: row; gap: 4px;">
           <div class="badge-item${itemGlow}" onclick="showInfoTooltip(event, 'item', '${itemSlug}')" style="flex: 1;"><i data-lucide="package"></i> <span class="truncate">${translatedItem}</span></div>
           <div class="badge-ability ${isAbilityTriggered ? 'glow-active' : ''}" onclick="showInfoTooltip(event, 'ability', '${abilitySlug}')" style="flex: 1;"><i data-lucide="zap"></i> <span class="truncate">${translatedAbility}</span></div>
@@ -2512,10 +3603,14 @@ export function renderTurn1Simulator() {
     const defAbility = (defMon.set?.ability || defMon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
     const hasSash = defItem === 'focussash' || defItem === 'bandafocus';
     const hasSturdy = defAbility === 'sturdy' || defAbility === 'robustez';
-    const isLethal = atk.ohko || atk.ohkoProb > 50;
+    const currentPct = Math.max(0, Math.min(100, Number(defMon.battle?.hpPct ?? 100)));
+    const isFullHp = currentPct >= 99;
+    const maxPct = Number(atk.maxPct ?? atk.maxDamagePct ?? 0);
+    const minPct = Number(atk.minPct ?? 0);
+    const isLethal = atk.ohko || atk.ohkoProb > 50 || maxPct >= currentPct || minPct >= currentPct;
 
-    const isSavedBySash = hasSash && isLethal;
-    const isSavedBySturdy = hasSturdy && isLethal;
+    const isSavedBySash = hasSash && isFullHp && maxPct >= 100;
+    const isSavedBySturdy = hasSturdy && isFullHp && maxPct >= 100;
     const survivesAt1HP = isSavedBySash || isSavedBySturdy;
 
     if (survivesAt1HP) {
@@ -2572,12 +3667,24 @@ export function renderTurn1Simulator() {
     </div>
   `;
 
+  const upsertTacticalEventTarget = (key, eventBase, targetPayload) => {
+    if (!tacticalEventsMap.has(key)) {
+      tacticalEventsMap.set(key, { ...eventBase, targets: [] });
+    }
+    const event = tacticalEventsMap.get(key);
+    if (!event.targets.some((target) => target.defender.side === targetPayload.defender.side && Number(target.defender.realIdx) === Number(targetPayload.defender.realIdx))) {
+      event.targets.push(targetPayload);
+    }
+    if (eventBase.effectDesc && !event.effectDesc) event.effectDesc = eventBase.effectDesc;
+    if (eventBase.isSpread) event.isSpread = true;
+  };
+
   for (const sObj of selfLeads) {
     for (const eObj of enemyLeads) {
       const s = sObj.mon;
       const e = eObj.mon;
-      const speS = Math.abs(sObj.spe);
-      const speE = Math.abs(eObj.spe);
+      const speS = Number(sObj.spe) || 0;
+      const speE = Number(eObj.spe) || 0;
 
       const atkS = bestAttack(s, e, simFieldLocal);
       const atkE = bestAttack(e, s, simFieldLocal);
@@ -2597,8 +3704,8 @@ export function renderTurn1Simulator() {
           if (atkE.immunityData.type === 'item') s.battle.turn1Triggers.itemImmunity = true;
       }
 
-      const sPriority = getPriority(atkS.move);
-      const ePriority = getPriority(atkE.move);
+      const sPriority = getPriority(atkS.move, s);
+      const ePriority = getPriority(atkE.move, e);
 
       let sFaster = false;
       if (sPriority > ePriority) sFaster = true; 
@@ -2696,6 +3803,85 @@ export function renderTurn1Simulator() {
   }
 
   // --- INYECTAR MOVIMIENTOS TÁCTICOS Y DE SOPORTE AL FEED ---
+  const buildSpecificMovePreview = (attackerEntry, defenderMon, move, prio) => {
+      const damageObj = estimateMoveDamage(
+          attackerEntry.mon,
+          defenderMon,
+          { ...move, isSpread: true, priority: prio },
+          simFieldLocal
+      );
+      const baseHP = calcMonHP(defenderMon);
+      const hpPct = defenderMon.battle?.hpPct ?? 100;
+      const defHP = Math.max(1, Math.floor((baseHP * hpPct) / 100));
+      const rawMult = effectiveness(move.type || 'normal', defenderMon?.types || []);
+      const maxDamage = Number.isFinite(damageObj.maxDamage) ? damageObj.maxDamage : (damageObj.damage || 0);
+      const minDamage = Number.isFinite(damageObj.minDamage) ? damageObj.minDamage : Math.floor(maxDamage * 0.85);
+      const maxPct = Math.min(100, Math.floor((maxDamage / defHP) * 100));
+      const minPct = Math.min(100, Math.floor((minDamage / defHP) * 100));
+      let ohkoProb = 0;
+      if (maxDamage >= defHP) {
+          if (minDamage >= defHP) ohkoProb = 100;
+          else ohkoProb = Math.floor(((maxDamage - defHP) / Math.max(1, maxDamage - minDamage)) * 100);
+      }
+      return {
+          type: move.type || 'normal',
+          mult: damageObj.blocked ? 0 : rawMult * (damageObj.wMul || 1) * (damageObj.terrMul || 1),
+          rawMult,
+          wMul: damageObj.wMul || 1,
+          terrMul: damageObj.terrMul || 1,
+          blocked: !!damageObj.blocked,
+          move: move.move,
+          power: move.power || 0,
+          damage: maxDamage,
+          minPct,
+          maxPct,
+          ohkoProb,
+          ohko: ohkoProb > 0,
+          registry: damageObj.registry || null,
+          immunityData: damageObj.immunityData || null,
+          tags: damageObj.tags || [],
+      };
+  };
+
+  const registerSpreadMoveCoverage = (entry, defenders) => {
+      const moves = getMoveCandidates(entry.mon)
+          .filter(move => move && (move.isSpread || SPREAD_MOVES.has(getMoveSlug(move.move)) || SPREAD_MOVES.has(String(move.move || '').toLowerCase())));
+      moves.forEach((move) => {
+          const prio = getPriority(move.move, entry.mon);
+          const key = `${entry.mon.name}_${move.move}`;
+          const eventBase = {
+              isAlly: entry.side === 'self',
+              attacker: entry,
+              move: move.move,
+              type: move.type,
+              rawMult: 1,
+              wMul: 1,
+              terrMul: 1,
+              tags: move.tags || [],
+              isSpread: true,
+              prio,
+              spe: Number(entry.spe) || 0,
+              sortScore: prio * 10000 + (Number(entry.spe) || 0),
+              targets: []
+          };
+          defenders.forEach((defenderEntry) => {
+              if (!defenderEntry?.mon || !canRemainOnBoard(defenderEntry)) return;
+              const atk = buildSpecificMovePreview(entry, defenderEntry.mon, move, prio);
+              const surv = checkSurvival(atk, defenderEntry.mon);
+              upsertTacticalEventTarget(key, eventBase, {
+                  defender: defenderEntry,
+                  atk,
+                  surv,
+                  isOhko: surv.isLethal && !surv.survivesAt1HP,
+                  speD: Number(defenderEntry.spe) || 0,
+                  prioD: Math.max(0, ...((defenderEntry.mon.set?.moves || []).filter(Boolean).map((candidateMove) => getPriority(candidateMove, defenderEntry.mon)))),
+              });
+          });
+      });
+  };
+  selfLeads.forEach((entry) => registerSpreadMoveCoverage(entry, enemyLeads));
+  enemyLeads.forEach((entry) => registerSpreadMoveCoverage(entry, selfLeads));
+
   const KEY_TACTICAL_MOVES = {
       'fakeout': "EFECTO: FLINCH",
       'sorpresa': "EFECTO: FLINCH",
@@ -2739,11 +3925,11 @@ export function renderTurn1Simulator() {
       const moves = lObj.mon.set?.moves || [];
       for (const m of moves) {
           if (!m) continue;
-          const slug = String(m).toLowerCase().replace(/[^a-z0-9]/g, '');
+          const slug = getMoveSlug(m);
           if (KEY_TACTICAL_MOVES[slug]) {
               const key = `${lObj.mon.name}_${m}`;
               if (!tacticalEventsMap.has(key)) {
-                  const prio = getPriority(m);
+                  const prio = getPriority(m, lObj.mon);
                   const moveData = window.GameDB?.moves?.[slug] || { type: 'normal' };
                   
                   tacticalEventsMap.set(key, {
@@ -2757,8 +3943,8 @@ export function renderTurn1Simulator() {
                       tags: [],
                       isSpread: false,
                       prio: prio,
-                      spe: Math.abs(lObj.spe),
-                      sortScore: prio * 10000 + Math.abs(lObj.spe),
+                      spe: Number(lObj.spe) || 0,
+                      sortScore: prio * 10000 + (Number(lObj.spe) || 0),
                       targets: [],
                       isSupport: true,
                       effectDesc: KEY_TACTICAL_MOVES[slug]
@@ -2771,8 +3957,98 @@ export function renderTurn1Simulator() {
       }
   }
 
-  const tacticalEvents = Array.from(tacticalEventsMap.values());
-  tacticalEvents.sort((a, b) => b.sortScore - a.sortScore);
+  const getTacticalEventUseScore = (event) => {
+      let score = 0;
+      if (event.effectDesc) score += 220;
+      if (event.effectDesc?.includes('FLINCH')) score += 180;
+      if (event.effectDesc?.includes('PROTECCI')) score += 120;
+      if (event.effectDesc?.includes('ESPACIO RARO') || event.effectDesc?.includes('VIENTO')) score += 140;
+      if (event.isSupport) score += 60;
+      (event.targets || []).forEach(t => {
+          if (t.isOhko) score += 260;
+          if (t.surv?.survivesAt1HP) score += 140;
+          if (t.atk?.immunityData) score += 110;
+          score += Math.min(120, Number(t.atk?.maxPct) || 0);
+          if (!event.isAlly && targetThreatsCount[t.defender.mon.name] >= 2) score += 180;
+      });
+      if (event.isSpread) score += 45;
+      return score;
+  };
+
+  const tacticalEvents = Array.from(tacticalEventsMap.values()).map(event => ({
+      ...event,
+      useScore: getTacticalEventUseScore(event)
+  }));
+  tacticalEvents.sort((a, b) => {
+      if (b.prio !== a.prio) return b.prio - a.prio;
+      if (b.spe !== a.spe) return b.spe - a.spe;
+      if (b.useScore !== a.useScore) return b.useScore - a.useScore;
+      if (a.isAlly !== b.isAlly) return a.isAlly ? -1 : 1;
+      return String(a.move || '').localeCompare(String(b.move || ''));
+  });
+  tacticalEvents.forEach((event, idx) => {
+      event.sequenceRank = idx + 1;
+  });
+
+  const getSupportMoveTargetMode = (moveName) => {
+      const slug = getMoveSlug(moveName);
+      if (['fakeout', 'sorpresa', 'spore', 'espora', 'taunt', 'mofa', 'partingshot', 'ultimapalabra', 'willowisp', 'fuegofatuo', 'thunderwave', 'ondatrueno', 'toxic', 'toxico'].includes(slug)) {
+          return 'opponent';
+      }
+      if (['icywind', 'vientohielo', 'electroweb', 'redviscosa', 'bulldoze'].includes(slug)) {
+          return 'opponents';
+      }
+      return 'field';
+  };
+
+  const getSupportMoveTargetEntries = (event) => {
+      const mode = getSupportMoveTargetMode(event.move);
+      if (mode === 'field') return [];
+      return event.attacker.side === 'self' ? enemyLeads : selfLeads;
+  };
+
+  const renderSupportTargetPicker = (event) => {
+      const mode = getSupportMoveTargetMode(event.move);
+      const targets = getSupportMoveTargetEntries(event);
+      if (mode === 'field') {
+          return buildActionControl(event.attacker, event.move, 'Aplicar efecto de campo', 't1-feed-apply-btn');
+      }
+      if (mode === 'opponents') {
+          const opposingSide = event.attacker.side === 'self' ? 'enemy' : 'self';
+          return `
+            <div class="t1-target-picker">
+              <div class="t1-target-picker__label">
+                <i data-lucide="waves"></i>
+                <span>Movimiento de area: actualiza dano y efectos sobre ambos rivales activos.</span>
+              </div>
+              ${buildActionControl(event.attacker, event.move, 'Aplicar a ambos rivales', 't1-feed-apply-btn', `data-target-mode="spread-foes" data-target-side="${opposingSide}"`)}
+            </div>`;
+      }
+      if (!targets.length) {
+          return `<div class="t1-target-picker is-empty"><i data-lucide="ban"></i><span>No hay objetivos activos para aplicar este efecto.</span></div>`;
+      }
+      const helper = mode === 'opponents'
+          ? 'Movimiento de zona: aplica el efecto a cada rival que quieras registrar.'
+          : 'Elige el objetivo exacto para que PS, estados y cálculos siguientes sean coherentes.';
+      return `
+        <div class="t1-target-picker">
+          <div class="t1-target-picker__label">
+            <i data-lucide="crosshair"></i>
+            <span>${helper}</span>
+          </div>
+          <div class="t1-target-picker__options">
+            ${targets.map(t => `
+              ${buildActionControl(
+                event.attacker,
+                event.move,
+                formatName(t.mon.displayName || t.mon.name),
+                't1-target-choice-btn',
+                `data-target-side="${t.side}" data-target-idx="${t.realIdx}"`
+              ).replace('<span>', `<img src="${t.mon.sprite}" alt=""> <span>`)}
+            `).join('')}
+          </div>
+        </div>`;
+  };
 
   const buildFeedCard = (event) => {
       const isAlly = event.isAlly;
@@ -2782,7 +4058,17 @@ export function renderTurn1Simulator() {
       const moveSlug = (event.move || '').toLowerCase().replace(/[^a-z0-9]/g, '');
       const moveData = window.GameDB?.moves?.[moveSlug] || {};
       const dmgClass = moveData.damageClass === 'physical' ? 'Físico' : (moveData.damageClass === 'special' ? 'Especial' : 'Estado');
-      
+      const sequenceBadge = `<span class="t1-sequence-badge" title="Orden estimado de resolución">#${event.sequenceRank || '?'}</span>`;
+      const tempoBadge = `<span class="tag-pill t1-tempo-pill">${event.prio ? `Prio ${event.prio > 0 ? '+' : ''}${event.prio}` : `Vel ${Math.abs(event.spe || 0)}`}</span>`;
+      const visualState = getActionVisualState(event.attacker, event.move, 'Aplicar');
+      const visualTitle = visualState.state === 'priority-ready' ? 'Prioridad disponible' : (visualState.state === 'ready' ? 'Listo para actuar' : visualState.label);
+      const visualDetail = escapeHtml(visualState.detail || '');
+      const actionStatusHtml = `
+        <div class="t1-action-status t1-action-status--${visualState.state}">
+          <span><i data-lucide="${visualState.icon}"></i>${visualTitle}</span>
+          <small>${visualDetail}</small>
+        </div>`;
+
       const itemSlug = (event.attacker.mon.set?.item || event.attacker.mon.item || '').toLowerCase().replace(/[^a-z]/g, '');
       const isMega = event.attacker.mon.name.includes('-mega') || !!MEGA_STONES[itemSlug];
       const megaIcon = isMega ? `<div class="mega-icon" style="position:static; display:flex; align-items:center; justify-content:center; width:16px; height:16px; margin: 0 4px; flex-shrink:0;" title="Megaevolución activa"></div>` : '';
@@ -2829,32 +4115,44 @@ export function renderTurn1Simulator() {
               else outspeedBadge = `<span class="tag-pill tag-pill--warning" style="font-size: 0.65rem;"><i data-lucide="help-circle" style="width:10px;height:10px;"></i> Speed Tie</span>`;
 
               return `
-              <div style="display: flex; flex-direction: column; padding: 12px;">
-                 <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; font-family: var(--poke-stat-font); margin-bottom: 6px;">
-                   <div style="display: flex; align-items: center; gap: 8px;">
-                     <img src="${event.attacker.mon.sprite}" style="width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" title="${event.attacker.mon.displayName || event.attacker.mon.name}">
-                     ${megaIcon}
-                     <strong style="text-transform: uppercase; font-size: 0.9rem;">${moveName}</strong>
-                     <i data-lucide="arrow-right" style="width:16px;height:16px;color:var(--muted); margin: 0 4px;"></i>
-                     <img src="${t.defender.mon.sprite}" style="width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" title="${t.defender.mon.displayName || t.defender.mon.name}">
+              <details style="padding: 12px; cursor: pointer;">
+                 <summary style="display: flex; flex-direction: column; list-style: none;">
+                   <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; font-family: var(--poke-stat-font); margin-bottom: 6px;">
+                     <div style="display: flex; align-items: center; gap: 8px;">
+                       ${sequenceBadge}
+                       <img src="${event.attacker.mon.sprite}" style="width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" title="${event.attacker.mon.displayName || event.attacker.mon.name}">
+                       ${megaIcon}
+                       <strong style="text-transform: uppercase; font-size: 0.9rem;">${moveName}</strong>
+                       <i data-lucide="arrow-right" style="width:16px;height:16px;color:var(--muted); margin: 0 4px;"></i>
+                       <img src="${t.defender.mon.sprite}" style="width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" title="${t.defender.mon.displayName || t.defender.mon.name}">
+                     </div>
+                     ${outspeedBadge}
                    </div>
-                   ${outspeedBadge}
-                 </div>
-                 
-                 <div style="display:flex; gap:6px; margin-bottom: 8px; align-items: center; flex-wrap: wrap;">
-                   ${event.type ? typeChip(event.type) : ''}
-                   ${event.prio !== 0 ? `<span class="tag-pill" style="background: var(--gold); color: #000; font-size: 0.6rem; padding: 2px 6px;">Prio ${event.prio > 0 ? '+'+event.prio : event.prio}</span>` : ''}
-                   <span class="tag-pill" style="background: rgba(255,255,255,0.1); color: #fff; font-size: 0.6rem; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.2);">${dmgClass}</span>
-                   ${isChoice ? `<span class="tag-pill tag-pill--danger" style="font-size: 0.6rem; padding: 2px 6px;"><i data-lucide="lock" style="width:10px;height:10px; margin-right:4px;"></i> Bloqueado en ${moveName}</span>` : ''}
-                 </div>
-                 ${koChipsHtml}
+                   
+                   <div style="display:flex; gap:6px; margin-bottom: 8px; align-items: center; flex-wrap: wrap;">
+                     ${tempoBadge}
+                     ${event.type ? typeChip(event.type) : ''}
+                     ${event.isSpread ? `<span class="tag-pill tag-pill--info" style="font-size: 0.6rem;">Area x2</span>` : ''}
+                     <span class="tag-pill" style="background: rgba(255,255,255,0.1); color: #fff; font-size: 0.6rem; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.2);">${dmgClass}</span>
+                     ${t.atk.mult !== undefined ? getEffectivenessBadgeHtml(t.atk.mult) : ''}
+                   </div>
 
-                 ${hpBarHtml}
-                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; margin-top: 8px; color: var(--muted);">
-                   <span>Daño Estimado: ${dmgLabel}</span>
-                   ${t.atk.mult !== undefined ? getEffectivenessBadgeHtml(t.atk.mult) : ''}
+                   ${hpBarHtml}
+                   <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; margin-top: 8px; color: var(--muted);">
+                     <span>Daño Estimado: ${dmgLabel}</span>
+                     <span style="font-size: 0.6rem; color: var(--muted); display:flex; align-items:center; gap:4px;"><i data-lucide="chevron-down" style="width:12px;height:12px;"></i> Detalles</span>
+                   </div>
+                 </summary>
+
+                 <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; gap:8px;">
+                   <div style="display:flex; gap:6px; align-items: center; flex-wrap: wrap;">
+                     ${event.prio !== 0 ? `<span class="tag-pill" style="background: var(--gold); color: #000; font-size: 0.6rem; padding: 2px 6px;">Prio ${event.prio > 0 ? '+'+event.prio : event.prio}</span>` : ''}
+                     ${isChoice ? `<span class="tag-pill tag-pill--danger" style="font-size: 0.6rem; padding: 2px 6px;"><i data-lucide="lock" style="width:10px;height:10px; margin-right:4px;"></i> Bloqueado en ${moveName}</span>` : ''}
+                   </div>
+                   ${koChipsHtml}
+                   ${buildActionControl(event.attacker, event.move, 'Aplicar a la simulación', 't1-feed-apply-btn', `data-target-side="${t.defender.side}" data-target-idx="${t.defender.realIdx}"`)}
                  </div>
-              </div>
+              </details>
               `;
           }).join('<div style="height: 1px; background: var(--line); margin: 0 12px;"></div>');
       } else {
@@ -2862,6 +4160,7 @@ export function renderTurn1Simulator() {
             <div style="display: flex; flex-direction: column; padding: 12px;">
                  <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; font-family: var(--poke-stat-font); margin-bottom: 6px;">
                    <div style="display: flex; align-items: center; gap: 8px;">
+                     ${sequenceBadge}
                      <img src="${event.attacker.mon.sprite}" style="width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" title="${event.attacker.mon.displayName || event.attacker.mon.name}">
                      ${megaIcon}
                      <strong style="text-transform: uppercase; font-size: 0.9rem; color: var(--orange);">${moveName}</strong>
@@ -2869,24 +4168,43 @@ export function renderTurn1Simulator() {
                  </div>
                  
                  <div style="display:flex; gap:6px; margin-bottom: 4px; align-items: center; flex-wrap: wrap;">
+                   ${tempoBadge}
                    ${event.type ? typeChip(event.type) : ''}
+                   ${event.isSpread ? `<span class="tag-pill tag-pill--info" style="font-size: 0.6rem;">Area x2</span>` : ''}
                    ${event.prio !== 0 ? `<span class="tag-pill" style="background: var(--gold); color: #000; font-size: 0.6rem; padding: 2px 6px;">Prio ${event.prio > 0 ? '+'+event.prio : event.prio}</span>` : ''}
                    <span class="tag-pill" style="background: rgba(255,255,255,0.1); color: #fff; font-size: 0.6rem; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.2);">${dmgClass}</span>
                    ${isChoice ? `<span class="tag-pill tag-pill--danger" style="font-size: 0.6rem; padding: 2px 6px;"><i data-lucide="lock" style="width:10px;height:10px; margin-right:4px;"></i> Bloqueado en ${moveName}</span>` : ''}
                    ${event.effectDesc ? `<span class="tag-pill tag-pill--warning" style="font-size: 0.65rem;">${event.effectDesc}</span>` : ''}
                  </div>
+                 ${renderSupportTargetPicker(event)}
               </div>
           `;
       }
 
       return `
-      <article class="tactical-feed-card" style="border-left: 4px solid ${glowColor}; box-shadow: -4px 0 16px ${hexToRgba(glowColor, 0.15)}; background: rgba(0,0,0,0.25); border-radius: 12px; margin-bottom: 12px; overflow: hidden; border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <article class="tactical-feed-card t1-action-card t1-action-card--${visualState.state} t1-action-card--${isAlly ? 'ally' : 'enemy'}" style="border-left: 4px solid ${glowColor}; box-shadow: -4px 0 16px ${hexToRgba(glowColor, 0.15)}; background: rgba(0,0,0,0.25); border-radius: 12px; margin-bottom: 12px; overflow: hidden; border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+        ${actionStatusHtml}
         ${innerHtml}
       </article>
       `;
   };
 
-  tacticalEvents.forEach(event => { tacticalFeedHtml += buildFeedCard(event); });
+  const isCriticalEvent = (event) => {
+      if (event.effectDesc && (event.effectDesc.includes("FLINCH") || event.effectDesc.includes("PROTECCIÓN") || event.effectDesc.includes("ESPACIO RARO"))) return true;
+      if (event.prio !== 0) return true;
+      if (event.targets && event.targets.length > 0) {
+          for (const t of event.targets) {
+              if (t.surv && t.surv.survivesAt1HP) return true;
+              if (t.atk && t.atk.immunityData) return true;
+              if (!event.isAlly && targetThreatsCount[t.defender.mon.name] >= 2) return true;
+              if (t.isOhko && (!event.isAlly || (event.prio < t.prioD) || (event.prio === t.prioD && event.spe < t.speD))) return true;
+          }
+      }
+      return false;
+  };
+
+  let criticalCardsHtml = tacticalEvents.map(buildFeedCard).join('');
+  let exchangeCardsHtml = '';
 
   const renderVectorRow = (v) => {
       const isSpread = v.atk.move && SPREAD_MOVES.has(String(v.atk.move).toLowerCase().replace(/[^a-z0-9]/g, ''));
@@ -2940,6 +4258,9 @@ export function renderTurn1Simulator() {
         </div>
         <img src="${defMon.sprite}" class="sprite-micro" title="${defMon.displayName || defMon.name}">
         ${badgeHtml}
+        ${isSpread
+          ? buildActionControl(v.attacker, v.atk.move, 'Aplicar area', 't1-apply-move-btn', `data-target-mode="spread-foes" data-target-side="${v.defender.side}"`)
+          : buildActionControl(v.attacker, v.atk.move, 'Aplicar', 't1-apply-move-btn', `data-target-side="${v.defender.side}" data-target-idx="${v.defender.realIdx}"`)}
       </div>`;
   };
 
@@ -2980,21 +4301,22 @@ export function renderTurn1Simulator() {
   // ZONA 2 & 3: Roster Grid + Radar (Mobile-First)
   let rosterGridHtml = `
     <div class="mobile-roster-grid">
-      ${selfLeads.map(l => {
-         const isDouble = targetThreatsCount[l.mon.name] >= 2;
+      ${visibleSelfLeads.map(l => {
+         const isDouble = canActThisTurn(l) && allVectors.filter(v => !v.isAlly && v.defender.side === 'self' && v.defender.mon.name === l.mon.name).length >= 2;
          return renderMobileCombatantCard(l.mon, 'self', isDouble);
       }).join('')}
-      ${enemyLeads.map(l => {
-         const isDouble = targetThreatsCount[l.mon.name] >= 2;
+      ${visibleEnemyLeads.map(l => {
+         const isDouble = canActThisTurn(l) && allVectors.filter(v => v.isAlly && v.defender.side === 'enemy' && v.defender.mon.name === l.mon.name).length >= 2;
          return renderMobileCombatantCard(l.mon, 'enemy', isDouble);
       }).join('')}
     </div>
   `;
 
   let crossfireSectionHtml = crossfireRowsHtml ? `
-    <div style="margin-top: 24px; margin-bottom: 24px;">
-      <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
-        <i data-lucide="radar" style="width: 16px; height: 16px; color: var(--red, #e74c3c);"></i> Vectores de Amenaza
+    <div class="t1-crossfire-section">
+      <div class="t1-zone-heading t1-zone-heading--danger">
+        <span><i data-lucide="radar"></i> Vectores de amenaza</span>
+        <p>Quién amenaza a quién, con qué daño y si el KO queda negado por Focus Sash, Sturdy o inmunidad.</p>
       </div>
       <div class="crossfire-list">
         ${crossfireRowsHtml}
@@ -3002,20 +4324,155 @@ export function renderTurn1Simulator() {
     </div>
   ` : '';
 
+  const renderFieldBtn = (kind, value, label, icon, active, side = '') => `
+    <button type="button" class="t1-field-btn ${active ? 'is-active' : ''}" data-t1-field-kind="${kind}" data-t1-field-value="${value}" ${side ? `data-t1-side="${side}"` : ''}>
+      <i data-lucide="${icon}"></i>
+      <span>${label}</span>
+    </button>`;
+  const pendingNormalQueue = session.active ? getTurn1PendingActionQueue() : [];
+  const nextNormalActor = pendingNormalQueue[0] || null;
+  const openPriorityEntries = [...visibleSelfLeads, ...visibleEnemyLeads]
+    .filter(canActThisTurn)
+    .filter(entry => !hasTurnActionBeenUsed(entry.side, entry.realIdx))
+    .map(entry => {
+      const moves = (entry.mon.set?.moves || []).filter(move => getPriority(move, entry.mon) > 0 && !getActionBlockReason(entry.mon, move) && !getTurn1ActionOrderBlock(entry.side, entry.realIdx, move));
+      return moves.length ? { entry, move: moves.sort((a, b) => getPriority(b, entry.mon) - getPriority(a, entry.mon))[0] } : null;
+    })
+    .filter(Boolean);
+  const pendingSwitchPrompt = session.pendingSwitch
+    ? `${formatName(session.pendingSwitch.sourceName || state[session.pendingSwitch.side]?.[session.pendingSwitch.sourceIdx]?.displayName || state[session.pendingSwitch.side]?.[session.pendingSwitch.sourceIdx]?.name || 'Ese Pokemon')} debe salir ahora`
+    : '';
+  const turnCursorHtml = session.active ? `
+    <div class="t1-turn-cursor">
+      <div class="t1-turn-cursor__main">
+        <span><i data-lucide="sparkles"></i> Ventana actual</span>
+        <strong>${session.pendingSwitch ? pendingSwitchPrompt : (nextNormalActor ? `${formatName(nextNormalActor.mon.displayName || nextNormalActor.mon.name)} por ${describeTurnPriority(0, nextNormalActor.spe)}` : 'Sin acciones pendientes')}</strong>
+      </div>
+      ${session.pendingSwitch ? `<div class="t1-turn-cursor__pending"><i data-lucide="repeat"></i><span>Selecciona el relevo en el tablero activo para continuar el turno.</span></div>` : ''}
+      ${openPriorityEntries.length ? `
+        <div class="t1-turn-cursor__priority">
+          ${openPriorityEntries.slice(0, 3).map(({ entry, move }) => `<span><i data-lucide="zap"></i>${formatName(entry.mon.displayName || entry.mon.name)} puede usar ${formatName(getTranslation(move, 'move') || move)}</span>`).join('')}
+        </div>` : '<div class="t1-turn-cursor__priority is-muted">No quedan ventanas de prioridad abiertas.</div>'}
+    </div>` : '';
+  const renderMonStateControl = (entry) => {
+    const original = state[entry.side]?.[entry.realIdx];
+    const hp = Math.max(0, Math.min(100, Math.round(original?.battle?.hpPct ?? 100)));
+    const status = original?.battle?.status || 'none';
+    const name = formatName(original?.displayName || original?.name || 'Slot');
+    const isFainted = original?.fainted || hp <= 0;
+    const hasActed = hasTurnActionBeenUsed(entry.side, entry.realIdx);
+    const isNextNormal = nextNormalActor && nextNormalActor.side === entry.side && Number(nextNormalActor.idx) === Number(entry.realIdx);
+    const hasPriorityOpen = openPriorityEntries.some(p => p.entry.side === entry.side && Number(p.entry.realIdx) === Number(entry.realIdx));
+    const isProtected = !!original?.battle?.protected;
+    const hardBlockReason = getHardTurnBlockReason(original);
+    const isTurnBlocked = !!hardBlockReason && !isFainted;
+    const stateChip = isFainted
+      ? '<span class="t1-ko-chip">KO</span>'
+      : (isTurnBlocked
+        ? `<span class="t1-stop-chip" title="${escapeHtml(hardBlockReason)}">No actúa</span>`
+        : (isProtected
+          ? '<span class="t1-protect-chip">Protegido</span>'
+          : (original?.battle?.taunted
+            ? '<span class="t1-stop-chip is-taunt">Mofa</span>'
+            : (hasActed ? '<span class="t1-action-chip">Actuó</span>' : ''))));
+    const displayedStateChip = original?.battle?.enteredThisTurn
+      ? '<span class="t1-stop-chip is-entry">Entrando</span>'
+      : stateChip;
+    return `
+      <article class="t1-state-card t1-state-card--${entry.side} ${isFainted ? 'is-fainted' : ''} ${hasActed ? 'has-acted' : ''} ${isNextNormal ? 'is-next' : ''} ${hasPriorityOpen ? 'has-priority-open' : ''}">
+        <img src="${original?.sprite || ''}" alt="">
+        <div class="t1-state-card__main">
+          <div class="t1-state-card__name">
+            <strong>${name}</strong>
+            ${displayedStateChip}
+          </div>
+          <label>
+            <span>PS</span>
+            <input type="number" min="0" max="100" value="${hp}" data-t1-hp data-side="${entry.side}" data-idx="${entry.realIdx}">
+          </label>
+          <select data-t1-status data-side="${entry.side}" data-idx="${entry.realIdx}" aria-label="Estado de ${name}">
+            ${['none', 'brn', 'par', 'slp', 'psn', 'tox', 'frz'].map(s => `<option value="${s}" ${status === s ? 'selected' : ''}>${formatBattleStatus(s)}</option>`).join('')}
+          </select>
+        </div>
+      </article>`;
+  };
+  const recentLogHtml = session.log.length ? session.log.slice(0, 5).map(item => `
+    <li class="t1-log-item t1-log-item--${item.kind}">
+      <span>T${item.turn}</span>
+      <strong>${item.title}</strong>
+      <p>${item.text}</p>
+    </li>`).join('') : `<li class="t1-log-empty">Pulsa Start para fijar la mesa y empezar a acumular lo que ocurre.</li>`;
+  const t1ControlsHtml = `
+    <div class="t1-sim-control-panel">
+      <div class="t1-sim-control-panel__top">
+        <div>
+          <div class="t1-command-brief__eyebrow">Simulación acumulada</div>
+          <h3>${session.active ? `Turno ${session.turn} en curso` : 'Mesa aún no iniciada'}</h3>
+          <p>${session.active ? 'Cada movimiento aplicado cambia PS, estados y campo para recalcular lo siguiente.' : 'Inicia la partida para convertir esta lectura de turno 1 en seguimiento real.'}</p>
+        </div>
+        <div class="t1-sim-actions">
+          <button type="button" class="btn blue" data-t1-sim-command="start"><i data-lucide="play"></i> Start</button>
+          <button type="button" class="btn ghost" data-t1-sim-command="next"><i data-lucide="skip-forward"></i> Siguiente turno</button>
+          <button type="button" class="btn ghost" data-t1-sim-command="reset"><i data-lucide="rotate-ccw"></i> Reset</button>
+        </div>
+      </div>
+
+      <div class="t1-field-console">
+        <div class="t1-field-console__group">
+          <span>Clima</span>
+          ${renderFieldBtn('weather', 'sun', 'Sol', 'sun', state.field.weather === 'sun')}
+          ${renderFieldBtn('weather', 'rain', 'Lluvia', 'cloud-rain', state.field.weather === 'rain')}
+          ${renderFieldBtn('weather', 'sand', 'Arena', 'wind', state.field.weather === 'sand' || state.field.weather === 'sandstorm')}
+          ${renderFieldBtn('weather', 'snow', 'Nieve', 'snowflake', state.field.weather === 'snow')}
+        </div>
+        <div class="t1-field-console__group">
+          <span>Campo</span>
+          ${renderFieldBtn('terrain', 'electric', 'Eléctrico', 'zap', state.field.terrain === 'electric')}
+          ${renderFieldBtn('terrain', 'grassy', 'Hierba', 'leaf', state.field.terrain === 'grassy')}
+          ${renderFieldBtn('terrain', 'psychic', 'Psíquico', 'orbit', state.field.terrain === 'psychic')}
+          ${renderFieldBtn('terrain', 'misty', 'Niebla', 'sparkles', state.field.terrain === 'misty')}
+        </div>
+        <div class="t1-field-console__group">
+          <span>Velocidad</span>
+          ${renderFieldBtn('trickRoom', 'toggle', 'Trick Room', 'timer-reset', !!state.field.trickRoom)}
+          ${renderFieldBtn('tailwind', 'toggle', 'Tailwind propio', 'wind', !!state.field.tailwindSelf, 'self')}
+          ${renderFieldBtn('tailwind', 'toggle', 'Tailwind rival', 'wind', !!state.field.tailwindEnemy, 'enemy')}
+        </div>
+      </div>
+
+      <div class="t1-state-console">
+        ${turnCursorHtml}
+        <div class="t1-state-console__grid">
+          ${[...visibleSelfLeads, ...visibleEnemyLeads].map(renderMonStateControl).join('')}
+        </div>
+        <ol class="t1-battle-log">${recentLogHtml}</ol>
+      </div>
+    </div>
+  `;
+
   // --- INYECCIÓN DE CONDITION CARDS (TRICK ROOM Y FAKE OUT) ---
-  const buildCondition = (type, icon, eyebrow, title, text) => `
+  const buildCondition = (type, icon, eyebrow, title, text, metaHtml = '') => `
       <article class="condition-card condition-card--${type}">
         <div class="condition-card__icon"><i data-lucide="${icon}"></i></div>
         <div class="condition-card__content">
           <div class="condition-card__eyebrow">${eyebrow}</div>
           <h4 class="condition-card__title">${title}</h4>
           <p class="condition-card__text">${text}</p>
+          ${metaHtml ? `<div class="condition-card__chain">${metaHtml}</div>` : ''}
         </div>
       </article>
   `;
 
   let conditionCards = [];
   const safeNormArray = (arr) => (arr || []).map(m => String(m).toLowerCase().replace(/[^a-z]/g, ''));
+  const monLabel = (mon) => formatName(mon?.displayName || mon?.name || 'desconocido');
+  const hasAnyMove = (mon, moveSet) => safeNormArray(mon?.set?.moves).some(m => moveSet.has(m));
+  const abilityId = (mon) => String(mon?.set?.ability || mon?.ability || '').toLowerCase().replace(/[^a-z]/g, '');
+  const chip = (label, sprite = null) => `
+    <span class="condition-card__chip">
+      ${sprite ? `<img src="${sprite}" alt="">` : ''}
+      ${label}
+    </span>`;
 
   const TRICK_ROOM = new Set(["trickroom", "espacioraro"]);
   const trickRoomUsers = leads.filter(x => safeNormArray(x.mon.set?.moves).some(m => TRICK_ROOM.has(m)));
@@ -3047,17 +4504,314 @@ export function renderTurn1Simulator() {
      const userNames = validFakeOutUsers.map(u => formatName(u.mon.displayName || u.mon.name)).join(', ');
      conditionCards.push(buildCondition('priority', 'hand', 'Alerta de Prioridad', 'Amenaza con Sorpresa', `Detectado en: <b>${userNames}</b>. Oponentes válidos en riesgo de retroceso.`));
   }
+
+  const SETUP_MOVES = new Set(['trickroom', 'espacioraro', 'tailwind', 'vientoafin', 'swordsdance', 'danzasespada', 'nastyplot', 'maquinacion', 'calmmind', 'pazmental', 'bulkup', 'corpulencia', 'dragondance', 'danzadragon', 'quiverdance', 'danzaleteo', 'shellsmash', 'rompecoraza']);
+  const PERISH_MOVES = new Set(['perishsong', 'cantoperish', 'cantumortal']);
+  const TRAP_ABILITIES = new Set(['shadowtag', 'sombratrampa', 'arenatrap', 'trampaarena']);
+  const PRIORITY_DENIAL_ABILITIES = new Set(['armortail', 'dazzling', 'queenlymajesty', 'shielddust']);
+  const WEATHER_SETTERS = {
+    sun: new Set(['drought', 'sequia']),
+    rain: new Set(['drizzle', 'llovizna']),
+    sand: new Set(['sandstream', 'chorroarena']),
+    snow: new Set(['snowwarning', 'nevasca'])
+  };
+  const WEATHER_ABUSERS = {
+    sun: new Set(['chlorophyll', 'clorofila', 'solarpower', 'podersolar', 'protosynthesis']),
+    rain: new Set(['swiftswim', 'nadorapido', 'raindish']),
+    sand: new Set(['sandrush', 'impetuarena', 'sandforce', 'poderarena', 'sandveil', 'veloarena']),
+    snow: new Set(['slushrush', 'quitanieves', 'snowcloak', 'mantoacueo'])
+  };
+
+  const pushSideCondition = ({ side, type, icon, eyebrow, title, text, actors = [] }) => {
+    const sideLabel = side === 'enemy' ? 'Rival' : 'Propio';
+    const metaHtml = actors.map(actor => chip(monLabel(actor.mon || actor), actor.mon?.sprite || actor.sprite)).join('');
+    conditionCards.push(buildCondition(type, icon, `${eyebrow} · ${sideLabel}`, title, text, metaHtml));
+  };
+
+  ['enemy', 'self'].forEach(side => {
+    const sideLeads = side === 'enemy' ? enemyLeads : selfLeads;
+    const fakeOutUsersSide = sideLeads.filter(l => hasAnyMove(l.mon, FAKE_OUT_MOVES));
+    const setupUsers = sideLeads.filter(l => hasAnyMove(l.mon, SETUP_MOVES));
+    if (side === 'enemy' && fakeOutUsersSide.length > 0 && setupUsers.some(su => !fakeOutUsersSide.some(fo => fo.mon.name === su.mon.name))) {
+      const blocker = fakeOutUsersSide[0];
+      const enabler = setupUsers.find(su => su.mon.name !== blocker.mon.name) || setupUsers[0];
+      pushSideCondition({
+        side,
+        type: 'priority',
+        icon: 'hand',
+        eyebrow: 'Combo de tempo',
+        title: 'Sorpresa puede comprar setup',
+        text: `<b>${monLabel(blocker.mon)}</b> puede frenar una respuesta mientras <b>${monLabel(enabler.mon)}</b> cambia el ritmo del turno.`,
+        actors: [blocker, enabler]
+      });
+    }
+
+    const trSettersSide = sideLeads.filter(l => hasAnyMove(l.mon, TRICK_ROOM));
+    const slowPartners = sideLeads.filter(l => !trSettersSide.some(tr => tr.mon.name === l.mon.name) && (l.mon.baseStats?.speed || 100) <= 70);
+    if (side === 'enemy' && trSettersSide.length > 0 && slowPartners.length > 0) {
+      pushSideCondition({
+        side,
+        type: 'speed',
+        icon: 'timer-reset',
+        eyebrow: 'Control de velocidad',
+        title: 'Trick Room + sweeper lento',
+        text: `Si <b>${monLabel(trSettersSide[0].mon)}</b> activa Espacio Raro, <b>${monLabel(slowPartners[0].mon)}</b> pasa de lento a amenaza de tempo.`,
+        actors: [trSettersSide[0], slowPartners[0]]
+      });
+    }
+
+    const perishUsers = sideLeads.filter(l => hasAnyMove(l.mon, PERISH_MOVES));
+    const trapUsers = sideLeads.filter(l => TRAP_ABILITIES.has(abilityId(l.mon)));
+    if (side === 'enemy' && perishUsers.length > 0 && trapUsers.length > 0) {
+      pushSideCondition({
+        side,
+        type: 'pressure',
+        icon: 'lock',
+        eyebrow: 'Trampa de cierre',
+        title: 'Canto Mortal + bloqueo de cambio',
+        text: `<b>${monLabel(perishUsers[0].mon)}</b> y <b>${monLabel(trapUsers[0].mon)}</b> pueden convertir un turno pasivo en una ruta de cierre.`,
+        actors: [perishUsers[0], trapUsers[0]]
+      });
+    }
+
+    const denialUsers = sideLeads.filter(l => PRIORITY_DENIAL_ABILITIES.has(abilityId(l.mon)));
+    const psychicTerrainActive = (simFieldLocal.terrain || '').toLowerCase().includes('psychic');
+    if (side === 'enemy' && (denialUsers.length > 0 || psychicTerrainActive)) {
+      const actorText = denialUsers.length > 0 ? `<b>${monLabel(denialUsers[0].mon)}</b>` : '<b>Campo Psíquico</b>';
+      pushSideCondition({
+        side,
+        type: 'priority',
+        icon: 'shield-alert',
+        eyebrow: 'Bloqueo de prioridad',
+        title: 'La prioridad puede no resolver',
+        text: `${actorText} limita Fake Out, Extreme Speed o planes de remate por prioridad.`,
+        actors: denialUsers.slice(0, 2)
+      });
+    }
+
+    Object.entries(WEATHER_SETTERS).forEach(([weatherKey, setterAbilities]) => {
+      const setter = sideLeads.find(l => setterAbilities.has(abilityId(l.mon)));
+      const abuser = sideLeads.find(l => setter && l.mon.name !== setter.mon.name && WEATHER_ABUSERS[weatherKey]?.has(abilityId(l.mon)));
+      if (side === 'enemy' && setter && abuser) {
+        pushSideCondition({
+          side,
+          type: 'weather',
+          icon: weatherKey === 'rain' ? 'cloud-rain' : (weatherKey === 'sun' ? 'sun' : 'wind'),
+          eyebrow: 'Sinergia de campo',
+          title: 'Clima + abusador activo',
+          text: `<b>${monLabel(setter.mon)}</b> activa el campo que potencia a <b>${monLabel(abuser.mon)}</b>. La lectura de velocidad/daño cambia desde turno 1.`,
+          actors: [setter, abuser]
+        });
+      }
+    });
+  });
+
+  const enemyDoubleFocus = selfLeads
+    .map(target => {
+      const incoming = allVectors.filter(v => !v.isAlly && v.defender.mon.name === target.mon.name);
+      const lethal = incoming.filter(v => v.surv.isLethal || v.atk.ohkoProb > 0);
+      return { target, incoming, lethal };
+    })
+    .filter(row => row.incoming.length >= 2)
+    .sort((a, b) => b.lethal.length - a.lethal.length || b.incoming.length - a.incoming.length)[0];
+
+  if (enemyDoubleFocus) {
+    const attackers = enemyDoubleFocus.incoming.map(v => v.attacker).filter((v, idx, arr) => arr.findIndex(x => x.mon.name === v.mon.name) === idx).slice(0, 2);
+    conditionCards.unshift(buildCondition(
+      'pressure',
+      'crosshair',
+      'Presión conjunta · Rival',
+      `Foco doble sobre ${monLabel(enemyDoubleFocus.target.mon)}`,
+      `Ambos leads rivales tienen una línea útil hacia <b>${monLabel(enemyDoubleFocus.target.mon)}</b>. Si no proteges, pivoteas o niegas tempo, ese slot puede colapsar antes de aportar.`,
+      [enemyDoubleFocus.target, ...attackers].map(actor => chip(monLabel(actor.mon), actor.mon.sprite)).join('')
+    ));
+  }
+
+  const enemySashStopsKo = allVectors.find(v => v.isAlly && (v.surv.isSavedBySash || v.surv.isSavedBySturdy));
+  if (enemySashStopsKo) {
+    const stopName = enemySashStopsKo.surv.isSavedBySash ? 'Focus Sash' : 'Sturdy';
+    conditionCards.push(buildCondition(
+      'pressure',
+      'shield',
+      'Supervivencia crítica · Rival',
+      `${stopName} cambia el KO real`,
+      `<b>${monLabel(enemySashStopsKo.defender.mon)}</b> parece caer, pero sobrevive a 1 PS. Planifica chip, doble foco o protección posterior.`,
+      [enemySashStopsKo.attacker, enemySashStopsKo.defender].map(actor => chip(monLabel(actor.mon), actor.mon.sprite)).join('')
+    ));
+  }
   
-  tacticalFeedHtml += conditionCards.join('');
+  if (conditionCards.length > 0) {
+    criticalCardsHtml = `
+      <div class="condition-grid t1-condition-grid">
+        ${conditionCards.slice(0, 8).join('')}
+      </div>
+      ${criticalCardsHtml}
+    `;
+  }
+
+  // --- VEREDICTO T1 ---
+  let iniciativaText = "Tie probable";
+  let iniciativaDetail = "El primer intercambio depende del empate de velocidad o de prioridad.";
+  let riesgoText = "Sin KO limpio detectado";
+  let riesgoDetail = "No hay una ruta inmediata de colapso, pero revisa rolls y cambios de campo.";
+  let planText = "Presión directa";
+  let planDetail = "Puedes avanzar con tu mejor línea ofensiva si no concedes control de velocidad.";
+  let pairPressureText = "Presión repartida";
+  let pairPressureDetail = "El rival no concentra claramente ambos slots sobre un mismo objetivo.";
+  let comboText = "Sin combo crítico visible";
+  let comboDetail = "Las amenazas importantes parecen individuales, no una cadena de turno 1.";
+  let fieldText = "Campo neutro";
+  let fieldDetail = "Sin clima, terreno o inversión activa que cambie la lectura base.";
+
+  if (turnOrderLeads.length > 0) {
+     const fastest = turnOrderLeads[0];
+     const secondFastest = turnOrderLeads.length > 1 ? turnOrderLeads[1] : null;
+     if (secondFastest && fastest.spe === secondFastest.spe && fastest.side !== secondFastest.side) {
+        iniciativaText = "Tie probable";
+     } else if (fastest.side === 'self') {
+        iniciativaText = "Mueves antes";
+     } else {
+        iniciativaText = "Rival mueve antes";
+     }
+     const firstMoveLabel = `Vel ${Math.abs(fastest.spe)}`;
+     iniciativaDetail = `${monLabel(fastest.mon)} abre el orden base por ${firstMoveLabel}${fastest.hasPriorityOption ? ', con opcion de prioridad si la declara' : ''}.`;
+  }
+
+  const doubleTargetAlly = enemyDoubleFocus?.target || selfLeads.find(l => targetThreatsCount[l.mon.name] >= 2);
+  if (doubleTargetAlly) {
+     riesgoText = `Foco doble sobre ${formatName(doubleTargetAlly.mon.displayName || doubleTargetAlly.mon.name)}`;
+     riesgoDetail = "Ambos rivales tienen presión útil sobre el mismo lead; Protect, cambio o negar tempo gana valor.";
+  } else if (allyOhkoThreats.size > 0) {
+     riesgoText = `KO crítico sobre ${Array.from(allyOhkoThreats).map(n => formatName(n)).join(', ')}`;
+     riesgoDetail = "Hay una línea rival de KO o roll alto antes de que ese slot pueda estabilizarse.";
+  }
+
+  const hasFakeOutEnemy = validFakeOutUsers.some(fo => fo.side === 'enemy');
+  const enemyHasSash = allVectors.some(v => v.isAlly && v.surv.isSavedBySash);
+  const activeFieldBits = [];
+  const currentWeather = simFieldLocal.weather === 'sandstorm' ? 'sand' : simFieldLocal.weather;
+  if (state.turn1Battle?.active && currentWeather) activeFieldBits.push(WEATHER_LABELS[currentWeather] || weatherNames[currentWeather] || formatName(currentWeather));
+  else if (weathers[0]) activeFieldBits.push(weathers[0].text);
+  if (state.turn1Battle?.active && simFieldLocal.terrain) activeFieldBits.push(TERRAIN_LABELS[simFieldLocal.terrain] || formatName(simFieldLocal.terrain));
+  else if (terrains[0]) activeFieldBits.push(terrains[0].text);
+  if (state.field.trickRoom) activeFieldBits.push('Trick Room activo');
+  if (state.field.tailwindSelf) activeFieldBits.push('Tu Tailwind');
+  if (state.field.tailwindEnemy) activeFieldBits.push('Tailwind rival');
+
+  if (activeFieldBits.length > 0) {
+    fieldText = activeFieldBits.slice(0, 2).join(' + ');
+    fieldDetail = "Estas condiciones alteran velocidad, prioridad o daño antes de interpretar los KOs.";
+  }
+
+  if (enemyDoubleFocus) {
+    pairPressureText = `${monLabel(enemyDoubleFocus.target.mon)} bajo foco`;
+    pairPressureDetail = "La pareja rival no solo amenaza daño: concentra el turno sobre el mismo slot.";
+  } else {
+    const enemyPressureVectors = allVectors.filter(v => !v.isAlly);
+    const enemyAttackers = new Set(enemyPressureVectors.map(v => v.attacker.mon.name));
+    if (enemyAttackers.size >= 2) {
+      pairPressureText = "Dos fuentes de presión";
+      pairPressureDetail = "Los dos leads rivales tienen líneas relevantes, aunque no siempre al mismo objetivo.";
+    }
+  }
+
+  const firstEnemyComboCard = conditionCards.find(card => card.includes('· Rival') && !card.includes('Supervivencia crítica') && !card.includes('Presión conjunta'));
+  if (firstEnemyComboCard) {
+    const titleMatch = firstEnemyComboCard.match(/<h4 class="condition-card__title">([^<]+)<\/h4>/);
+    const textMatch = firstEnemyComboCard.match(/<p class="condition-card__text">([\s\S]*?)<\/p>/);
+    comboText = titleMatch ? titleMatch[1] : "Combo rival crítico";
+    comboDetail = textMatch ? textMatch[1].replace(/<[^>]+>/g, '') : "Hay una sinergia rival que cambia la lectura del turno 1.";
+  }
+
+  if (hasFakeOutEnemy) {
+      planText = "Negar Fake Out";
+      planDetail = "Prioriza Inner Focus, tipo Fantasma, Protect o doble presión sobre el usuario de Sorpresa.";
+  } else if (doubleTargetAlly || allyOhkoThreats.size > 0) {
+      planText = "Protect + pivot";
+      planDetail = "No entregues el slot amenazado: fuerza scout, reposiciona o castiga al atacante más rápido.";
+  } else if (enemyHasSash) {
+      planText = "Jugar alrededor de Sash";
+      planDetail = "El KO aparente no cierra el turno: busca chip, doble foco o una segunda acción segura.";
+  } else {
+      const bestAllyVector = allVectors
+        .filter(v => v.isAlly)
+        .sort((a, b) => (b.surv.isLethal - a.surv.isLethal) || (b.atk.maxPct || 0) - (a.atk.maxPct || 0))[0];
+      if (bestAllyVector) {
+        planText = `Presionar a ${monLabel(bestAllyVector.defender.mon)}`;
+        planDetail = `${monLabel(bestAllyVector.attacker.mon)} tiene la mejor línea ofensiva visible sin depender de un nuevo modo de juego.`;
+      }
+  }
+
+  if (veredictoContainer) {
+    veredictoContainer.innerHTML = `
+      <div class="veredicto-t1-banner t1-command-brief">
+         <div class="t1-command-brief__headline">
+            <div>
+              <div class="t1-command-brief__eyebrow">Lectura táctica del turno 1</div>
+              <h3>${planText}</h3>
+            </div>
+            <span class="t1-command-brief__stance ${iniciativaText === 'Mueves antes' ? 'is-good' : (iniciativaText === 'Rival mueve antes' ? 'is-danger' : 'is-warning')}">${iniciativaText}</span>
+         </div>
+         <p class="t1-command-brief__plan">${planDetail}</p>
+         <div class="t1-brief-grid">
+            <article class="t1-brief-cell">
+              <span><i data-lucide="zap"></i> Tempo</span>
+              <strong class="${iniciativaText === 'Rival mueve antes' ? 'is-danger' : ''}">${iniciativaText}</strong>
+              <p>${iniciativaDetail}</p>
+            </article>
+            <article class="t1-brief-cell">
+              <span><i data-lucide="alert-triangle"></i> Lead en peligro</span>
+              <strong class="${riesgoText.includes('Sin KO') ? '' : 'is-danger'}">${riesgoText}</strong>
+              <p>${riesgoDetail}</p>
+            </article>
+            <article class="t1-brief-cell">
+              <span><i data-lucide="crosshair"></i> Presión rival</span>
+              <strong>${pairPressureText}</strong>
+              <p>${pairPressureDetail}</p>
+            </article>
+            <article class="t1-brief-cell">
+              <span><i data-lucide="route"></i> Combo decisivo</span>
+              <strong class="${comboText === 'Sin combo crítico visible' ? '' : 'is-warning'}">${comboText}</strong>
+              <p>${comboDetail}</p>
+            </article>
+            <article class="t1-brief-cell">
+              <span><i data-lucide="cloud-sun"></i> Campo</span>
+              <strong>${fieldText}</strong>
+              <p>${fieldDetail}</p>
+            </article>
+            <article class="t1-brief-cell t1-brief-cell--action">
+              <span><i data-lucide="target"></i> Lectura sugerida</span>
+              <strong>${planText}</strong>
+              <p>${planDetail}</p>
+            </article>
+         </div>
+      </div>
+    `;
+  }
 
   // Render Final
   list.innerHTML = `
     <div class="tactical-zones-container">
+      ${t1ControlsHtml}
+      <div class="t1-zone-heading t1-zone-heading--center">
+        <span>Orden previsto de activación</span>
+        <p>Orden base por velocidad efectiva. La prioridad se marca como opcion disponible, pero no reordena esta vista hasta elegir un movimiento.</p>
+      </div>
       ${timelineHtml}
+      <div class="t1-zone-heading">
+        <span>Combatientes en mesa</span>
+        <p>Roles, activaciones, objetos críticos, objetivos marcados y KOs que ya no participan en el cálculo.</p>
+      </div>
       ${rosterGridHtml}
       ${crossfireSectionHtml}
       <div class="tactical-feed" style="margin-top: 16px;">
-        ${tacticalFeedHtml}
+        ${criticalCardsHtml ? `
+        <div class="t1-zone-heading t1-zone-heading--danger">
+          <span>Decisiones críticas en orden de turno</span>
+          <p>Una sola cola: prioridad primero, luego velocidad efectiva y después utilidad táctica. Solo puede actuar el siguiente Pokémon pendiente.</p>
+        </div>
+        ${criticalCardsHtml}
+        ` : ''}
       </div>
     </div>
   `;
@@ -3139,6 +4893,7 @@ export function bootstrapApp() {
     clearAll,
     swapTeams,
   });
+  initTurn1SimulatorRuntimeBindings();
 
   initApp();
 }
@@ -3753,6 +5508,28 @@ export function simulateTurn(state, actionsSelf, actionsEnemy) {
       ensureItemRegistry(mon.set?.item);
 
       const moveName = action.moveName;
+      const actionBlockReason = getActionBlockReason(mon, moveName);
+      if (actionBlockReason) {
+        log.push({
+          type: 'blocked',
+          side: action.side,
+          fromIndex: action.userIndex,
+          move: moveName,
+          reason: actionBlockReason,
+        });
+        continue;
+      }
+      if (isProtectMove(moveName)) {
+        ensureBattleState(mon);
+        mon.battle.protected = true;
+        mon.battle.protectedBy = formatName(getTranslation(moveName, 'move') || moveName);
+        log.push({
+          type: 'protect',
+          side: action.side,
+          fromIndex: action.userIndex,
+          move: moveName,
+        });
+      }
       let targets = [];
 
       if (typeof action.target === 'number') {
@@ -3780,7 +5557,8 @@ export function simulateTurn(state, actionsSelf, actionsEnemy) {
           power: info.power || 0,
           damageClass: info.damageClass || 'physical',
           hits: info.hits || GUARANTEED_MULTI_HITS[moveName] || 1,
-          isSpread: info.isSpread || SPREAD_MOVES.has(moveName) || false
+          isSpread: info.isSpread || SPREAD_MOVES.has(moveName) || false,
+          priority: getPriority(moveName, atkMon)
         };
 
         const { damage, blocked } = estimateMoveDamage(atkMon, defMon, moveCandidate, nextState.field);
@@ -3799,6 +5577,29 @@ export function simulateTurn(state, actionsSelf, actionsEnemy) {
             move: moveName,
             damage,
           });
+        } else if (blocked) {
+          log.push({
+            type: 'blocked',
+            side: action.side,
+            fromIndex: action.userIndex,
+            toSide: t.side,
+            toIndex: t.index,
+            move: moveName,
+          });
+        }
+        if (!blocked && !defMon.fainted) {
+          const sideEffectText = applyManualMoveSideEffects(atkMon, defMon, moveName, t.side);
+          if (sideEffectText) {
+            log.push({
+              type: 'sideEffect',
+              side: action.side,
+              fromIndex: action.userIndex,
+              toSide: t.side,
+              toIndex: t.index,
+              move: moveName,
+              text: sideEffectText,
+            });
+          }
         }
       }
 
@@ -3815,6 +5616,8 @@ export function simulateTurn(state, actionsSelf, actionsEnemy) {
   if (typeof tickField === 'function') {
     tickField(nextState);
   }
+  nextState.self.forEach(advanceMonTurnState);
+  nextState.enemy.forEach(advanceMonTurnState);
 
   if (DEBUG_MODE) console.groupEnd();
   return { nextState, log };

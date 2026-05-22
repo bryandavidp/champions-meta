@@ -171,7 +171,7 @@ export function applySwitchInEffects(mon, explicitSide) {
       const isSelf = targetSide === 'self';
       const f = state.field;
 
-      switch (payload.condition) {
+      switch (payload.condition || payload.value) {
         case 'reflect':
           if (isSelf) {
             f.reflectSelf = true;
@@ -287,7 +287,7 @@ export function applyHazardsOnSwitchIn(mon, explicitSide) {
   }
 }
 
-export function applyMoveResolutionEffects(attacker, move) {
+export function applyMoveResolutionEffects(attacker, move, options = {}) {
   if (!attacker || !move || !getRegistryBridge()) return;
 
   const fieldSnapshot =
@@ -301,7 +301,7 @@ export function applyMoveResolutionEffects(attacker, move) {
 
   if (!entry || !Array.isArray(entry.events)) return;
 
-  if (typeof DEBUG_MODE !== 'undefined' && DEBUG_MODE && entry && entry.reasons && entry.reasons.length > 0) {
+  if (!options.silent && typeof DEBUG_MODE !== 'undefined' && DEBUG_MODE && entry && entry.reasons && entry.reasons.length > 0) {
      console.groupCollapsed(`🎬 [MOVE RESOLUTION] ${attacker.displayName || attacker.name} usó ${move.name || move.move || move} y generó efectos`);
      console.log(`Efectos causados por: ${entry.reasons.join(', ')}`);
      if (entry.events && entry.events.length > 0) {
@@ -336,7 +336,7 @@ export function applyMoveResolutionEffects(attacker, move) {
       const targetSide = payload.side || side;
       const isSelf = targetSide === 'self';
 
-      switch (payload.condition) {
+      switch (payload.condition || payload.value) {
         case 'reflect':
           if (isSelf) {
             f.reflectSelf = true;

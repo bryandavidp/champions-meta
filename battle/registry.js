@@ -341,6 +341,7 @@ export function ensureMoveRegistry(moveName) {
 
   switch (slug) {
     case 'trickroom':
+    case 'espacioraro':
       entry = {
         slug,
         name: 'Trick Room',
@@ -357,6 +358,7 @@ export function ensureMoveRegistry(moveName) {
       break;
 
     case 'tailwind':
+    case 'vientoafin':
       entry = {
         slug,
         name: 'Tailwind',
@@ -373,6 +375,7 @@ export function ensureMoveRegistry(moveName) {
       break;
 
     case 'reflect':
+    case 'reflejo':
       entry = {
         slug,
         name: 'Reflect',
@@ -389,6 +392,7 @@ export function ensureMoveRegistry(moveName) {
       break;
 
     case 'lightscreen':
+    case 'pantallaluz':
       entry = {
         slug,
         name: 'Light Screen',
@@ -405,6 +409,7 @@ export function ensureMoveRegistry(moveName) {
       break;
 
     case 'auroraveil':
+    case 'veloaurora':
       entry = {
         slug,
         name: 'Aurora Veil',
@@ -421,6 +426,7 @@ export function ensureMoveRegistry(moveName) {
       break;
 
     case 'wideguard':
+    case 'vastaguardia':
       entry = {
         slug,
         name: 'Wide Guard',
@@ -435,6 +441,7 @@ export function ensureMoveRegistry(moveName) {
       break;
 
     case 'quickguard':
+    case 'anticipo':
       entry = {
         slug,
         name: 'Quick Guard',
@@ -449,7 +456,10 @@ export function ensureMoveRegistry(moveName) {
       break;
 
     case 'followme':
+    case 'senuelo':
+    case 'seuelo':
     case 'ragepowder':
+    case 'polvoira':
       entry = {
         slug,
         name: moveName,
@@ -465,6 +475,7 @@ export function ensureMoveRegistry(moveName) {
       break;
 
     case 'stealthrock':
+    case 'trampasrocas':
       entry = {
         slug,
         name: 'Stealth Rock',
@@ -495,6 +506,7 @@ export function ensureMoveRegistry(moveName) {
       break;
 
     case 'toxicspikes':
+    case 'puastoxicas':
       entry = {
         slug,
         name: 'Toxic Spikes',
@@ -510,6 +522,7 @@ export function ensureMoveRegistry(moveName) {
       break;
 
     case 'stickyweb':
+    case 'redviscosa':
       entry = {
         slug,
         name: 'Sticky Web',

@@ -5,7 +5,7 @@ import { state } from '../core/state.js';
 import { SET_EDITOR, PICKER } from '../core/dom.js';
 import { getTranslation, normalizeText, formatName, escapeHtml } from '../utils/text.js';
 import { serializeSetSummary, getMetaRecord } from '../data/meta.js';
-import { parseSpread } from '../battle/stats.js';
+import { getResolvedEvs, looksCompactEvSpread, parseSpread } from '../battle/stats.js';
 import { topEntries, typeChip } from '../utils/types.js';
 import { MEGA_STONES, TYPE_META } from '../core/constants.js';
 import { renderAll, updateIcons } from '../render/app.js';
@@ -36,6 +36,14 @@ export function ensureEditableSet(mon) {
   if (!Array.isArray(mon.set.moves)) mon.set.moves = [];
   while (mon.set.moves.length < 4) mon.set.moves.push("");
   if (!mon.set.raw || typeof mon.set.raw !== "object") mon.set.raw = {};
+  if (
+    mon.source === "smogon-chaos" &&
+    mon.set._evScale !== "full" &&
+    looksCompactEvSpread(mon.set.evs || {})
+  ) {
+    mon.set.evs = getResolvedEvs(mon);
+    mon.set._evScale = "full";
+  }
   return mon.set;
 }
 
@@ -685,6 +693,7 @@ SET_EDITOR.body.addEventListener("change", (e) => {
     if (!Number.isFinite(v)) v = 0;
     v = Math.max(0, Math.min(252, Math.round(v)));
     set.evs[input.dataset.stat] = v;
+    set._evScale = "full";
     input.value = String(v);
     if (typeof scheduleMoveWarmup === "function") scheduleMoveWarmup();
     if (typeof renderAll === "function") renderAll();
@@ -769,6 +778,7 @@ SET_EDITOR.body.addEventListener("click", (e) => {
     const evs = JSON.parse(btn.dataset.evs || "{}");
     set.nature = nature;
     set.evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, ...evs };
+    set._evScale = "full";
     if (typeof scheduleMoveWarmup === "function") scheduleMoveWarmup();
     if (typeof renderAll === "function") renderAll();
     renderSetEditor();
