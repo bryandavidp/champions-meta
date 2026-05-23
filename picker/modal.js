@@ -17,6 +17,7 @@ import { bindPickerKeyboard } from './keyboard.js';
 
 let pendingPickerRender = false;
 let pickingInProgress = false;
+let pickerRenderFrame = 0;
 
 function isTouchViewport() {
   return typeof window !== 'undefined'
@@ -26,6 +27,22 @@ function isTouchViewport() {
 function focusSearchInput() {
   if (isTouchViewport()) return;
   setTimeout(() => PICKER.searchInput.focus(), 20);
+}
+
+function setPickerBusy(value) {
+  PICKER.modal?.classList.toggle('is-busy', !!value);
+  PICKER.resultList?.setAttribute('aria-busy', value ? 'true' : 'false');
+}
+
+function scheduleDeferredPickerRender() {
+  pendingPickerRender = true;
+  if (pickerRenderFrame) return;
+  pickerRenderFrame = requestAnimationFrame(() => {
+    pickerRenderFrame = 0;
+    if (!pendingPickerRender) return;
+    pendingPickerRender = false;
+    renderAll();
+  });
 }
 
 export function ensurePokedex() {
@@ -79,6 +96,7 @@ export function openModal(side, index) {
 
 export function closeModal(options = {}) {
   PICKER.modal.classList.remove('open');
+  setPickerBusy(false);
   if (options.flushRender === false || !pendingPickerRender) return;
   pendingPickerRender = false;
   requestAnimationFrame(() => renderAll());
@@ -137,18 +155,22 @@ PICKER.resultList.addEventListener('click', async (event) => {
 
   pickingInProgress = true;
   btn.disabled = true;
+  btn.setAttribute('aria-busy', 'true');
+  setPickerBusy(true);
 
   const picked = await pickPokemonIntoSlot(side, currentIndex, name, { deferRender: true })
     .finally(() => {
       pickingInProgress = false;
       btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      setPickerBusy(false);
     });
   if (!picked) return;
-  pendingPickerRender = true;
   registerRecentPick(name, side);
 
   const nextIndex = state[side].findIndex((mon) => !mon);
   if (nextIndex !== -1) {
+    scheduleDeferredPickerRender();
     state.modal.index = nextIndex;
     PICKER.title.textContent =
       side === 'self'
@@ -159,6 +181,7 @@ PICKER.resultList.addEventListener('click', async (event) => {
     renderPokedex('');
     focusSearchInput();
   } else {
+    pendingPickerRender = true;
     closeModal();
   }
 });

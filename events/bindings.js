@@ -1,6 +1,6 @@
 import { state } from '../core/state.js';
 import { DEMO_ENEMY, DEMO_SELF, META_PRESETS, RATING_STORAGE_KEY, TYPE_META } from '../core/constants.js';
-import { LIVE } from '../core/dom.js';
+import { LIVE, UI_MODES } from '../core/dom.js';
 import { renderAll, setUiMode } from '../render/app.js';
 import { renderSpeedTiers } from '../render/analysis.js';
 import { triggerMatrixFlash, setMatrixDetailMode, toggleMatrixHelp, getRows } from '../matrix/render.js';
@@ -78,6 +78,96 @@ function clearSelectedMatrixCells() {
   document.querySelectorAll('.cell--selected').forEach((el) => el.classList.remove('cell--selected'));
   document.querySelectorAll('.matrix-row-selected').forEach((el) => el.classList.remove('matrix-row-selected'));
   document.querySelectorAll('.matrix-col-selected').forEach((el) => el.classList.remove('matrix-col-selected'));
+}
+
+function openFirstEmptySlot() {
+  const selfEmpty = state.self.findIndex((mon) => !mon);
+  if (selfEmpty !== -1) {
+    openModal('self', selfEmpty);
+    return;
+  }
+  const enemyEmpty = state.enemy.findIndex((mon) => !mon);
+  if (enemyEmpty !== -1) {
+    openModal('enemy', enemyEmpty);
+    return;
+  }
+  document.getElementById('turnBranchesPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function clickRecommendedTurnPlan(planId) {
+  const buttons = Array.from(document.querySelectorAll('.turn-plan-use-btn'));
+  const target = buttons.find((button) => button.dataset.planId === planId) || buttons.find((button) => !button.disabled);
+  if (target) {
+    target.click();
+    return;
+  }
+  document.getElementById('turnBranchesPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function isQuickLegacyVisible() {
+  const preview = document.getElementById('quickPreviewPanel');
+  const combos = document.getElementById('quickCombosSection');
+  return [preview, combos].some((node) => node && window.getComputedStyle(node).display !== 'none');
+}
+
+function handleHomeAction(node) {
+  const action = node?.dataset?.homeAction;
+  if (!action) return false;
+
+  if (action === 'pick-empty' || action === 'edit-slot') {
+    const side = node.dataset.side;
+    const index = Number(node.dataset.index);
+    if (!['self', 'enemy'].includes(side) || !Number.isFinite(index)) return true;
+    if (side === 'self' && state.self[index]) openSetEditor(index);
+    else openModal(side, index);
+    return true;
+  }
+
+  if (action === 'complete-teams') {
+    openFirstEmptySlot();
+    return true;
+  }
+
+  if (action === 'use-recommended-plan') {
+    clickRecommendedTurnPlan(node.dataset.planId || '');
+    return true;
+  }
+
+  if (action === 'scroll-plans') {
+    document.getElementById('turnBranchesPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
+  }
+
+  if (action === 'open-simulator') {
+    document.getElementById('turn1SimulatorPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
+  }
+
+  if (action === 'open-matrix') {
+    setUiMode('expert');
+    requestAnimationFrame(() => {
+      UI_MODES.matrixSectionTitle?.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return true;
+  }
+
+  if (action === 'open-threats') {
+    setUiMode('expert');
+    requestAnimationFrame(() => {
+      document.getElementById('threatList')?.closest('.insight-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return true;
+  }
+
+  if (action === 'open-speed-detail') {
+    setUiMode('expert');
+    requestAnimationFrame(() => {
+      document.getElementById('speedOrderPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return true;
+  }
+
+  return false;
 }
 
 function showScoutTooltip(slug, e) {
@@ -541,14 +631,22 @@ export function initEventBindings(callbacks = {}) {
     }
 
     if (!e.target || typeof e.target.closest !== 'function') return;
-    const btnLock = e.target.closest('#lockBestFourBtn');
+    const homeAction = e.target.closest('[data-home-action]');
+    if (homeAction && handleHomeAction(homeAction)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    const quickLegacyVisible = isQuickLegacyVisible();
+    const btnLock = quickLegacyVisible ? e.target.closest('#lockBestFourBtn') : null;
     if (btnLock) {
       const preview = quickMode.computeQuickPreview(getRows());
       quickMode.lockBestFour(preview);
       return;
     }
 
-    const comboCard = e.target.closest('.combo-card');
+    const comboCard = quickLegacyVisible ? e.target.closest('.combo-card') : null;
     if (comboCard) {
       const idxs = comboCard.dataset.combo.split(',').map((value) => Number(value));
       quickMode.applyQuickCombo(idxs);

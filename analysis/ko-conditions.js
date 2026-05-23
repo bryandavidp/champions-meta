@@ -2,6 +2,7 @@ import { MOVE_PRIORITY_LEVELS, SPREAD_MOVES } from '../core/constants.js';
 import { state } from '../core/state.js';
 import { calculateSpeed } from '../battle/speed.js';
 import { bestAttack } from '../battle/damage.js';
+import { fetchMoveInfo } from '../battle/moves.js';
 
 const PROTECT_MOVES = new Set(['protect', 'proteccion', 'detect', 'deteccion', 'spikyshield', 'barreraespinosa', 'kingsshield', 'escudoreal']);
 const SASH_ITEMS = new Set(['focussash', 'bandafocus']);
@@ -17,7 +18,8 @@ function slug(value) {
 
 function movePriority(moveName) {
   const raw = String(moveName || '').toLowerCase();
-  return MOVE_PRIORITY_LEVELS[raw] || MOVE_PRIORITY_LEVELS[slug(moveName)] || 0;
+  const info = fetchMoveInfo(moveName) || {};
+  return (Number.isFinite(info.priority) ? info.priority : 0) || MOVE_PRIORITY_LEVELS[raw] || MOVE_PRIORITY_LEVELS[slug(moveName)] || 0;
 }
 
 function hasProtect(mon) {
@@ -34,7 +36,8 @@ function hasSturdy(mon) {
 
 function isSpreadMove(atk) {
   const moveId = slug(atk?.move);
-  return !!atk?.isSpread || Array.from(SPREAD_MOVES || []).some((move) => slug(move) === moveId);
+  const info = fetchMoveInfo(atk?.move) || {};
+  return !!atk?.isSpread || !!info.isSpread || Array.from(SPREAD_MOVES || []).some((move) => slug(move) === moveId);
 }
 
 function addUnique(tags, tag) {

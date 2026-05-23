@@ -3,7 +3,7 @@ import { state } from '../core/state.js';
 import { getDamageCache, getComboBestAttackCache, getRegistryBridge } from '../core/runtime.js';
 import { effectiveness } from '../utils/types.js';
 import { calcMonHP, calculateEffectiveStats } from './stats.js';
-import { getMoveCandidates } from './moves.js';
+import { fetchMoveInfo, getMoveCandidates } from './moves.js';
 import { smartLog } from '../utils/debug.js';
 
 export function getWeatherAndTerrainMultipliers(field, candType, candMove) {
@@ -65,6 +65,35 @@ export function calculateDamageRolls(baseTotal) {
   return { maxDamage: Math.max(...rolls), minDamage: Math.min(...rolls), critDamage: Math.floor(baseTotal * 1.5) };
 }
 
+function cacheSlug(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
+
+function monCacheSignature(mon) {
+  const stages = mon?.battle?.stages || {};
+  return [
+    cacheSlug(mon?.name || mon?.displayName),
+    cacheSlug(mon?.set?.ability || mon?.ability),
+    cacheSlug(mon?.set?.item || mon?.item),
+    `hp${mon?.battle?.hpPct ?? 100}`,
+    `st${stages.atk || 0},${stages.def || 0},${stages.spa || 0},${stages.spd || 0},${stages.spe || 0}`,
+    `status${mon?.battle?.status || 'none'}`,
+    `types${(mon?.types || []).join(',')}`,
+    `f${mon?.fainted ? 1 : 0}`,
+  ].join('|');
+}
+
+function fieldCacheSignature(field = {}) {
+  return [
+    `w${field.weather || 'none'}:${field.weatherTurns || 0}`,
+    `t${field.terrain || 'none'}:${field.terrainTurns || 0}`,
+    `tr${field.trickRoom ? 1 : 0}:${field.trickRoomTurns || 0}`,
+    `tw${field.tailwindSelf ? 1 : 0}${field.tailwindEnemy ? 1 : 0}`,
+    `g${field.quickGuardSelf ? 1 : 0}${field.quickGuardEnemy ? 1 : 0}${field.wideGuardSelf ? 1 : 0}${field.wideGuardEnemy ? 1 : 0}`,
+    `r${field.reflectSelf ? 1 : 0}${field.reflectEnemy ? 1 : 0}${field.lightScreenSelf ? 1 : 0}${field.lightScreenEnemy ? 1 : 0}${field.auroraVeilSelf ? 1 : 0}${field.auroraVeilEnemy ? 1 : 0}`,
+  ].join('|');
+}
+
 function getProtectionBlock(attacker, defender, cand, field) {
   const moveName = typeof cand === 'string' ? cand : (cand?.move || cand?.name || '');
   const moveId = String(moveName).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -72,8 +101,9 @@ function getProtectionBlock(attacker, defender, cand, field) {
   if (bypassProtect) return null;
 
   const defenderSide = defender?.battle?.side || defender?.side || null;
-  const isSpread = !!cand?.isSpread || SPREAD_MOVES.has(String(moveName).toLowerCase());
-  const priority = Number.isFinite(cand?.priority) ? cand.priority : (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[moveId] || 0);
+  const moveInfo = fetchMoveInfo(moveName) || {};
+  const isSpread = !!cand?.isSpread || !!moveInfo.isSpread || SPREAD_MOVES.has(String(moveName).toLowerCase());
+  const priority = Number.isFinite(cand?.priority) ? cand.priority : ((Number.isFinite(moveInfo.priority) ? moveInfo.priority : 0) || MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[moveId] || 0);
   const attackerSide = attacker?.battle?.side || attacker?.side || null;
   const defenderTypes = (defender?.types || []).map(t => String(t).toLowerCase());
   const defenderAbility = (defender?.set?.ability || defender?.ability || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
@@ -102,7 +132,16 @@ export function estimateMoveDamage(attacker, defender, cand, field) {
   const defStage = defender.battle?.stages?.def || 0;
   const spdStage = defender.battle?.stages?.spd || 0;
   const protectionSig = `${defender.battle?.protected ? 'protect' : 'open'}-${field?.wideGuardSelf ? 'wgs' : ''}${field?.wideGuardEnemy ? 'wge' : ''}${field?.quickGuardSelf ? 'qgs' : ''}${field?.quickGuardEnemy ? 'qge' : ''}`;
-  const cacheKey = `${attacker.name}(${atkStage},${spaStage})-${defender.name}(${defStage},${spdStage})-${moveNameStr}-${field?.weather || 'none'}-${field?.terrain || 'none'}-${protectionSig}`;
+  const cacheKey = [
+    'dmg-v2',
+    monCacheSignature(attacker),
+    monCacheSignature(defender),
+    cacheSlug(moveNameStr),
+    `atk${atkStage},${spaStage}`,
+    `def${defStage},${spdStage}`,
+    fieldCacheSignature(field),
+    protectionSig,
+  ].join('::');
 
   // SHORT-CIRCUIT: Salir inmediatamente, cero logs, cero lag
   if (getDamageCache()[cacheKey]) {
@@ -125,7 +164,8 @@ export function estimateMoveDamage(attacker, defender, cand, field) {
   }
 
   const moveName = cand.move || '';
-  const isSpread = !!cand.isSpread || SPREAD_MOVES.has(moveName.toLowerCase());
+  const moveInfo = fetchMoveInfo(moveName) || {};
+  const isSpread = !!cand.isSpread || !!moveInfo.isSpread || SPREAD_MOVES.has(moveName.toLowerCase());
   const hits = cand.hits || GUARANTEED_MULTI_HITS[moveName] || 1;
 
   let moveType = cand.type;
@@ -168,7 +208,7 @@ export function estimateMoveDamage(attacker, defender, cand, field) {
   }
 
   const fieldSnapshot = getRegistryBridge()
-    ? getRegistryBridge().createCurrentFieldSnapshot(state)
+    ? getRegistryBridge().createCurrentFieldSnapshot({ field })
     : field;
 
   const regResult = applyRegistryDamageModifiers(attacker, defender, { ...cand, type: moveType, power: basePower }, fieldSnapshot, eff, dmgClass, { atkS: atkStat, defS: defStat });
@@ -211,7 +251,7 @@ export function estimateMoveDamage(attacker, defender, cand, field) {
   }
   // --- FIN DE INTERCEPTACIÓN ---
 
-  const movePriority = Number.isFinite(cand?.priority) ? cand.priority : (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[moveId] || 0);
+  const movePriority = Number.isFinite(cand?.priority) ? cand.priority : ((Number.isFinite(moveInfo.priority) ? moveInfo.priority : 0) || MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[moveId] || 0);
   const blocked = regResult.blockedByRegistry || immunityData !== null;
 
   if (blocked) {
@@ -271,7 +311,7 @@ export function bestAttack(attacker, defender, field = state.field) {
   if (getComboBestAttackCache()) {
       const atkStage = attacker.battle?.stages?.atk || 0;
       const defStage = defender.battle?.stages?.def || 0;
-      const cacheKey = `${attacker.name}(${atkStage})-${defender.name}(${defStage})-${field.weather}-${field.terrain}`;
+      const cacheKey = ['best-v2', monCacheSignature(attacker), monCacheSignature(defender), `st${atkStage},${defStage}`, fieldCacheSignature(field)].join('::');
       if (getComboBestAttackCache()[cacheKey]) return getComboBestAttackCache()[cacheKey];
   }
 
@@ -299,7 +339,7 @@ export function bestAttack(attacker, defender, field = state.field) {
   const hpPct = defender.battle?.hpPct ?? 100;
   const defHP = Math.max(1, Math.floor((baseHP * hpPct) / 100));
   const scored = candidates.map((c) => {
-    const cacheKey = `${attacker.name}-${defender.name}-${c.move}-${field.weather}-${field.terrain}`;
+    const cacheKey = ['best-dmg-v2', monCacheSignature(attacker), monCacheSignature(defender), cacheSlug(c.move), fieldCacheSignature(field)].join('::');
     let damageObj;
     if (getDamageCache()[cacheKey]) {
         damageObj = getDamageCache()[cacheKey];
@@ -363,7 +403,7 @@ export function bestAttack(attacker, defender, field = state.field) {
   if (getComboBestAttackCache()) {
       const atkStage = attacker.battle?.stages?.atk || 0;
       const defStage = defender.battle?.stages?.def || 0;
-      const cacheKey = `${attacker.name}(${atkStage})-${defender.name}(${defStage})-${field.weather}-${field.terrain}`;
+      const cacheKey = ['best-v2', monCacheSignature(attacker), monCacheSignature(defender), `st${atkStage},${defStage}`, fieldCacheSignature(field)].join('::');
       getComboBestAttackCache()[cacheKey] = scored[0];
   }
 

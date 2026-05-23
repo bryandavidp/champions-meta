@@ -2,6 +2,7 @@ import { SUPPORT_MOVES, MOVE_TYPE_FALLBACK, CUSTOM_TERMS, TYPE_META } from '../c
 import { normalizeText, formatName } from '../utils/text.js';
 import { state } from '../core/state.js';
 import { getGameDB } from '../core/runtime.js';
+import { getCanonicalMove, toLegacyMoveInfo } from '../data/canonical/dex.js';
 
 export function isSupportMove(moveName) {
   const n = normalizeText(moveName);
@@ -36,9 +37,16 @@ export function fetchMoveInfo(moveName) {
     return info;
   }
 
+  const canonical = getCanonicalMove(moveName);
+  if (canonical) {
+    const info = toLegacyMoveInfo(canonical);
+    state.moveTypeCache[moveName] = info;
+    state.moveTypeCache[canonical.id] = info;
+    return info;
+  }
+
   let fallbackType = MOVE_TYPE_FALLBACK[moveName];
   if (!fallbackType) fallbackType = MOVE_TYPE_FALLBACK[formatName(slug)] || null;
-
   const info = getGameDB()?.moves?.[slug] || getGameDB()?.moves?.[moveName.toLowerCase()];
   
   if (info) {
@@ -76,6 +84,10 @@ export function getMoveCandidates(mon) {
         damageClass: info.damageClass || "physical",
         hits: info.hits || 1,
         isSpread: info.isSpread || false,
+        priority: Number.isFinite(info.priority) ? info.priority : 0,
+        target: info.target || info.targetMode || 'normal',
+        flags: info.flags || {},
+        canonicalId: info.id || normalizeText(move),
       };
     })
     .filter(Boolean);
@@ -90,7 +102,7 @@ export function getMoveCandidates(mon) {
          type = MOVE_TYPE_FALLBACK[formatName(slug)];
       }
       if (!type || isSupportMove(move)) return null;
-      return { move, type, power: 0, damageClass: "physical", hits: 1, isSpread: false };
+      return { move, type, power: 0, damageClass: "physical", hits: 1, isSpread: false, priority: 0, target: 'normal', flags: {}, canonicalId: normalizeText(move) };
     })
     .filter(Boolean);
 
@@ -103,5 +115,9 @@ export function getMoveCandidates(mon) {
     damageClass: "special",
     hits: 1,
     isSpread: false,
+    priority: 0,
+    target: 'normal',
+    flags: {},
+    canonicalId: type,
   }));
 }

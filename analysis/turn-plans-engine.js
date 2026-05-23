@@ -5,12 +5,17 @@ import {
   TERRAIN_LABELS,
   TYPE_META,
 } from '../core/constants.js';
-import { state } from '../core/state.js';
 import { formatName, normalizeText } from '../utils/text.js';
 import { bestAttack, estimateMoveDamage } from '../battle/damage.js';
 import { calculateSpeed } from '../battle/speed.js';
 import { calcMonHP } from '../battle/stats.js';
 import { fetchMoveInfo } from '../battle/moves.js';
+import {
+  createBattleSnapshot,
+  snapshotToLegacySimulationState,
+} from '../battle/snapshot.js';
+import { buildSnapshotCacheKey } from '../battle/cache-keys.js';
+import { eventsToExplainEvents } from '../battle/explain.js';
 import {
   tickField,
   applySwitchInEffects,
@@ -22,6 +27,17 @@ import {
   ensureMoveRegistry,
   ensureStatusRegistry,
 } from '../battle/registry.js';
+import { buildTacticalSummary } from './tactical-findings-adapter.js';
+const engineState = {
+  self: [],
+  enemy: [],
+  field: {},
+  activeSelfSlots: [0, 1],
+  activeEnemySlots: [0, 1],
+  leads: { self: [0, 1], enemy: [0, 1] },
+  turn1Battle: { active: true, turn: 1, log: [], lastActionId: 0, actedThisTurn: {}, lastResolvedOrder: null, pendingSwitch: null },
+  turnPlanMeta: {},
+};
 
 const PROTECT_MOVES = new Set([
   'protect', 'proteccion', 'detect', 'deteccion', 'spikyshield', 'barreraespinosa',
@@ -230,6 +246,7 @@ function advanceMonTurnState(mon) {
 function getDynamicPriority(moveName, mon = null) {
   if (!moveName) return 0;
   const moveId = slug(moveName);
+  const info = fetchMoveInfo(moveName) || {};
   let prio = 0;
   if (['helpinghand', 'refuerzo'].includes(moveId)) prio = 5;
   else if (PROTECT_MOVES.has(moveId)) prio = 4;
@@ -238,10 +255,9 @@ function getDynamicPriority(moveName, mon = null) {
   else if (['extremespeed', 'velocidadextrema', 'feint', 'amago', 'followme', 'senuelo', 'seuelo', 'ragepowder', 'polvoira'].includes(moveId)) prio = 2;
   else if (['suckerpunch', 'golpebajo', 'aquajet', 'acuajet', 'machpunch', 'bulletpunch', 'punobala', 'iceshard', 'cantohelado', 'shadowsneak', 'sombravil', 'grassyglide', 'fitimpulso'].includes(moveId)) prio = 1;
   else if (['trickroom', 'espacioraro'].includes(moveId)) prio = -7;
-  else prio = MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[moveId] || 0;
+  else prio = (Number.isFinite(info.priority) ? info.priority : 0) || MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[moveId] || 0;
 
   const ability = slug(mon?.set?.ability || mon?.ability || '');
-  const info = fetchMoveInfo(moveName) || {};
   if (['prankster', 'bromista'].includes(ability) && info.damageClass === 'status' && prio >= 0) {
     prio += 1;
   }
@@ -250,7 +266,8 @@ function getDynamicPriority(moveName, mon = null) {
 
 function isSpreadMove(moveName, info = null) {
   const moveId = slug(moveName);
-  return !!(info?.isSpread || Array.from(SPREAD_MOVES || []).some((move) => slug(move) === moveId));
+  const moveInfo = info || fetchMoveInfo(moveName) || {};
+  return !!(moveInfo?.isSpread || Array.from(SPREAD_MOVES || []).some((move) => slug(move) === moveId));
 }
 
 function isProtectMove(moveName) {
@@ -278,24 +295,24 @@ function describeField(field) {
 
 function materializeSharedSnapshot() {
   return {
-    self: deepClone(state.self),
-    enemy: deepClone(state.enemy),
-    field: deepClone(state.field),
-    activeSelfSlots: [...(state.activeSelfSlots || [0, 1])],
-    activeEnemySlots: [...(state.activeEnemySlots || [0, 1])],
-    turn: Number(state.turn1Battle?.turn || 1),
-    meta: deepClone(state.turnPlanMeta || {}),
+    self: deepClone(engineState.self),
+    enemy: deepClone(engineState.enemy),
+    field: deepClone(engineState.field),
+    activeSelfSlots: [...(engineState.activeSelfSlots || [0, 1])],
+    activeEnemySlots: [...(engineState.activeEnemySlots || [0, 1])],
+    turn: Number(engineState.turn1Battle?.turn || 1),
+    meta: deepClone(engineState.turnPlanMeta || {}),
   };
 }
 
 function loadSharedSnapshot(snapshot) {
-  state.self = deepClone(snapshot.self || []);
-  state.enemy = deepClone(snapshot.enemy || []);
-  state.field = deepClone(snapshot.field || {});
-  state.activeSelfSlots = [...(snapshot.activeSelfSlots || [0, 1])];
-  state.activeEnemySlots = [...(snapshot.activeEnemySlots || [0, 1])];
-  state.leads = { self: [...state.activeSelfSlots], enemy: [...state.activeEnemySlots] };
-  state.turn1Battle = {
+  engineState.self = deepClone(snapshot.self || []);
+  engineState.enemy = deepClone(snapshot.enemy || []);
+  engineState.field = deepClone(snapshot.field || {});
+  engineState.activeSelfSlots = [...(snapshot.activeSelfSlots || [0, 1])];
+  engineState.activeEnemySlots = [...(snapshot.activeEnemySlots || [0, 1])];
+  engineState.leads = { self: [...engineState.activeSelfSlots], enemy: [...engineState.activeEnemySlots] };
+  engineState.turn1Battle = {
     active: true,
     turn: Number(snapshot.turn || 1),
     log: [],
@@ -304,21 +321,21 @@ function loadSharedSnapshot(snapshot) {
     lastResolvedOrder: null,
     pendingSwitch: null,
   };
-  state.turnPlanMeta = deepClone(snapshot.meta || {});
-  state.self.forEach((mon) => ensureBattle(mon, 'self'));
-  state.enemy.forEach((mon) => ensureBattle(mon, 'enemy'));
+  engineState.turnPlanMeta = deepClone(snapshot.meta || {});
+  engineState.self.forEach((mon) => ensureBattle(mon, 'self'));
+  engineState.enemy.forEach((mon) => ensureBattle(mon, 'enemy'));
 }
 
 function getActiveMons(side) {
-  const slots = side === 'self' ? state.activeSelfSlots : state.activeEnemySlots;
+  const slots = side === 'self' ? engineState.activeSelfSlots : engineState.activeEnemySlots;
   return slots
-    .map((idx) => ({ idx, mon: state[side]?.[idx] }))
+    .map((idx) => ({ idx, mon: engineState[side]?.[idx] }))
     .filter(({ mon }) => !!mon);
 }
 
 function getBenchIndices(side) {
-  const actives = new Set(side === 'self' ? state.activeSelfSlots : state.activeEnemySlots);
-  return state[side]
+  const actives = new Set(side === 'self' ? engineState.activeSelfSlots : engineState.activeEnemySlots);
+  return engineState[side]
     .map((mon, idx) => ({ mon, idx }))
     .filter(({ mon, idx }) => mon && !actives.has(idx) && !(mon.fainted || (mon.battle?.hpPct ?? 100) <= 0))
     .map(({ idx }) => idx);
@@ -382,11 +399,11 @@ function buildSnapshotFromBring(plan, enemyPlan, baseField) {
 
   loadSharedSnapshot(snapshot);
   const entrants = [
-    ...getActiveMons('self').map(({ idx, mon }) => ({ side: 'self', idx, mon, spe: calculateSpeed(mon, 'self', state.field) })),
-    ...getActiveMons('enemy').map(({ idx, mon }) => ({ side: 'enemy', idx, mon, spe: calculateSpeed(mon, 'enemy', state.field) })),
+    ...getActiveMons('self').map(({ idx, mon }) => ({ side: 'self', idx, mon, spe: calculateSpeed(mon, 'self', engineState.field) })),
+    ...getActiveMons('enemy').map(({ idx, mon }) => ({ side: 'enemy', idx, mon, spe: calculateSpeed(mon, 'enemy', engineState.field) })),
   ].sort((a, b) => b.spe - a.spe);
 
-  entrants.forEach((entry) => applySwitchInEffects(entry.mon, entry.side));
+  entrants.forEach((entry) => applySwitchInEffects(entry.mon, entry.side, engineState));
   return materializeSharedSnapshot();
 }
 
@@ -456,8 +473,8 @@ function chooseLeadPair(mons, enemyMons, side = 'self') {
       const pairIndices = [i, j];
       const threat = sum(
         enemyMons.map((enemy) => {
-          const a = bestAttack(pair[0], enemy, state.field);
-          const b = bestAttack(pair[1], enemy, state.field);
+          const a = bestAttack(pair[0], enemy, engineState.field);
+          const b = bestAttack(pair[1], enemy, engineState.field);
           const best = Math.max(a.maxPct || 0, b.maxPct || 0);
           return best >= 100 ? 22 : best >= 60 ? 14 : best >= 30 ? 6 : 0;
         }),
@@ -465,13 +482,13 @@ function chooseLeadPair(mons, enemyMons, side = 'self') {
       const safety = sum(
         pair.map((mon) => {
           const worst = enemyMons.reduce((max, enemy) => {
-            const atk = bestAttack(enemy, mon, state.field);
+            const atk = bestAttack(enemy, mon, engineState.field);
             return Math.max(max, atk.maxPct || 0);
           }, 0);
           return worst >= 100 ? -18 : worst >= 70 ? -10 : worst >= 40 ? -4 : 5;
         }),
       );
-      const speed = pair.reduce((acc, mon) => acc + Math.abs(calculateSpeed(mon, side, state.field)), 0) * 0.05;
+      const speed = pair.reduce((acc, mon) => acc + Math.abs(calculateSpeed(mon, side, engineState.field)), 0) * 0.05;
       const synergy = leadPairSynergy(pair[0], pair[1]);
       const score = threat + safety + speed + synergy.score;
       if (!best || score > best.score) {
@@ -496,14 +513,14 @@ function classifyBackline(mons, enemyMons, side = 'self') {
   }
   const scored = mons.map((mon, idx) => {
     const safety = enemyMons.reduce((acc, enemy) => {
-      const atk = bestAttack(enemy, mon, state.field);
+      const atk = bestAttack(enemy, mon, engineState.field);
       return acc + (atk.maxPct || 0);
     }, 0);
     const closer = enemyMons.reduce((acc, enemy) => {
-      const atk = bestAttack(mon, enemy, state.field);
+      const atk = bestAttack(mon, enemy, engineState.field);
       return acc + (atk.maxPct || 0) + ((atk.ohko || atk.minPct >= 100) ? 25 : 0);
     }, 0);
-    const speed = Math.abs(calculateSpeed(mon, side, state.field));
+    const speed = Math.abs(calculateSpeed(mon, side, engineState.field));
     return { mon, idx, safety, closer, speed };
   });
   scored.sort((a, b) => (a.safety - b.safety) || (b.closer - a.closer) || (a.idx - b.idx));
@@ -569,7 +586,7 @@ function scoreEnemyBring(candidateMons, ownMons) {
   const offense = sum(
     ownMons.map((ally) => {
       const best = candidateMons.reduce((max, enemy) => {
-        const atk = bestAttack(enemy, ally, state.field);
+        const atk = bestAttack(enemy, ally, engineState.field);
         return Math.max(max, atk.maxPct || 0);
       }, 0);
       return best >= 100 ? 24 : best >= 70 ? 16 : best >= 40 ? 8 : 2;
@@ -579,7 +596,7 @@ function scoreEnemyBring(candidateMons, ownMons) {
   const safety = sum(
     candidateMons.map((enemy) => {
       const worst = ownMons.reduce((max, ally) => {
-        const atk = bestAttack(ally, enemy, state.field);
+        const atk = bestAttack(ally, enemy, engineState.field);
         return Math.max(max, atk.maxPct || 0);
       }, 0);
       return worst >= 100 ? -20 : worst >= 70 ? -12 : worst >= 40 ? -5 : 4;
@@ -628,7 +645,6 @@ function buildForcedEnemyPrediction(enemyTeam, ownPlan, forcedIndices = []) {
     forced: true,
   };
 }
-
 function buildEnemyPredictions(enemyTeam, ownPlan, maxCombos = 3, forcedEnemyIndices = []) {
   const forced = buildForcedEnemyPrediction(enemyTeam, ownPlan, forcedEnemyIndices);
   const combos = allFourCombos(enemyTeam);
@@ -703,12 +719,12 @@ function getMoveCandidate(moveName) {
 }
 
 function resolveRedirectTarget(targetSide, intendedIndex) {
-  const redirectFlag = targetSide === 'self' ? state.field.redirectionSelf : state.field.redirectionEnemy;
+  const redirectFlag = targetSide === 'self' ? engineState.field.redirectionSelf : engineState.field.redirectionEnemy;
   if (redirectFlag == null) return intendedIndex;
   if (Number.isFinite(Number(redirectFlag))) return Number(redirectFlag);
-  const active = targetSide === 'self' ? state.activeSelfSlots : state.activeEnemySlots;
+  const active = targetSide === 'self' ? engineState.activeSelfSlots : engineState.activeEnemySlots;
   const named = active.find((idx) => {
-    const mon = state[targetSide]?.[idx];
+    const mon = engineState[targetSide]?.[idx];
     return mon && [mon.name, mon.displayName].includes(redirectFlag);
   });
   return Number.isFinite(named) ? named : intendedIndex;
@@ -718,7 +734,7 @@ function projectDamagePreview(attacker, defender, moveName, targetMode = null) {
   const candidate = getMoveCandidate(moveName);
   candidate.priority = getDynamicPriority(moveName, attacker);
   if (targetMode === 'spread-foes') candidate.isSpread = true;
-  const result = estimateMoveDamage(attacker, defender, candidate, state.field);
+  const result = estimateMoveDamage(attacker, defender, candidate, engineState.field);
   const baseHP = calcMonHP(defender);
   const currentPct = defender.battle?.hpPct ?? 100;
   const currentHP = Math.max(1, Math.floor((baseHP * currentPct) / 100));
@@ -805,7 +821,7 @@ function buildEffectTags(action, previews = []) {
 
 function getActionTargets(action, previews = []) {
   if (action?.kind === 'switch') {
-    const switchMon = action.switchMon || state[action.side]?.[action.switchInIndex];
+    const switchMon = action.switchMon || engineState[action.side]?.[action.switchInIndex];
     return [{
       name: getDisplayName(switchMon),
       sprite: switchMon?.sprite || '',
@@ -838,7 +854,7 @@ function getActionTargets(action, previews = []) {
 
   if (Number.isFinite(action?.targetIndex)) {
     const side = action.targetSide || (action.side === 'self' ? 'enemy' : 'self');
-    const mon = state[side]?.[action.targetIndex];
+    const mon = engineState[side]?.[action.targetIndex];
     return [{
       name: getDisplayName(mon),
       sprite: mon?.sprite || '',
@@ -848,7 +864,7 @@ function getActionTargets(action, previews = []) {
   }
 
   if (action?.targetMode === 'self') {
-    const mon = state[action.side]?.[action.userIndex];
+    const mon = engineState[action.side]?.[action.userIndex];
     return [{ name: getDisplayName(mon), sprite: mon?.sprite || '', side: action.side, role: 'self' }];
   }
 
@@ -869,7 +885,7 @@ function getThreatContext(side) {
   return ownActives.map(({ idx, mon }) => {
     const incoming = foeActives
       .map(({ idx: foeIdx, mon: foe }) => {
-        const atk = bestAttack(foe, mon, state.field);
+        const atk = bestAttack(foe, mon, engineState.field);
         return { foeIdx, foe, atk };
       })
       .sort((a, b) => (b.atk.maxPct || 0) - (a.atk.maxPct || 0));
@@ -896,7 +912,7 @@ function actionSignature(action) {
 }
 
 function buildCandidateActionsForMon(side, userIndex, limit = 6) {
-  const mon = state[side]?.[userIndex];
+  const mon = engineState[side]?.[userIndex];
   if (!mon) return [];
   const opponentSide = side === 'self' ? 'enemy' : 'self';
   const foes = getActiveMons(opponentSide);
@@ -990,7 +1006,7 @@ function buildCandidateActionsForMon(side, userIndex, limit = 6) {
     }
 
     if (SCREEN_MOVES.has(moveId) || FIELD_SETTER_MOVES.has(moveId) || ['tailwind', 'vientoafin', 'trickroom', 'espacioraro'].includes(moveId)) {
-      const fasterFoe = foes.some(({ mon: foe }) => Math.abs(calculateSpeed(foe, opponentSide, state.field)) > Math.abs(calculateSpeed(mon, side, state.field)));
+      const fasterFoe = foes.some(({ mon: foe }) => Math.abs(calculateSpeed(foe, opponentSide, engineState.field)) > Math.abs(calculateSpeed(mon, side, engineState.field)));
       moveActions.push({
         ...base,
         targetSide: side,
@@ -1068,7 +1084,7 @@ function buildCandidateActionsForMon(side, userIndex, limit = 6) {
       } else {
         foes.forEach(({ idx, mon: foe }) => {
           const preview = projectDamagePreview(mon, foe, moveName, 'single-target');
-          const mult = bestAttack(mon, foe, state.field).mult || 1;
+          const mult = bestAttack(mon, foe, engineState.field).mult || 1;
           moveActions.push({
             ...base,
             targetSide: opponentSide,
@@ -1087,13 +1103,13 @@ function buildCandidateActionsForMon(side, userIndex, limit = 6) {
   });
 
   const switchOptions = getBenchIndices(side).map((benchIdx) => {
-    const benchMon = state[side][benchIdx];
+    const benchMon = engineState[side][benchIdx];
     const worst = getActiveMons(side === 'self' ? 'enemy' : 'self').reduce((max, { mon: foe }) => {
-      const atk = bestAttack(foe, benchMon, state.field);
+      const atk = bestAttack(foe, benchMon, engineState.field);
       return Math.max(max, atk.maxPct || 0);
     }, 0);
     const offense = getActiveMons(side === 'self' ? 'enemy' : 'self').reduce((max, { mon: foe }) => {
-      const atk = bestAttack(benchMon, foe, state.field);
+      const atk = bestAttack(benchMon, foe, engineState.field);
       return Math.max(max, atk.maxPct || 0);
     }, 0);
     return {
@@ -1190,11 +1206,11 @@ function applyStageDelta(mon, delta = {}) {
 }
 
 function applySelfSupportEffect(action) {
-  const mon = state[action.side]?.[action.userIndex];
+  const mon = engineState[action.side]?.[action.userIndex];
   if (!mon) return null;
   const moveId = slug(action.moveName || action.move);
   const sideKey = action.side;
-  const ownField = state.field;
+  const ownField = engineState.field;
 
   if (isProtectMove(moveId)) {
     mon.battle.protected = true;
@@ -1257,7 +1273,7 @@ function applySelfSupportEffect(action) {
   }
 
   if (HELPING_HAND_MOVES.has(moveId) && Number.isFinite(action.targetIndex)) {
-    const ally = state[action.side]?.[action.targetIndex];
+    const ally = engineState[action.side]?.[action.targetIndex];
     if (ally?.battle) ally.battle.helpingHand = true;
     return `${getDisplayName(mon)} potencia a ${getDisplayName(ally)}`;
   }
@@ -1273,10 +1289,10 @@ function applySelfSupportEffect(action) {
 function targetEntriesForAction(action) {
   if (action.kind !== 'move') return [];
   if (action.targetMode === 'self') {
-    return [{ side: action.side, idx: action.userIndex, mon: state[action.side]?.[action.userIndex] }];
+    return [{ side: action.side, idx: action.userIndex, mon: engineState[action.side]?.[action.userIndex] }];
   }
   if (action.targetMode === 'ally' && Number.isFinite(action.targetIndex)) {
-    return [{ side: action.side, idx: action.targetIndex, mon: state[action.side]?.[action.targetIndex] }];
+    return [{ side: action.side, idx: action.targetIndex, mon: engineState[action.side]?.[action.targetIndex] }];
   }
   if (action.targetMode === 'spread-foes') {
     const foeSide = action.side === 'self' ? 'enemy' : 'self';
@@ -1287,7 +1303,7 @@ function targetEntriesForAction(action) {
   if (Number.isFinite(action.targetIndex)) {
     const foeSide = action.targetSide || (action.side === 'self' ? 'enemy' : 'self');
     const targetIdx = action.targetMode === 'single-target' ? resolveRedirectTarget(foeSide, action.targetIndex) : action.targetIndex;
-    return [{ side: foeSide, idx: targetIdx, mon: state[foeSide]?.[targetIdx] }];
+    return [{ side: foeSide, idx: targetIdx, mon: engineState[foeSide]?.[targetIdx] }];
   }
   return [];
 }
@@ -1348,7 +1364,7 @@ function maybeHoldAtOne(defender, nextPct) {
 }
 
 function performSwitch(side, fromIndex, switchInIndex) {
-  const team = state[side];
+  const team = engineState[side];
   const nextMon = team[switchInIndex];
   const current = team[fromIndex];
   if (!nextMon || nextMon.fainted || (nextMon.battle?.hpPct ?? 100) <= 0) return null;
@@ -1357,16 +1373,16 @@ function performSwitch(side, fromIndex, switchInIndex) {
   ensureBattle(team[fromIndex], side);
   team[fromIndex].battle.enteredThisTurn = true;
   if (side === 'self') {
-    state.activeSelfSlots = state.activeSelfSlots.map((idx) => (idx === fromIndex ? fromIndex : idx));
+    engineState.activeSelfSlots = engineState.activeSelfSlots.map((idx) => (idx === fromIndex ? fromIndex : idx));
   } else {
-    state.activeEnemySlots = state.activeEnemySlots.map((idx) => (idx === fromIndex ? fromIndex : idx));
+    engineState.activeEnemySlots = engineState.activeEnemySlots.map((idx) => (idx === fromIndex ? fromIndex : idx));
   }
-  applySwitchInEffects(team[fromIndex], side);
+  applySwitchInEffects(team[fromIndex], side, engineState);
   return { inMon: team[fromIndex], outMon: current };
 }
 
 function resolveSingleAction(action, events) {
-  const actor = state[action.side]?.[action.userIndex];
+  const actor = engineState[action.side]?.[action.userIndex];
   if (!actor) return;
   ensureBattle(actor, action.side);
   const blockReason = action.kind === 'move' ? getActionBlockReason(actor, action.moveName || action.move) : (actor.fainted ? 'debilitado' : null);
@@ -1413,7 +1429,7 @@ function resolveSingleAction(action, events) {
 
   const targets = targetEntriesForAction(action);
   if (!targets.length) {
-    applyMoveResolutionEffects(actor, { name: moveName, move: moveName }, { silent: true });
+    applyMoveResolutionEffects(actor, { name: moveName, move: moveName }, { silent: true, state: engineState });
     return;
   }
 
@@ -1444,7 +1460,7 @@ function resolveSingleAction(action, events) {
       return;
     }
 
-    const result = estimateMoveDamage(actor, defender, moveCandidate, state.field);
+    const result = estimateMoveDamage(actor, defender, moveCandidate, engineState.field);
     if (!result.blocked && (result.damage || 0) > 0) {
       let nextPct = computeHpPctAfterDamage(defender, result.damage);
       nextPct = maybeHoldAtOne(defender, nextPct);
@@ -1488,7 +1504,7 @@ function resolveSingleAction(action, events) {
     }
   });
 
-  applyMoveResolutionEffects(actor, { name: moveName, move: moveName }, { silent: true });
+  applyMoveResolutionEffects(actor, { name: moveName, move: moveName }, { silent: true, state: engineState });
 
   if (PIVOT_MOVES.has(slug(moveName)) && getBenchIndices(action.side).length) {
     const benchIdx = getBenchIndices(action.side)[0];
@@ -1507,11 +1523,11 @@ function resolveSingleAction(action, events) {
 function actionOrder(pairSelf, pairEnemy) {
   const all = [...(pairSelf?.actions || []), ...(pairEnemy?.actions || [])];
   const ordered = all.map((action) => {
-    const mon = state[action.side]?.[action.userIndex];
+    const mon = engineState[action.side]?.[action.userIndex];
     return {
       action,
       prio: action.kind === 'move' ? getDynamicPriority(action.moveName || action.move, mon) : 6,
-      spe: mon ? calculateSpeed(mon, action.side, state.field) : -999,
+      spe: mon ? calculateSpeed(mon, action.side, engineState.field) : -999,
     };
   }).sort((a, b) => {
     if (b.prio !== a.prio) return b.prio - a.prio;
@@ -1524,7 +1540,7 @@ function actionOrder(pairSelf, pairEnemy) {
 function simulatePairTurn(snapshot, pairSelf, pairEnemy) {
   loadSharedSnapshot(snapshot);
   resetEngineCaches();
-  warmMoveCache([...state.self, ...state.enemy]);
+  warmMoveCache([...engineState.self, ...engineState.enemy]);
 
   const order = actionOrder(pairSelf, pairEnemy);
   const tie = order.length > 1 && order[0].prio === order[1].prio && order[0].spe === order[1].spe;
@@ -1532,20 +1548,22 @@ function simulatePairTurn(snapshot, pairSelf, pairEnemy) {
 
   order.forEach(({ action }) => resolveSingleAction(action, events));
 
-  tickField(state);
-  state.self.forEach(advanceMonTurnState);
-  state.enemy.forEach(advanceMonTurnState);
+  tickField(engineState);
+  engineState.self.forEach(advanceMonTurnState);
+  engineState.enemy.forEach(advanceMonTurnState);
 
   const nextSnapshot = materializeSharedSnapshot();
   nextSnapshot.turn = Number(snapshot.turn || 1) + 1;
+  const explainEvents = eventsToExplainEvents(events, { source: 'turn-plans-engine' });
   return {
     snapshot: nextSnapshot,
     events,
+    explainEvents,
     tie,
     order: order.map(({ action, prio, spe }) => ({
       side: action.side,
       userIndex: action.userIndex,
-      actor: getDisplayName(state[action.side]?.[action.userIndex]),
+      actor: getDisplayName(engineState[action.side]?.[action.userIndex]),
       move: action.moveName || action.move || 'Cambio',
       prio,
       spe,
@@ -1591,14 +1609,14 @@ function fieldControlScore(snapshot, side) {
 function evaluateBoard(snapshot, side) {
   loadSharedSnapshot(snapshot);
   const foeSide = side === 'self' ? 'enemy' : 'self';
-  const ownHp = teamHpScore(state[side]);
-  const foeHp = teamHpScore(state[foeSide]);
-  const ownKo = sideKoCount(state[side]);
-  const foeKo = sideKoCount(state[foeSide]);
+  const ownHp = teamHpScore(engineState[side]);
+  const foeHp = teamHpScore(engineState[foeSide]);
+  const ownKo = sideKoCount(engineState[side]);
+  const foeKo = sideKoCount(engineState[foeSide]);
   const ownActionReady = sideActionReady(side);
   const foeActionReady = sideActionReady(foeSide);
-  const stageEdge = sum((state[side] || []).filter(Boolean).map(scoreStages)) - sum((state[foeSide] || []).filter(Boolean).map(scoreStages));
-  const benchHealth = getBenchIndices(side).reduce((acc, idx) => acc + (state[side][idx]?.battle?.hpPct ?? 0), 0) - getBenchIndices(foeSide).reduce((acc, idx) => acc + (state[foeSide][idx]?.battle?.hpPct ?? 0), 0);
+  const stageEdge = sum((engineState[side] || []).filter(Boolean).map(scoreStages)) - sum((engineState[foeSide] || []).filter(Boolean).map(scoreStages));
+  const benchHealth = getBenchIndices(side).reduce((acc, idx) => acc + (engineState[side][idx]?.battle?.hpPct ?? 0), 0) - getBenchIndices(foeSide).reduce((acc, idx) => acc + (engineState[foeSide][idx]?.battle?.hpPct ?? 0), 0);
   return (
     (ownHp - foeHp) * 0.35
     + (foeKo - ownKo) * 58
@@ -1844,12 +1862,42 @@ function buildBoardDeltaSummary(before, after) {
     .slice(0, 5);
 }
 
+function buildPlanTacticalSummary(opening) {
+  try {
+    const snapshot = createBattleSnapshot({
+      selfTeam: opening.self || [],
+      enemyTeam: opening.enemy || [],
+      field: opening.field || {},
+      activeSelfSlots: opening.activeSelfSlots || [0, 1],
+      activeEnemySlots: opening.activeEnemySlots || [0, 1],
+      turn: opening.turn || 1,
+      phase: 'turn-plan',
+      source: 'turn-plans-engine',
+    });
+    return buildTacticalSummary(snapshot, {
+      highlightLimit: 5,
+      minThreatSeverity: 'medium',
+      includeActionEvidence: false,
+      includeGraph: false,
+    });
+  } catch (error) {
+    return {
+      highlights: [],
+      threatRows: [],
+      summary: {
+        unsupported: ['turn-plan-tactical-summary-failed'],
+        error: error?.message || String(error),
+      },
+    };
+  }
+}
+
 function buildPlanForCombo(plan, enemyPredictions, options = {}) {
   const mainEnemy = enemyPredictions[0];
   const opening = buildSnapshotFromBring(plan, mainEnemy, options.field || {});
   loadSharedSnapshot(opening);
   resetEngineCaches();
-  warmMoveCache([...state.self, ...state.enemy]);
+  warmMoveCache([...engineState.self, ...engineState.enemy]);
 
   const selfPairs = buildPairActions('self', options.beamWidth || 6, options.actionCapPerMon || 5);
   const enemyPairsWeighted = softmaxWeights(
@@ -1916,6 +1964,8 @@ function buildPlanForCombo(plan, enemyPredictions, options = {}) {
   const likelySnapshot = bestRoot.likely?.result?.snapshot || opening;
   const deltaSummary = buildBoardDeltaSummary(opening, likelySnapshot);
   const breakers = narrative.breakers;
+  const tacticalSummary = buildPlanTacticalSummary(opening);
+  const tacticalFindings = (tacticalSummary.highlights || []).slice(0, 4);
 
   return {
     id: `plan-${comboKey(plan.indices)}-vs-${comboKey(mainEnemy.indices)}`,
@@ -1925,6 +1975,14 @@ function buildPlanForCombo(plan, enemyPredictions, options = {}) {
     enemyOverrideActive: !!mainEnemy.forced,
     deltaSummary,
     previewBadges: buildPreviewBadges(mainActions, confidence, fieldSummary),
+    tacticalFindings,
+    unsupportedMechanics: tacticalSummary.summary?.unsupported || [],
+    confidenceNotes: tacticalFindings.map((finding) => ({
+      family: finding.family,
+      level: finding.confidence?.level || 'medium',
+      value: finding.confidence?.value ?? null,
+      label: finding.label || finding.message || finding.family,
+    })),
     selfBringIndices: [...(plan.orderedIdx || plan.indices || [])],
     selfLeadIndices: [...(plan.leadIndices || (plan.orderedIdx || plan.indices || []).slice(0, 2))],
     selfBackIndices: [...(plan.backIndices || (plan.orderedIdx || plan.indices || []).slice(2, 4))],
@@ -1954,12 +2012,14 @@ function buildPlanForCombo(plan, enemyPredictions, options = {}) {
       boardDelta: deltaSummary,
       snapshot: formatSnapshotState(likelySnapshot),
       order: deepClone(bestRoot.likely?.result?.order || []),
+      explainEvents: deepClone(bestRoot.likely?.result?.explainEvents || []),
       score: Math.round(bestRoot.score),
     },
     enemyLikelyResponse: bestRoot.likely
       ? {
           actions: likelyActions,
           events: deepClone(bestRoot.likely.result.events || []),
+          explainEvents: deepClone(bestRoot.likely.result.explainEvents || []),
           score: Math.round(bestRoot.likely.score),
           snapshot: formatSnapshotState(bestRoot.likely.result.snapshot),
         }
@@ -1970,6 +2030,7 @@ function buildPlanForCombo(plan, enemyPredictions, options = {}) {
             label: 'Castigo máximo',
             actions: worstActions,
             events: deepClone(bestRoot.worst.result.events || []),
+            explainEvents: deepClone(bestRoot.worst.result.explainEvents || []),
             snapshot: formatSnapshotState(bestRoot.worst.result.snapshot),
             score: Math.round(bestRoot.worst.score),
           }
@@ -1992,6 +2053,7 @@ function buildPlanForCombo(plan, enemyPredictions, options = {}) {
     ].filter(Boolean),
     breakers,
     fieldSummary,
+    explainEvents: deepClone(bestRoot.likely?.result?.explainEvents || []),
     debug: {
       rootPairs: selfPairs.length,
       enemyPairs: enemyPairsWeighted.length,
@@ -2011,22 +2073,42 @@ function summarizeTopInputTeams(input) {
 }
 
 export function buildTurnPlansSnapshot(input = {}, options = {}) {
-  const info = summarizeTopInputTeams(input);
+  const battleSnapshot = input.battleSnapshot || createBattleSnapshot({
+    selfTeam: input.selfTeam || [],
+    enemyTeam: input.enemyTeam || [],
+    field: input.field || {},
+    activeSelfSlots: input.activeSelfSlots || [0, 1],
+    activeEnemySlots: input.activeEnemySlots || [0, 1],
+    turn: input.turn || 1,
+    phase: input.mode === 'quick' ? 'preview' : 'analysis',
+    source: 'turn-plans-engine-adapter',
+  });
+  const snapshotKey = input.snapshotKey || buildSnapshotCacheKey(battleSnapshot);
+  const legacyState = snapshotToLegacySimulationState(battleSnapshot);
+  const planningInput = {
+    ...input,
+    selfTeam: legacyState.self,
+    enemyTeam: legacyState.enemy,
+    field: legacyState.field,
+    activeSelfSlots: legacyState.activeSelfSlots,
+    activeEnemySlots: legacyState.activeEnemySlots,
+  };
+  const info = summarizeTopInputTeams(planningInput);
   if (info.selfCount < 4 || info.enemyCount < 4) {
     return {
       plans: [],
-      debug: { reason: 'not-enough-pokemon', info },
+      debug: { reason: 'not-enough-pokemon', info, snapshotKey },
     };
   }
 
-  const selfTeam = deepClone(input.selfTeam || []);
-  const enemyTeam = deepClone(input.enemyTeam || []);
-  const preferredIndices = (input.preferredOwnCombo || []).slice(0, 4);
-  const normalizedCombos = normalizeComboEntries(selfTeam, input.ownCombos || [], preferredIndices);
+  const selfTeam = deepClone(planningInput.selfTeam || []);
+  const enemyTeam = deepClone(planningInput.enemyTeam || []);
+  const preferredIndices = (planningInput.preferredOwnCombo || []).slice(0, 4);
+  const normalizedCombos = normalizeComboEntries(selfTeam, planningInput.ownCombos || [], preferredIndices);
 
   const plans = [];
-  const ownLimit = Math.max(1, input.topOwnCombos || 3);
-  const enemyLimit = Math.max(1, input.topEnemyCombos || 3);
+  const ownLimit = Math.max(1, planningInput.topOwnCombos || 3);
+  const enemyLimit = Math.max(1, planningInput.topEnemyCombos || 3);
 
   warmMoveCache([...selfTeam, ...enemyTeam]);
 
@@ -2049,8 +2131,8 @@ export function buildTurnPlansSnapshot(input = {}, options = {}) {
       score: combo.score,
       planType: combo.planType,
     };
-    const enemyPredictions = buildEnemyPredictions(enemyTeam, ownPlan, enemyLimit, input.forcedEnemyIndices || []);
-    const plan = buildPlanForCombo(ownPlan, enemyPredictions, input);
+    const enemyPredictions = buildEnemyPredictions(enemyTeam, ownPlan, enemyLimit, planningInput.forcedEnemyIndices || []);
+    const plan = buildPlanForCombo(ownPlan, enemyPredictions, planningInput);
     if (plan) {
       plans.push(plan);
       if (typeof options.onProgress === 'function') {
@@ -2060,6 +2142,7 @@ export function buildTurnPlansSnapshot(input = {}, options = {}) {
             combo: comboKey(combo.indices),
             computed: plans.length,
             total: Math.min(normalizedCombos.length, ownLimit),
+            snapshotKey,
           },
         });
       }
@@ -2069,10 +2152,14 @@ export function buildTurnPlansSnapshot(input = {}, options = {}) {
   plans.sort((a, b) => (b.score - a.score) || (b.confidence - a.confidence));
 
   return {
-    plans: plans.slice(0, input.displayLimit || ownLimit),
+    plans: plans.slice(0, planningInput.displayLimit || ownLimit),
     debug: {
       info,
       comboKeys: normalizedCombos.map((combo) => comboKey(combo.indices)),
+      snapshotKey,
+      snapshotVersion: battleSnapshot.version,
+      rulesVersion: battleSnapshot.rulesVersion,
+      dataVersion: battleSnapshot.dataVersion,
       generatedAt: Date.now(),
     },
   };

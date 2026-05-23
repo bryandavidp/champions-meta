@@ -2,6 +2,7 @@ import { MOVE_PRIORITY_LEVELS } from '../core/constants.js';
 import { state } from '../core/state.js';
 import { calculateSpeed } from '../battle/speed.js';
 import { getNatureSpeModifier } from '../battle/stats.js';
+import { fetchMoveInfo } from '../battle/moves.js';
 
 const WEATHER_SPEED_ABILITIES = {
   sun: new Set(['chlorophyll', 'clorofila']),
@@ -28,7 +29,8 @@ function displayName(mon) {
 
 function movePriority(moveName) {
   const raw = String(moveName || '').toLowerCase();
-  return MOVE_PRIORITY_LEVELS[raw] || MOVE_PRIORITY_LEVELS[slug(moveName)] || 0;
+  const info = fetchMoveInfo(moveName) || {};
+  return (Number.isFinite(info.priority) ? info.priority : 0) || MOVE_PRIORITY_LEVELS[raw] || MOVE_PRIORITY_LEVELS[slug(moveName)] || 0;
 }
 
 function rawSpeed(mon) {

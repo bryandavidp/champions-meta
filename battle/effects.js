@@ -97,11 +97,11 @@ export function recalculateActiveField() {
   }
 }
 
-export function applySwitchInEffects(mon, explicitSide) {
+export function applySwitchInEffects(mon, explicitSide, battleState = state) {
   if (!mon || !getRegistryBridge()) return;
 
   const fieldSnapshot =
-    getRegistryBridge().createCurrentFieldSnapshot(state);
+    getRegistryBridge().createCurrentFieldSnapshot(battleState);
 
   const entry = getRegistryBridge().resolveSwitchIn(mon, {
     holder: mon,
@@ -117,20 +117,20 @@ export function applySwitchInEffects(mon, explicitSide) {
     const payload = ev.payload || {};
 
     if (ev.kind === 'set_weather') {
-      state.field.weather = payload.weather || payload.value || null;
-      state.field.weatherTurns = payload.turns || 5;
+      battleState.field.weather = payload.weather || payload.value || null;
+      battleState.field.weatherTurns = payload.turns || 5;
     }
 
     if (ev.kind === 'set_terrain') {
-      state.field.terrain = payload.terrain || payload.value || null;
-      state.field.terrainTurns = payload.turns || 5;
+      battleState.field.terrain = payload.terrain || payload.value || null;
+      battleState.field.terrainTurns = payload.turns || 5;
     }
 
     if (ev.kind === 'toggle_room') {
       if (payload.room === 'trickRoom') {
-        const next = !state.field.trickRoom;
-        state.field.trickRoom = next;
-        state.field.trickRoomTurns = next ? payload.turns || 5 : 0;
+        const next = !battleState.field.trickRoom;
+        battleState.field.trickRoom = next;
+        battleState.field.trickRoomTurns = next ? payload.turns || 5 : 0;
       }
     }
 
@@ -140,11 +140,11 @@ export function applySwitchInEffects(mon, explicitSide) {
         const value = payload.value || payload.delta || 0;
         
         const activeTargetIndices = targetSide === 'self' 
-          ? (_getActiveIndicesFallback ? _getActiveIndicesFallback("self") : state.activeSelfSlots)
-          : (_getActiveIndicesFallback ? _getActiveIndicesFallback("enemy") : state.activeEnemySlots);
+          ? (_getActiveIndicesFallback && battleState === state ? _getActiveIndicesFallback("self") : battleState.activeSelfSlots)
+          : (_getActiveIndicesFallback && battleState === state ? _getActiveIndicesFallback("enemy") : battleState.activeEnemySlots);
 
         activeTargetIndices.forEach(idx => {
-          const targetMon = state[targetSide][idx];
+          const targetMon = battleState[targetSide][idx];
           if (!targetMon || !targetMon.battle) return;
 
           const abilityId = (targetMon.set?.ability || targetMon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -169,7 +169,7 @@ export function applySwitchInEffects(mon, explicitSide) {
     if (ev.kind === 'set_side_condition') {
       const targetSide = payload.side || side; // por defecto, lado del owner
       const isSelf = targetSide === 'self';
-      const f = state.field;
+      const f = battleState.field;
 
       switch (payload.condition || payload.value) {
         case 'reflect':
@@ -209,22 +209,22 @@ export function applySwitchInEffects(mon, explicitSide) {
           }
           break;
         case 'stealth_rock':
-          state.field.hazards[targetSide].rocks = true;
+          battleState.field.hazards[targetSide].rocks = true;
           break;
         case 'spikes':
-          state.field.hazards[targetSide].spikes = Math.min(
+          battleState.field.hazards[targetSide].spikes = Math.min(
             3,
-            (state.field.hazards[targetSide].spikes || 0) + 1
+            (battleState.field.hazards[targetSide].spikes || 0) + 1
           );
           break;
         case 'toxic_spikes':
-          state.field.hazards[targetSide].tspikes = Math.min(
+          battleState.field.hazards[targetSide].tspikes = Math.min(
             2,
-            (state.field.hazards[targetSide].tspikes || 0) + 1
+            (battleState.field.hazards[targetSide].tspikes || 0) + 1
           );
           break;
         case 'sticky_web':
-          state.field.hazards[targetSide].web = true;
+          battleState.field.hazards[targetSide].web = true;
           break;
         default:
           break;
@@ -232,13 +232,13 @@ export function applySwitchInEffects(mon, explicitSide) {
     }
   }
 
-  applyHazardsOnSwitchIn(mon, side);
+  applyHazardsOnSwitchIn(mon, side, battleState);
 }
 
-export function applyHazardsOnSwitchIn(mon, explicitSide) {
+export function applyHazardsOnSwitchIn(mon, explicitSide, battleState = state) {
   if (!mon || !mon.battle) return;
   const side = explicitSide || mon.side || mon.battle.side || 'self';
-  const hazards = state.field.hazards[side];
+  const hazards = battleState.field.hazards[side];
   if (!hazards) return;
 
   const types = (mon.types || []).map(t => String(t).toLowerCase());
@@ -289,9 +289,10 @@ export function applyHazardsOnSwitchIn(mon, explicitSide) {
 
 export function applyMoveResolutionEffects(attacker, move, options = {}) {
   if (!attacker || !move || !getRegistryBridge()) return;
+  const battleState = options.state || state;
 
   const fieldSnapshot =
-    getRegistryBridge().createCurrentFieldSnapshot(state);
+    getRegistryBridge().createCurrentFieldSnapshot(battleState);
 
   const entry = getRegistryBridge().resolveMoveResolution(attacker, move, {
     holder: attacker,
@@ -314,7 +315,7 @@ export function applyMoveResolutionEffects(attacker, move, options = {}) {
 
   for (const ev of entry.events) {
     const payload = ev.payload || {};
-    const f = state.field;
+    const f = battleState.field;
 
     if (ev.kind === 'set_weather') {
       f.weather = payload.weather || payload.value || null;

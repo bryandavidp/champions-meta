@@ -26,8 +26,10 @@ import { isSupportMove, fetchMoveInfo, getMoveCandidates } from './battle/moves.
 import { getSpeedModifier, calculateSpeed } from './battle/speed.js';
 import { getWeatherAndTerrainMultipliers, applyRegistryDamageModifiers, calculateDamageRolls, estimateMoveDamage, bestAttack } from './battle/damage.js';
 import { scoreThreat, inferStrategies } from './analysis/threats.js';
+import { buildTurn1ProductModel } from './analysis/product-adapters.js';
 import { evaluateKoConditions, renderKoConditionChips } from './analysis/ko-conditions.js';
 import { tickField, recalculateActiveField, applySwitchInEffects, applyHazardsOnSwitchIn, applyMoveResolutionEffects } from './battle/effects.js';
+import { getCanonicalMovePriority, isCanonicalSpreadMove } from './data/canonical/dex.js';
 import {
   STORAGE_KEY,
   CACHE_KEY_PREFIX,
@@ -80,7 +82,7 @@ export function getPriority(moveName, mon = null) {
   else if (['extremespeed', 'velocidadextrema', 'feint', 'amago', 'followme', 'senuelo', 'seuelo', 'ragepowder', 'polvoira'].includes(m)) prio = 2;
   else if (['suckerpunch', 'golpebajo', 'aquajet', 'acuajet', 'machpunch', 'ultrapuno', 'bulletpunch', 'punobala', 'iceshard', 'cantohelado', 'shadowsneak', 'sombravil', 'grassyglide', 'fitimpulso'].includes(m)) prio = 1;
   else if (['trickroom', 'espacioraro'].includes(m)) prio = -7;
-  else prio = typeof MOVE_PRIORITY_LEVELS !== 'undefined' ? (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[m] || 0) : 0;
+  else prio = getCanonicalMovePriority(moveName) || (typeof MOVE_PRIORITY_LEVELS !== 'undefined' ? (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[m] || 0) : 0);
 
   const ability = (mon?.set?.ability || mon?.ability || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
   if (['prankster', 'bromista'].includes(ability) && isStatusMoveForSimulation(moveName) && prio >= 0) {
@@ -843,7 +845,7 @@ export function evaluateCombo(indices) {
       let atkOnEnemy = bestAttack(sLead, eLead, simFieldLocal);
       t1SimCache.attacks[`self_${sLead.name}_vs_enemy_${eLead.name}`] = atkOnEnemy;
 
-      const isSpread = atkOnEnemy.move && SPREAD_MOVES.has(String(atkOnEnemy.move).toLowerCase().replace(/[^a-z0-9]/g, ''));
+      const isSpread = atkOnEnemy.move && (isCanonicalSpreadMove(atkOnEnemy.move) || SPREAD_MOVES.has(String(atkOnEnemy.move).toLowerCase().replace(/[^a-z0-9]/g, '')));
 
       if (otherELeadRedirects && !isSpread) {
           const cand = getMoveCandidates(sLead).find(m => m.move === atkOnEnemy.move) || atkOnEnemy;
@@ -893,7 +895,7 @@ export function evaluateCombo(indices) {
     allyThreat += Math.max(bestSingleTargetThreat, spreadThreat);
 
     if (chosenAtkOnEnemy && chosenELead) {
-      const isAllySpread = chosenAtkOnEnemy.move && SPREAD_MOVES.has(String(chosenAtkOnEnemy.move).toLowerCase());
+      const isAllySpread = chosenAtkOnEnemy.move && (isCanonicalSpreadMove(chosenAtkOnEnemy.move) || SPREAD_MOVES.has(String(chosenAtkOnEnemy.move).toLowerCase()));
       if (isAllySpread && chosenAtkOnEnemy.ohko && !spreadWarning) {
          spreadWarning = `El KO de ${sLead.displayName || sLead.name} depende de daño en área (${chosenAtkOnEnemy.move}), que se reduce un 25% en Dobles.`;
       }
@@ -916,7 +918,7 @@ export function evaluateCombo(indices) {
       if (selfHasTailwind) sLeadSpeedNum *= 2;
 
       let atkOnAlly = bestAttack(eLead, sLead, simFieldLocal);
-      const isSpread = atkOnAlly.move && SPREAD_MOVES.has(String(atkOnAlly.move).toLowerCase().replace(/[^a-z0-9]/g, ''));
+      const isSpread = atkOnAlly.move && (isCanonicalSpreadMove(atkOnAlly.move) || SPREAD_MOVES.has(String(atkOnAlly.move).toLowerCase().replace(/[^a-z0-9]/g, '')));
 
       let threatVal = 0;
       if (atkOnAlly.mult >= 2) threatVal += 15;
@@ -1490,11 +1492,14 @@ export function renderQuickCombos() {
 }
 
 export function renderQuickLayer() {
+  // Legacy fallback only: the home now reads from HomeTacticalModel + Top 3.
+  // Keep the old panels dormant so older expert/debug paths can be restored without
+  // competing with the tactical home.
   if (state.uiMode !== 'quick') return;
-  const rows = getRows();
-  const preview = computeQuickPreview(rows);
-  renderQuickPreview(preview);
-  renderQuickCombos();
+  const quickPreviewPanel = document.getElementById("quickPreviewPanel");
+  const quickCombosSection = document.getElementById("quickCombosSection");
+  if (quickPreviewPanel) quickPreviewPanel.style.display = "none";
+  if (quickCombosSection) quickCombosSection.style.display = "none";
 }
 
 // --- PREVIEW UI ---
@@ -2317,7 +2322,7 @@ function getMoveInfoForSimulation(moveName) {
     power: info.power || 0,
     damageClass: info.damageClass || 'status',
     hits: info.hits || GUARANTEED_MULTI_HITS[moveName] || 1,
-    isSpread: info.isSpread || SPREAD_MOVES.has(getMoveSlug(moveName)),
+    isSpread: info.isSpread || isCanonicalSpreadMove(moveName) || SPREAD_MOVES.has(getMoveSlug(moveName)),
   };
 }
 
@@ -3026,14 +3031,16 @@ export function renderTurn1Simulator() {
     return;
   }
   
-  // En modo rápido, si no hay combinación de 4 elegida, mostramos estado vacío.
-  if (state.uiMode === 'quick' && (!state.chosenFour || state.chosenFour.length < 4)) {
-    panel.style.display = "block";
-    emptyState.style.display = "block";
+  // En modo rapido el simulador es paso posterior: aparece tras fijar un plan.
+  const quickPlanActive = state.uiMode !== 'quick'
+    || (state.chosenFour?.length >= 4 && !!state.turnPlanSelection?.planId);
+  if (!quickPlanActive) {
+    panel.style.display = "none";
+    emptyState.style.display = "none";
     if (activeBoard) activeBoard.style.display = "none";
     if (veredictoContainer) veredictoContainer.style.display = "none";
     list.innerHTML = "";
-    flowLog('renderTurn1Simulator: Esperando bloqueo (lockBestFourBtn) en UI Rápida');
+    flowLog('renderTurn1Simulator: Esperando plan activo en UI Rapida');
     return;
   }
 
@@ -3752,7 +3759,7 @@ export function renderTurn1Simulator() {
               wMul: atkS.wMul,
               terrMul: atkS.terrMul,
               tags: atkS.tags,
-              isSpread: SPREAD_MOVES.has(sMoveSlug),
+              isSpread: isCanonicalSpreadMove(sMoveSlug) || SPREAD_MOVES.has(sMoveSlug),
               prio: sPriority,
               spe: speS,
               sortScore: sPriority * 10000 + speS,
@@ -3791,7 +3798,7 @@ export function renderTurn1Simulator() {
               wMul: atkE.wMul,
               terrMul: atkE.terrMul,
               tags: atkE.tags,
-              isSpread: SPREAD_MOVES.has(eMoveSlug),
+              isSpread: isCanonicalSpreadMove(eMoveSlug) || SPREAD_MOVES.has(eMoveSlug),
               prio: ePriority,
               spe: speE,
               sortScore: ePriority * 10000 + speE,
@@ -3845,7 +3852,7 @@ export function renderTurn1Simulator() {
 
   const registerSpreadMoveCoverage = (entry, defenders) => {
       const moves = getMoveCandidates(entry.mon)
-          .filter(move => move && (move.isSpread || SPREAD_MOVES.has(getMoveSlug(move.move)) || SPREAD_MOVES.has(String(move.move || '').toLowerCase())));
+          .filter(move => move && (move.isSpread || isCanonicalSpreadMove(move.move) || SPREAD_MOVES.has(getMoveSlug(move.move)) || SPREAD_MOVES.has(String(move.move || '').toLowerCase())));
       moves.forEach((move) => {
           const prio = getPriority(move.move, entry.mon);
           const key = `${entry.mon.name}_${move.move}`;
@@ -4207,7 +4214,7 @@ export function renderTurn1Simulator() {
   let exchangeCardsHtml = '';
 
   const renderVectorRow = (v) => {
-      const isSpread = v.atk.move && SPREAD_MOVES.has(String(v.atk.move).toLowerCase().replace(/[^a-z0-9]/g, ''));
+      const isSpread = v.atk.move && (isCanonicalSpreadMove(v.atk.move) || SPREAD_MOVES.has(String(v.atk.move).toLowerCase().replace(/[^a-z0-9]/g, '')));
       const spreadBadge = isSpread ? `<span class="tag-pill tag-pill--info" style="font-size:0.55rem; padding:1px 4px; margin-left:4px; background:#444; border:1px solid #666; color:#ddd;">Spread 0.75x</span>` : '';
       
       let rollText = '';
@@ -4451,6 +4458,66 @@ export function renderTurn1Simulator() {
   `;
 
   // --- INYECCIÓN DE CONDITION CARDS (TRICK ROOM Y FAKE OUT) ---
+  const turn1EngineModel = buildTurn1ProductModel(state, {
+    activeSelfSlots: sIdx,
+    activeEnemySlots: eIdx,
+    field: simFieldLocal,
+    highlightLimit: 6,
+    includeActionEvidence: true,
+    includeGraph: false,
+  });
+  const renderEngineHighlight = (item) => {
+    const confidence = item.confidence || {};
+    const level = confidence.level || 'medium';
+    const value = Number(confidence.value);
+    const confidenceLabel = Number.isFinite(value) ? `${Math.round(value * 100)}%` : level;
+    const iconMap = {
+      speed_control: 'wind',
+      weather_core: 'cloud-sun',
+      terrain_core: 'sparkles',
+      fake_out_setup: 'hand',
+      redirection_setup: 'shield',
+      spread_abuse: 'radio-tower',
+      immunity_core: 'shield-check',
+      anti_intimidate: 'badge-alert',
+      priority_games: 'zap',
+      priority_denial: 'shield-alert',
+      setup_support: 'sparkles',
+      defensive_layering: 'layers',
+      trap_perish_lock: 'lock',
+      ally_protected_nuke: 'crosshair',
+      status_pressure: 'activity',
+      variable_power_wincon: 'trending-up',
+      late_game_cleaner: 'flag',
+      partner_engine: 'network',
+    };
+    return `
+      <article class="t1-engine-finding is-${escapeHtml(item.severity || 'medium')}">
+        <div class="t1-engine-finding__icon"><i data-lucide="${iconMap[item.family] || 'info'}"></i></div>
+        <div class="t1-engine-finding__body">
+          <div class="t1-engine-finding__top">
+            <strong>${escapeHtml(item.label || item.family || 'Finding tactico')}</strong>
+            <span class="engine-confidence engine-confidence--${escapeHtml(level)}">${escapeHtml(confidenceLabel)}</span>
+          </div>
+          ${item.response ? `<p><i data-lucide="reply"></i>${escapeHtml(item.response)}</p>` : ''}
+        </div>
+      </article>
+    `;
+  };
+  const turn1EngineHtml = turn1EngineModel.highlights?.length
+    ? `
+      <section class="t1-engine-panel">
+        <div class="t1-zone-heading">
+          <span>Lectura del engine</span>
+          <p>Findings derivados de snapshot, reglas y trazas compartidas con matrix, planes y threat analysis.</p>
+        </div>
+        <div class="t1-engine-grid">
+          ${turn1EngineModel.highlights.slice(0, 6).map(renderEngineHighlight).join('')}
+        </div>
+      </section>
+    `
+    : '';
+
   const buildCondition = (type, icon, eyebrow, title, text, metaHtml = '') => `
       <article class="condition-card condition-card--${type}">
         <div class="condition-card__icon"><i data-lucide="${icon}"></i></div>
@@ -4793,6 +4860,7 @@ export function renderTurn1Simulator() {
   list.innerHTML = `
     <div class="tactical-zones-container">
       ${t1ControlsHtml}
+      ${turn1EngineHtml}
       <div class="t1-zone-heading t1-zone-heading--center">
         <span>Orden previsto de activación</span>
         <p>Orden base por velocidad efectiva. La prioridad se marca como opcion disponible, pero no reordena esta vista hasta elegir un movimiento.</p>
@@ -5557,7 +5625,7 @@ export function simulateTurn(state, actionsSelf, actionsEnemy) {
           power: info.power || 0,
           damageClass: info.damageClass || 'physical',
           hits: info.hits || GUARANTEED_MULTI_HITS[moveName] || 1,
-          isSpread: info.isSpread || SPREAD_MOVES.has(moveName) || false,
+          isSpread: info.isSpread || isCanonicalSpreadMove(moveName) || SPREAD_MOVES.has(moveName) || false,
           priority: getPriority(moveName, atkMon)
         };
 

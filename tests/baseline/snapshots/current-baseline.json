@@ -1,0 +1,1320 @@
+{
+  "cases": [
+    {
+      "id": "architecture.mutation-points",
+      "note": "Inventario ejecutable de caches y mutaciones globales que la Fase 0 congela.",
+      "output": {
+        "appStateMutationRoots": [
+          "state.field",
+          "state.self",
+          "state.enemy",
+          "state.turn1Battle",
+          "state.turnPlanEnemyOverride"
+        ],
+        "globalCaches": [
+          "currentDamageCache",
+          "comboBestAttackCache",
+          "comboSpeedCache",
+          "loggedMessages"
+        ],
+        "knownGlobalBridge": true
+      },
+      "status": "comportamiento provisional heredado"
+    },
+    {
+      "id": "speed.whimsicott-tailwind-resolution",
+      "note": "",
+      "output": {
+        "after": 368,
+        "before": 184,
+        "field": {
+          "auroraVeilEnemy": false,
+          "auroraVeilEnemyTurns": 0,
+          "auroraVeilSelf": false,
+          "auroraVeilSelfTurns": 0,
+          "hazards": {
+            "enemy": {
+              "rocks": false,
+              "spikes": 0,
+              "tspikes": 0,
+              "web": false
+            },
+            "self": {
+              "rocks": false,
+              "spikes": 0,
+              "tspikes": 0,
+              "web": false
+            }
+          },
+          "lightScreenEnemy": false,
+          "lightScreenEnemyTurns": 0,
+          "lightScreenSelf": false,
+          "lightScreenSelfTurns": 0,
+          "quickGuardEnemy": false,
+          "quickGuardSelf": false,
+          "redirectionEnemy": null,
+          "redirectionSelf": null,
+          "reflectEnemy": false,
+          "reflectEnemyTurns": 0,
+          "reflectSelf": false,
+          "reflectSelfTurns": 0,
+          "tailwindEnemy": false,
+          "tailwindEnemyTurns": 0,
+          "tailwindSelf": true,
+          "tailwindSelfTurns": 4,
+          "terrain": null,
+          "terrainTurns": 0,
+          "trickRoom": false,
+          "trickRoomTurns": 0,
+          "weather": null,
+          "weatherTurns": 0,
+          "wideGuardEnemy": false,
+          "wideGuardSelf": false
+        }
+      },
+      "status": "comportamiento correcto actual"
+    },
+    {
+      "id": "speed.sand-rush-plus-tailwind",
+      "note": "",
+      "output": {
+        "speed": 616,
+        "speedOrder": {
+          "entries": [
+            {
+              "blockedPriorityReason": null,
+              "cause": "Tailwind",
+              "effectiveSpeed": 616,
+              "maxPriority": 0,
+              "modifiers": [
+                {
+                  "id": "tailwind",
+                  "label": "Tailwind",
+                  "multiplier": 2,
+                  "type": "field"
+                },
+                {
+                  "id": "weather-speed",
+                  "label": "Impetu Arena",
+                  "multiplier": 2,
+                  "type": "ability"
+                }
+              ],
+              "name": "Excadrill",
+              "priorityWindows": [
+                {
+                  "move": "Ataque normal",
+                  "priority": 0
+                }
+              ],
+              "rank": 1,
+              "rawSpeed": 154,
+              "side": "self"
+            }
+          ],
+          "firstMover": {
+            "cause": "Tailwind",
+            "effectiveSpeed": 616,
+            "maxPriority": 0,
+            "name": "Excadrill",
+            "side": "self"
+          },
+          "ties": []
+        }
+      },
+      "status": "comportamiento correcto actual"
+    },
+    {
+      "id": "speed.trick-room-slow-sweeper-order",
+      "note": "",
+      "output": {
+        "entries": [
+          {
+            "blockedPriorityReason": null,
+            "cause": "Trick Room",
+            "effectiveSpeed": -36,
+            "maxPriority": 0,
+            "modifiers": [
+              {
+                "id": "trick-room",
+                "label": "Trick Room invierte",
+                "multiplier": -1,
+                "type": "field"
+              }
+            ],
+            "name": "Torkoal",
+            "priorityWindows": [
+              {
+                "move": "Ataque normal",
+                "priority": 0
+              }
+            ],
+            "rank": 1,
+            "rawSpeed": 36,
+            "side": "self"
+          },
+          {
+            "blockedPriorityReason": null,
+            "cause": "Trick Room",
+            "effectiveSpeed": -184,
+            "maxPriority": 0,
+            "modifiers": [
+              {
+                "id": "trick-room",
+                "label": "Trick Room invierte",
+                "multiplier": -1,
+                "type": "field"
+              }
+            ],
+            "name": "Whimsicott",
+            "priorityWindows": [
+              {
+                "move": "Ataque normal",
+                "priority": 0
+              }
+            ],
+            "rank": 2,
+            "rawSpeed": 184,
+            "side": "enemy"
+          }
+        ],
+        "firstMover": {
+          "cause": "Trick Room",
+          "effectiveSpeed": -36,
+          "maxPriority": 0,
+          "name": "Torkoal",
+          "side": "self"
+        },
+        "ties": []
+      },
+      "status": "comportamiento correcto actual"
+    },
+    {
+      "id": "priority.psychic-terrain-blocks-extremespeed",
+      "note": "",
+      "output": {
+        "blocked": true,
+        "damage": 0,
+        "immunityData": {
+          "name": "Campo Psiquico",
+          "type": "field"
+        },
+        "maxDamage": 0,
+        "minDamage": 0,
+        "registryExplain": [],
+        "tags": [],
+        "terrMul": 1,
+        "wMul": 1
+      },
+      "status": "comportamiento correcto actual"
+    },
+    {
+      "id": "priority.ability-and-guard-blockers",
+      "note": "Congela que algunos bloqueos dependen de registry/parches y otros son cobertura incompleta.",
+      "output": {
+        "armorTail": {
+          "blocked": false,
+          "damage": 44,
+          "immunityData": null,
+          "maxDamage": 44,
+          "minDamage": 37,
+          "registryExplain": [
+            "Armor Tail"
+          ],
+          "tags": [
+            "⚔️ STAB"
+          ],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "dazzling": {
+          "blocked": false,
+          "damage": 22,
+          "immunityData": null,
+          "maxDamage": 22,
+          "minDamage": 18,
+          "registryExplain": [],
+          "tags": [
+            "⚔️ STAB"
+          ],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "queenlyMajesty": {
+          "blocked": false,
+          "damage": 17,
+          "immunityData": null,
+          "maxDamage": 17,
+          "minDamage": 14,
+          "registryExplain": [],
+          "tags": [
+            "⚔️ STAB"
+          ],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "quickGuard": {
+          "blocked": true,
+          "damage": 0,
+          "immunityData": {
+            "name": "Quick Guard",
+            "type": "field"
+          },
+          "maxDamage": 0,
+          "minDamage": 0,
+          "registryExplain": [],
+          "tags": [],
+          "terrMul": 1,
+          "wMul": 1
+        }
+      },
+      "status": "comportamiento provisional heredado"
+    },
+    {
+      "id": "fakeout.inner-focus-and-covert-cloak",
+      "note": "El baseline conserva que el daño existe, pero flinch/secondary prevention no es universal en el motor puro.",
+      "output": {
+        "covertCloakDamage": {
+          "blocked": false,
+          "damage": 18,
+          "immunityData": null,
+          "maxDamage": 18,
+          "minDamage": 16,
+          "registryExplain": [],
+          "tags": [],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "innerFocusDamage": {
+          "blocked": false,
+          "damage": 18,
+          "immunityData": null,
+          "maxDamage": 18,
+          "minDamage": 16,
+          "registryExplain": [],
+          "tags": [],
+          "terrMul": 1,
+          "wMul": 1
+        }
+      },
+      "status": "known-gap aceptado temporalmente"
+    },
+    {
+      "id": "survival.focus-sash-full-vs-chip",
+      "note": "",
+      "output": {
+        "chipped": {
+          "primary": {
+            "id": "ohko-clean",
+            "label": "OHKO limpio",
+            "tone": "green",
+            "type": "result"
+          },
+          "reliable": true,
+          "tags": [
+            {
+              "id": "ohko-clean",
+              "label": "OHKO limpio",
+              "tone": "green",
+              "type": "result"
+            }
+          ]
+        },
+        "fullHp": {
+          "primary": {
+            "id": "ohko-clean",
+            "label": "OHKO limpio",
+            "tone": "green",
+            "type": "result"
+          },
+          "reliable": true,
+          "tags": [
+            {
+              "id": "ohko-clean",
+              "label": "OHKO limpio",
+              "tone": "green",
+              "type": "result"
+            },
+            {
+              "id": "breaks-sash",
+              "label": "rompe sash primero",
+              "tone": "amber",
+              "type": "invalidator"
+            }
+          ]
+        }
+      },
+      "status": "comportamiento correcto actual"
+    },
+    {
+      "id": "damage.weather-ball-by-weather",
+      "note": "",
+      "output": {
+        "none": {
+          "blocked": false,
+          "damage": 20,
+          "immunityData": null,
+          "maxDamage": 20,
+          "minDamage": 17,
+          "registryExplain": [],
+          "tags": [],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "rain": {
+          "blocked": false,
+          "damage": 238,
+          "immunityData": null,
+          "maxDamage": 238,
+          "minDamage": 202,
+          "registryExplain": [],
+          "tags": [
+            "💧 Lluvia x1.5"
+          ],
+          "terrMul": 1,
+          "wMul": 1.5
+        },
+        "sand": {
+          "blocked": false,
+          "damage": 79,
+          "immunityData": null,
+          "maxDamage": 79,
+          "minDamage": 67,
+          "registryExplain": [],
+          "tags": [],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "snow": {
+          "blocked": false,
+          "damage": 79,
+          "immunityData": null,
+          "maxDamage": 79,
+          "minDamage": 67,
+          "registryExplain": [],
+          "tags": [],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "sun": {
+          "blocked": false,
+          "damage": 89,
+          "immunityData": null,
+          "maxDamage": 89,
+          "minDamage": 75,
+          "registryExplain": [],
+          "tags": [
+            "🔥 Sol x1.5",
+            "⚔️ STAB"
+          ],
+          "terrMul": 1,
+          "wMul": 1.5
+        }
+      },
+      "status": "comportamiento correcto actual"
+    },
+    {
+      "id": "damage.spread-and-absorption-cores",
+      "note": "",
+      "output": {
+        "dischargeIntoLightningRod": {
+          "blocked": true,
+          "damage": 0,
+          "immunityData": {
+            "name": "Lightning Rod",
+            "type": "ability"
+          },
+          "maxDamage": 0,
+          "minDamage": 0,
+          "registryExplain": [],
+          "tags": [],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "earthquakeIntoRotomAlly": {
+          "blocked": true,
+          "damage": 0,
+          "immunityData": {
+            "name": "Levitate",
+            "type": "ability"
+          },
+          "maxDamage": 0,
+          "minDamage": 0,
+          "registryExplain": [
+            "Levitate"
+          ],
+          "tags": [],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "earthquakeIntoTyranitarFoe": {
+          "blocked": false,
+          "damage": 122,
+          "immunityData": null,
+          "maxDamage": 122,
+          "minDamage": 104,
+          "registryExplain": [],
+          "tags": [
+            "⚔️ STAB",
+            "📉 Spread x0.75"
+          ],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "surfIntoStormDrain": {
+          "blocked": true,
+          "damage": 0,
+          "immunityData": {
+            "name": "Storm Drain",
+            "type": "ability"
+          },
+          "maxDamage": 0,
+          "minDamage": 0,
+          "registryExplain": [],
+          "tags": [],
+          "terrMul": 1,
+          "wMul": 1
+        }
+      },
+      "status": "comportamiento provisional heredado"
+    },
+    {
+      "id": "switchin.intimidate-reactions",
+      "note": "Congela el comportamiento actual; la Fase 3/4 deberá corregir timing y reacciones de stat drops.",
+      "output": {
+        "clearBodyStages": {
+          "atk": 0,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 0
+        },
+        "competitiveStages": {
+          "atk": 1,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 0
+        },
+        "defiantStages": {
+          "atk": 1,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 0
+        }
+      },
+      "status": "known-gap aceptado temporalmente"
+    },
+    {
+      "id": "field.move-resolution-screens-redirection-guards",
+      "note": "",
+      "output": {
+        "field": {
+          "auroraVeilEnemy": false,
+          "auroraVeilEnemyTurns": 0,
+          "auroraVeilSelf": false,
+          "auroraVeilSelfTurns": 0,
+          "hazards": {
+            "enemy": {
+              "rocks": false,
+              "spikes": 0,
+              "tspikes": 0,
+              "web": false
+            },
+            "self": {
+              "rocks": false,
+              "spikes": 0,
+              "tspikes": 0,
+              "web": false
+            }
+          },
+          "lightScreenEnemy": false,
+          "lightScreenEnemyTurns": 0,
+          "lightScreenSelf": true,
+          "lightScreenSelfTurns": 5,
+          "quickGuardEnemy": false,
+          "quickGuardSelf": true,
+          "redirectionEnemy": null,
+          "redirectionSelf": "clefairy",
+          "reflectEnemy": false,
+          "reflectEnemyTurns": 0,
+          "reflectSelf": true,
+          "reflectSelfTurns": 5,
+          "tailwindEnemy": false,
+          "tailwindEnemyTurns": 0,
+          "tailwindSelf": false,
+          "tailwindSelfTurns": 0,
+          "terrain": null,
+          "terrainTurns": 0,
+          "trickRoom": false,
+          "trickRoomTurns": 0,
+          "weather": null,
+          "weatherTurns": 0,
+          "wideGuardEnemy": false,
+          "wideGuardSelf": false
+        }
+      },
+      "status": "comportamiento provisional heredado"
+    },
+    {
+      "id": "damage.variable-power-known-gaps",
+      "note": "Eruption se congela como gap: el motor actual no escala potencia por HP.",
+      "output": {
+        "eruptionFullHp": {
+          "blocked": false,
+          "damage": 297,
+          "immunityData": null,
+          "maxDamage": 297,
+          "minDamage": 252,
+          "registryExplain": [],
+          "tags": [
+            "🔥 Sol x1.5",
+            "⚔️ STAB",
+            "📉 Spread x0.75"
+          ],
+          "terrMul": 1,
+          "wMul": 1.5
+        },
+        "eruptionLowHp": {
+          "blocked": false,
+          "damage": 297,
+          "immunityData": null,
+          "maxDamage": 297,
+          "minDamage": 252,
+          "registryExplain": [],
+          "tags": [
+            "🔥 Sol x1.5",
+            "⚔️ STAB",
+            "📉 Spread x0.75"
+          ],
+          "terrMul": 1,
+          "wMul": 1.5
+        }
+      },
+      "status": "known-gap aceptado temporalmente"
+    },
+    {
+      "id": "items.current-modifiers-and-known-gaps",
+      "note": "",
+      "output": {
+        "airBalloonGroundImmunity": {
+          "blocked": true,
+          "damage": 0,
+          "immunityData": {
+            "name": "Air Balloon",
+            "type": "item"
+          },
+          "maxDamage": 0,
+          "minDamage": 0,
+          "registryExplain": [],
+          "tags": [],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "lifeOrbIntoAssaultVest": {
+          "blocked": false,
+          "damage": 37,
+          "immunityData": null,
+          "maxDamage": 37,
+          "minDamage": 31,
+          "registryExplain": [
+            "Life Orb",
+            "Life Orb"
+          ],
+          "tags": [
+            "⚔️ STAB",
+            "📉 Spread x0.75"
+          ],
+          "terrMul": 1,
+          "wMul": 1
+        },
+        "unsupportedStillTracked": [
+          "berries",
+          "seeds",
+          "choice lock lifecycle"
+        ]
+      },
+      "status": "comportamiento provisional heredado"
+    },
+    {
+      "id": "quick.findings-threats-and-strategies",
+      "note": "",
+      "output": {
+        "enemyStrategies": [
+          {
+            "icon": "<i data-lucide=\"wind\"></i>",
+            "title": "Viento Afín",
+            "triggers": [
+              {
+                "ability": "Prankster",
+                "baseStats": {
+                  "atk": 67,
+                  "def": 85,
+                  "hp": 60,
+                  "spa": 77,
+                  "spd": 75,
+                  "spe": 116,
+                  "speed": 116
+                },
+                "battle": {
+                  "hpPct": 100,
+                  "itemConsumed": false,
+                  "protected": false,
+                  "protectedBy": null,
+                  "side": "enemy",
+                  "stages": {
+                    "atk": 0,
+                    "def": 0,
+                    "spa": 0,
+                    "spd": 0,
+                    "spe": 0
+                  },
+                  "status": "none"
+                },
+                "displayName": "Whimsicott",
+                "fainted": false,
+                "item": "",
+                "name": "whimsicott",
+                "set": {
+                  "ability": "Prankster",
+                  "evScale": "full",
+                  "evs": {
+                    "atk": 0,
+                    "def": 0,
+                    "hp": 0,
+                    "spa": 0,
+                    "spd": 0,
+                    "spe": 0
+                  },
+                  "item": "",
+                  "moves": [
+                    "Tailwind",
+                    "Moonblast"
+                  ],
+                  "nature": "Serious"
+                },
+                "side": "enemy",
+                "sprite": "",
+                "types": [
+                  "grass",
+                  "fairy"
+                ]
+              }
+            ],
+            "type": "Tailwind"
+          },
+          {
+            "icon": "<i data-lucide=\"sun\"></i>",
+            "title": "Sol",
+            "triggers": [
+              {
+                "ability": "Drought",
+                "baseStats": {
+                  "atk": 104,
+                  "def": 78,
+                  "hp": 78,
+                  "spa": 159,
+                  "spd": 115,
+                  "spe": 100,
+                  "speed": 100
+                },
+                "battle": {
+                  "hpPct": 100,
+                  "itemConsumed": false,
+                  "protected": false,
+                  "protectedBy": null,
+                  "side": "enemy",
+                  "stages": {
+                    "atk": 0,
+                    "def": 0,
+                    "spa": 0,
+                    "spd": 0,
+                    "spe": 0
+                  },
+                  "status": "none"
+                },
+                "displayName": "Charizard",
+                "fainted": false,
+                "item": "",
+                "name": "charizard-mega-y",
+                "set": {
+                  "ability": "Drought",
+                  "evScale": "full",
+                  "evs": {
+                    "atk": 0,
+                    "def": 0,
+                    "hp": 0,
+                    "spa": 0,
+                    "spd": 0,
+                    "spe": 0
+                  },
+                  "item": "",
+                  "moves": [
+                    "Weather Ball",
+                    "Solar Beam"
+                  ],
+                  "nature": "Serious"
+                },
+                "side": "enemy",
+                "sprite": "",
+                "types": [
+                  "fire",
+                  "flying"
+                ]
+              },
+              {
+                "ability": "Drought",
+                "baseStats": {
+                  "atk": 85,
+                  "def": 140,
+                  "hp": 70,
+                  "spa": 85,
+                  "spd": 70,
+                  "spe": 20,
+                  "speed": 20
+                },
+                "battle": {
+                  "hpPct": 100,
+                  "itemConsumed": false,
+                  "protected": false,
+                  "protectedBy": null,
+                  "side": "enemy",
+                  "stages": {
+                    "atk": 0,
+                    "def": 0,
+                    "spa": 0,
+                    "spd": 0,
+                    "spe": 0
+                  },
+                  "status": "none"
+                },
+                "displayName": "Torkoal",
+                "fainted": false,
+                "item": "",
+                "name": "torkoal",
+                "set": {
+                  "ability": "Drought",
+                  "evScale": "full",
+                  "evs": {
+                    "atk": 0,
+                    "def": 0,
+                    "hp": 0,
+                    "spa": 0,
+                    "spd": 0,
+                    "spe": 0
+                  },
+                  "item": "",
+                  "moves": [
+                    "Eruption"
+                  ],
+                  "nature": "Serious"
+                },
+                "side": "enemy",
+                "sprite": "",
+                "types": [
+                  "fire"
+                ]
+              }
+            ],
+            "type": "Sun"
+          }
+        ],
+        "topThreats": [
+          {
+            "name": "Whimsicott",
+            "threat": {
+              "bestAnswers": [],
+              "isSupportThreat": true,
+              "level": "amber",
+              "maxEnemyPressure": 1,
+              "reasons": [
+                "Tailwind"
+              ],
+              "score": 50
+            }
+          },
+          {
+            "name": "Charizard",
+            "threat": {
+              "bestAnswers": [
+                {
+                  "ability": "Rock Head",
+                  "baseStats": {
+                    "atk": 115,
+                    "def": 80,
+                    "hp": 95,
+                    "spa": 95,
+                    "spd": 80,
+                    "spe": 90,
+                    "speed": 90
+                  },
+                  "battle": {
+                    "hpPct": 100,
+                    "itemConsumed": false,
+                    "protected": false,
+                    "protectedBy": null,
+                    "side": "self",
+                    "stages": {
+                      "atk": 0,
+                      "def": 0,
+                      "spa": 0,
+                      "spd": 0,
+                      "spe": 0
+                    },
+                    "status": "none"
+                  },
+                  "displayName": "Arcanine",
+                  "fainted": false,
+                  "item": "",
+                  "name": "arcaninehisui",
+                  "set": {
+                    "ability": "Rock Head",
+                    "evScale": "full",
+                    "evs": {
+                      "atk": 0,
+                      "def": 0,
+                      "hp": 0,
+                      "spa": 0,
+                      "spd": 0,
+                      "spe": 0
+                    },
+                    "item": "",
+                    "moves": [
+                      "Head Smash"
+                    ],
+                    "nature": "Serious"
+                  },
+                  "side": "self",
+                  "sprite": "",
+                  "types": [
+                    "fire",
+                    "rock"
+                  ]
+                }
+              ],
+              "isSupportThreat": false,
+              "level": "green",
+              "maxEnemyPressure": 2,
+              "reasons": [],
+              "score": 33
+            }
+          },
+          {
+            "name": "Torkoal",
+            "threat": {
+              "bestAnswers": [
+                {
+                  "ability": "Rock Head",
+                  "baseStats": {
+                    "atk": 115,
+                    "def": 80,
+                    "hp": 95,
+                    "spa": 95,
+                    "spd": 80,
+                    "spe": 90,
+                    "speed": 90
+                  },
+                  "battle": {
+                    "hpPct": 100,
+                    "itemConsumed": false,
+                    "protected": false,
+                    "protectedBy": null,
+                    "side": "self",
+                    "stages": {
+                      "atk": 0,
+                      "def": 0,
+                      "spa": 0,
+                      "spd": 0,
+                      "spe": 0
+                    },
+                    "status": "none"
+                  },
+                  "displayName": "Arcanine",
+                  "fainted": false,
+                  "item": "",
+                  "name": "arcaninehisui",
+                  "set": {
+                    "ability": "Rock Head",
+                    "evScale": "full",
+                    "evs": {
+                      "atk": 0,
+                      "def": 0,
+                      "hp": 0,
+                      "spa": 0,
+                      "spd": 0,
+                      "spe": 0
+                    },
+                    "item": "",
+                    "moves": [
+                      "Head Smash"
+                    ],
+                    "nature": "Serious"
+                  },
+                  "side": "self",
+                  "sprite": "",
+                  "types": [
+                    "fire",
+                    "rock"
+                  ]
+                }
+              ],
+              "isSupportThreat": false,
+              "level": "green",
+              "maxEnemyPressure": 1.5,
+              "reasons": [],
+              "score": 29
+            }
+          }
+        ]
+      },
+      "status": "comportamiento provisional heredado"
+    },
+    {
+      "id": "matrix.best-attack-contract",
+      "note": "",
+      "output": [
+        {
+          "attacker": "Arcanine",
+          "cells": [
+            {
+              "best": {
+                "blocked": false,
+                "immunityData": null,
+                "maxPct": 100,
+                "minPct": 100,
+                "move": "Head Smash",
+                "mult": 4,
+                "ohko": true,
+                "ohkoProb": 100,
+                "rawMult": 4,
+                "tags": [
+                  "⚔️ STAB"
+                ],
+                "type": "rock"
+              },
+              "defender": "Charizard"
+            },
+            {
+              "best": {
+                "blocked": false,
+                "immunityData": null,
+                "maxPct": 60,
+                "minPct": 50,
+                "move": "Head Smash",
+                "mult": 1,
+                "ohko": false,
+                "ohkoProb": 0,
+                "rawMult": 1,
+                "tags": [
+                  "⚔️ STAB"
+                ],
+                "type": "rock"
+              },
+              "defender": "Tyranitar"
+            }
+          ]
+        },
+        {
+          "attacker": "Azumarill",
+          "cells": [
+            {
+              "best": {
+                "blocked": false,
+                "immunityData": null,
+                "maxPct": 28,
+                "minPct": 24,
+                "move": "Play Rough",
+                "mult": 0.5,
+                "ohko": false,
+                "ohkoProb": 0,
+                "rawMult": 0.5,
+                "tags": [
+                  "⚔️ STAB"
+                ],
+                "type": "fairy"
+              },
+              "defender": "Charizard"
+            },
+            {
+              "best": {
+                "blocked": false,
+                "immunityData": null,
+                "maxPct": 76,
+                "minPct": 64,
+                "move": "Play Rough",
+                "mult": 2,
+                "ohko": false,
+                "ohkoProb": 0,
+                "rawMult": 2,
+                "tags": [
+                  "⚔️ STAB"
+                ],
+                "type": "fairy"
+              },
+              "defender": "Tyranitar"
+            }
+          ]
+        }
+      ],
+      "status": "comportamiento provisional heredado"
+    },
+    {
+      "id": "plans.top-three-contract",
+      "note": "",
+      "output": {
+        "debug": {
+          "branchesExplored": null,
+          "fallbackReason": null,
+          "pruned": null
+        },
+        "planCount": 1,
+        "plans": [
+          {
+            "breakers": [],
+            "confidence": 0.64,
+            "enemyBring": [
+              {
+                "name": "Charizard",
+                "role": "lead",
+                "sprite": ""
+              },
+              {
+                "name": "Farigiraf",
+                "role": "lead",
+                "sprite": ""
+              },
+              {
+                "name": "Kingambit",
+                "role": "safe-pivot",
+                "sprite": ""
+              },
+              {
+                "name": "Whimsicott",
+                "role": "closer",
+                "sprite": ""
+              }
+            ],
+            "enemyLeadIndices": [
+              0,
+              2
+            ],
+            "headline": "Presion Farigiraf + KO Ambos rivales",
+            "id": "plan-0,1,2,3-vs-0,1,2,3",
+            "mainLine": [
+              {
+                "actor": "Excadrill",
+                "damageRangeLabel": "57-68%",
+                "effectClass": "damage",
+                "move": "High Horsepower",
+                "outcomeKind": "damage",
+                "priority": 0,
+                "target": "Farigiraf"
+              },
+              {
+                "actor": "Tyranitar",
+                "damageRangeLabel": "KO seguro",
+                "effectClass": "spread-damage",
+                "move": "Rock Slide",
+                "outcomeKind": "ko-secure",
+                "priority": 0,
+                "target": "Ambos rivales"
+              }
+            ],
+            "score": null,
+            "selfBackIndices": [
+              2,
+              3
+            ],
+            "selfBring": [
+              {
+                "name": "Excadrill",
+                "role": "lead",
+                "sprite": ""
+              },
+              {
+                "name": "Tyranitar",
+                "role": "lead",
+                "sprite": ""
+              },
+              {
+                "name": "Arcanine",
+                "role": "safe-pivot",
+                "sprite": ""
+              },
+              {
+                "name": "Azumarill",
+                "role": "closer",
+                "sprite": ""
+              }
+            ],
+            "selfLeadIndices": [
+              0,
+              1
+            ],
+            "why": [
+              "La línea abre con Excadrill: High Horsepower + Tyranitar: Rock Slide.",
+              "La respuesta rival más probable es Charizard: Protect + Farigiraf: Trick Room.",
+              "Arcaninehisui queda reservado como pivot seguro."
+            ]
+          }
+        ]
+      },
+      "status": "comportamiento provisional heredado"
+    },
+    {
+      "id": "turn1.product-outcome-proxy",
+      "note": "Proxy estable del contrato del simulador de turno 1 sin importar app-core/DOM.",
+      "output": {
+        "charizardIntoExcadrill": {
+          "blocked": false,
+          "immunityData": null,
+          "maxPct": 61,
+          "minPct": 51,
+          "move": "Solar Beam",
+          "mult": 1,
+          "ohko": false,
+          "ohkoProb": 0,
+          "rawMult": 1,
+          "tags": [],
+          "type": "grass"
+        },
+        "excadrillIntoCharizard": {
+          "blocked": false,
+          "immunityData": null,
+          "maxPct": 33,
+          "minPct": 28,
+          "move": "Iron Head",
+          "mult": 0.5,
+          "ohko": false,
+          "ohkoProb": 0,
+          "rawMult": 0.5,
+          "tags": [
+            "⚔️ STAB"
+          ],
+          "type": "steel"
+        },
+        "order": {
+          "entries": [
+            {
+              "blockedPriorityReason": null,
+              "cause": "Protect +4",
+              "effectiveSpeed": 308,
+              "maxPriority": 4,
+              "modifiers": [
+                {
+                  "id": "weather-speed",
+                  "label": "Impetu Arena",
+                  "multiplier": 2,
+                  "type": "ability"
+                }
+              ],
+              "name": "Excadrill",
+              "priorityWindows": [
+                {
+                  "move": "Protect",
+                  "priority": 4
+                }
+              ],
+              "rank": 1,
+              "rawSpeed": 154,
+              "side": "self"
+            },
+            {
+              "blockedPriorityReason": null,
+              "cause": "Protect +4",
+              "effectiveSpeed": 81,
+              "maxPriority": 4,
+              "modifiers": [],
+              "name": "Tyranitar",
+              "priorityWindows": [
+                {
+                  "move": "Protect",
+                  "priority": 4
+                }
+              ],
+              "rank": 2,
+              "rawSpeed": 81,
+              "side": "self"
+            },
+            {
+              "blockedPriorityReason": null,
+              "cause": "Speed efectiva",
+              "effectiveSpeed": 136,
+              "maxPriority": 0,
+              "modifiers": [],
+              "name": "Whimsicott",
+              "priorityWindows": [
+                {
+                  "move": "Ataque normal",
+                  "priority": 0
+                }
+              ],
+              "rank": 3,
+              "rawSpeed": 136,
+              "side": "enemy"
+            },
+            {
+              "blockedPriorityReason": null,
+              "cause": "Speed efectiva",
+              "effectiveSpeed": 120,
+              "maxPriority": 0,
+              "modifiers": [],
+              "name": "Charizard",
+              "priorityWindows": [
+                {
+                  "move": "Ataque normal",
+                  "priority": 0
+                }
+              ],
+              "rank": 4,
+              "rawSpeed": 120,
+              "side": "enemy"
+            }
+          ],
+          "firstMover": {
+            "cause": "Protect +4",
+            "effectiveSpeed": 308,
+            "maxPriority": 4,
+            "name": "Excadrill",
+            "side": "self"
+          },
+          "ties": []
+        }
+      },
+      "status": "comportamiento provisional heredado"
+    },
+    {
+      "id": "effects.recalculate-active-field-mutation-baseline",
+      "note": "Congela la mutación heredada: recalcular activos borra stages.",
+      "output": {
+        "charizardStagesAfterRecalc": {
+          "atk": 0,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 0
+        },
+        "tyranitarStagesAfterRecalc": {
+          "atk": 0,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 0
+        },
+        "weather": "sand"
+      },
+      "status": "known-gap aceptado temporalmente"
+    }
+  ],
+  "meta": {
+    "generatedBy": "tests/baseline/run-baseline.mjs",
+    "name": "champions-meta battle baseline",
+    "purpose": "Congelar comportamiento actual antes de Fase 1+",
+    "statusLegend": {
+      "correct": "comportamiento correcto actual",
+      "gap": "known-gap aceptado temporalmente",
+      "provisional": "comportamiento provisional heredado"
+    }
+  }
+}

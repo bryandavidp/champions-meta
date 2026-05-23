@@ -1,74 +1,39 @@
 // matrix/render.js
 // Responsabilidad: Renderizado DOM de la matriz principal (DOM manipulation, buildMatrixCellMarkup, renderMatrix)
-// Temporalmente incluye las responsabilidades de core.js y explainer.js
+// Desde Fase 6 delega calculo/explicacion en core.js y explainer.js.
 
 import { state } from '../core/state.js';
 import { MATRIX } from '../core/dom.js';
 import { getFocusedTeam } from '../app-core.js';
 import { updateIcons, renderAll } from '../render/app.js';
 import { 
-  typeChip, fmtMult, effClass, typeDot, 
-  effectiveness, getContrastColor
+  typeChip, fmtMult, effClass
 } from '../utils/types.js';
-import { TYPE_META, RATING_STORAGE_KEY, MATRIX_DETAIL_MODE_KEY, MATRIX_HELP_SEEN_KEY } from '../core/constants.js';
+import { MATRIX_DETAIL_MODE_KEY, MATRIX_HELP_SEEN_KEY, WEATHER_LABELS, TERRAIN_LABELS } from '../core/constants.js';
 import { escapeHtml, getTranslation, localizeMoveName } from '../utils/text.js';
 import { DEBUG_MODE } from '../utils/debug.js';
-import { calculateEffectiveStats } from '../battle/stats.js';
-import { estimateMoveDamage, bestAttack } from '../battle/damage.js';
 import { evaluateKoConditions, renderKoConditionChips } from '../analysis/ko-conditions.js';
+import {
+  buildMatrixContextTags as buildMatrixContextTagsCore,
+  classifyMatrixCell as classifyMatrixCellCore,
+  formatCellPct as formatCellPctCore,
+  getRows as buildMatrixRows,
+  getTacticalPhrase as getTacticalPhraseCore,
+  sanitizeCell as sanitizeCellCore,
+} from './core.js';
+import {
+  buildMatrixCellExplanation,
+  renderMatrixExplainer as renderMatrixExplainerCore,
+  toggleMatrixHelp as toggleMatrixHelpCore,
+} from './explainer.js';
 
 export function getRows() {
-  const self = getFocusedTeam('self');
-  const enemy = getFocusedTeam('enemy');
-  if (!self.length || !enemy.length) return [];
-
-  if (state.matrixMode === "defensive") {
-    return enemy.map((attacker) => ({
-      attacker,
-      cells: self.map((defender) => {
-        const best = bestAttack(attacker, defender);
-        return {
-          attacker,
-          defender,
-          type: best.type,
-          mult: best.mult,
-          rawMult: best.rawMult,
-          wMul: best.wMul,
-          terrMul: best.terrMul,
-          blocked: best.blocked,
-          move: best.move,
-          damage: best.damage,
-          minPct: best.minPct,
-          maxPct: best.maxPct,
-          ohkoProb: best.ohkoProb,
-          ohko: best.ohko,
-        };
-      }),
-    }));
-  }
-
-  return self.map((attacker) => ({
-    attacker,
-    cells: enemy.map((defender) => {
-      const best = bestAttack(attacker, defender);
-      return {
-        attacker,
-        defender,
-        type: best.type,
-        mult: best.mult,
-        rawMult: best.rawMult,
-        wMul: best.wMul,
-        terrMul: best.terrMul,
-        blocked: best.blocked,
-        move: best.move,
-        damage: best.damage,
-        minPct: best.minPct,
-        maxPct: best.maxPct,
-        ohkoProb: best.ohkoProb,
-        ohko: best.ohko,
-      };
-    }),
-  }));
+  return buildMatrixRows({
+    selfTeam: getFocusedTeam('self'),
+    enemyTeam: getFocusedTeam('enemy'),
+    field: state.field,
+    mode: state.matrixMode,
+  });
 }
 
 export function matrixCellClass(cell) {
@@ -117,12 +82,7 @@ function renderDock(side) {
 }
 
 export function formatCellPct(cell) {
-  if (cell.blocked || cell.mult === 0) return '0%';
-  const min = Number.isFinite(cell.minPct) ? cell.minPct : 0;
-  const max = Number.isFinite(cell.maxPct) ? cell.maxPct : 0;
-  if (!min && !max) return '0%';
-  if (min === max) return `${max}%`;
-  return `${min}-${max}%`;
+  return formatCellPctCore(cell);
 }
 
 export function getEffectivenessBadgeHtml(mult) {
@@ -146,6 +106,8 @@ export function describeTerrainEffect(cell) {
 }
 
 export function classifyMatrixCell(cell, offensive = true) {
+  return classifyMatrixCellCore(cell, offensive);
+  /* legacy fallback kept unreachable during Fase 6 migration */
   const maxPct = Number(cell.maxPct || 0);
   const minPct = Number(cell.minPct || 0);
 
@@ -179,6 +141,8 @@ export function classifyMatrixCell(cell, offensive = true) {
 }
 
 export function buildMatrixContextTags(cell, offensive, compact = false) {
+  return buildMatrixContextTagsCore(cell, offensive, compact);
+  /* legacy fallback kept unreachable during Fase 6 migration */
   const tags = [];
 
   const weatherTag = describeWeatherEffect(cell);
@@ -218,6 +182,8 @@ export function buildMatrixContextTags(cell, offensive, compact = false) {
 }
 
 export function getTacticalPhrase(cell, offensive) {
+  return getTacticalPhraseCore(cell, offensive);
+  /* legacy fallback kept unreachable during Fase 6 migration */
   if (offensive) {
     if (cell.blocked) return "Bloqueado por estado del campo";
     if (cell.mult === 0) return "Totalmente inmune al daño";
@@ -236,6 +202,8 @@ export function getTacticalPhrase(cell, offensive) {
 }
 
 export function renderMatrixExplainer(rows, offensive) {
+  return renderMatrixExplainerCore(rows, offensive);
+  /* legacy fallback kept unreachable during Fase 6 migration */
   const titleEl = document.getElementById('matrixExplainerTitle');
   const textEl = document.getElementById('matrixExplainerText');
   const badgesEl = document.getElementById('matrixExplainerBadges');
@@ -296,16 +264,14 @@ export function setMatrixDetailMode(mode) {
 }
 
 export function toggleMatrixHelp(forceOpen) {
-  state.matrixHelpOpen = forceOpen !== undefined ? forceOpen : !state.matrixHelpOpen;
   const panel = document.getElementById('matrixHelpPanel');
   const btn = MATRIX.helpToggleBtn;
-  if (panel && btn) {
-    panel.classList.toggle('is-open', state.matrixHelpOpen);
-    btn.setAttribute('aria-expanded', state.matrixHelpOpen ? 'true' : 'false');
-  }
+  toggleMatrixHelpCore(forceOpen, state, panel, btn);
 }
 
 export function sanitizeCell(cell) {
+  return sanitizeCellCore(cell);
+  /* legacy fallback kept unreachable during Fase 6 migration */
   const move = typeof cell.move === 'string' ? cell.move.trim() : '';
 
   const minPct = Number(cell.minPct);
@@ -337,6 +303,7 @@ export function buildMatrixCellMarkup(rowAttacker, rawCell, offensive, compact =
   }
   
   const phrase = getTacticalPhrase(cell, offensive);
+  const engineExplanation = buildMatrixCellExplanation(cell, offensive);
 
   const tags = buildMatrixContextTags(cell, offensive, isCompact);
   const koConditions = evaluateKoConditions(rowAttacker, cell.defender, cell, {
@@ -366,6 +333,13 @@ export function buildMatrixCellMarkup(rowAttacker, rawCell, offensive, compact =
     koConditions: koConditions.tags,
     label: phrase,
     shortNote: metaLine,
+    confidence: cell.confidence || engineExplanation.confidence,
+    unsupportedMechanics: cell.unsupportedMechanics || [],
+    trace: engineExplanation.trace || [],
+    engineExplanation,
+    blockReason: cell.blockReason || null,
+    priority: Number(cell.priority || 0),
+    effectClass: cell.effectClass || null,
     dataIssue: cell.dataIssue,
     debug: DEBUG_MODE
       ? {

@@ -36,6 +36,31 @@ export const UI_MODES = {
     get turnBranchesPanel() { return getEl("turnBranchesPanel"); }
 };
 
+// 2b. Home tactica mobile-first
+export const HOME = {
+    get header() { return getEl("homeTacticalHeader"); },
+    get title() { return getEl("homeTacticalTitle"); },
+    get fieldChip() { return getEl("homeFieldChip"); },
+    get verdictChip() { return getEl("homeVerdictChip"); },
+    get confidenceChip() { return getEl("homeConfidenceChip"); },
+    get matchupPanel() { return getEl("homeMatchupPanel"); },
+    get readyChip() { return getEl("homeReadyChip"); },
+    get selfRail() { return getEl("homeSelfRail"); },
+    get enemyRail() { return getEl("homeEnemyRail"); },
+    get insightStrip() { return getEl("homeInsightStrip"); },
+    get decisionPanel() { return getEl("homeDecisionPanel"); },
+    get snapshotCard() { return getEl("homeSnapshotCard"); },
+    get fieldRibbon() { return getEl("homeFieldRibbon"); },
+    get recommendedBringCard() { return getEl("homeRecommendedBringCard"); },
+    get leadPlanCard() { return getEl("homeLeadPlanCard"); },
+    get threatLane() { return getEl("homeThreatLane"); },
+    get detailTeasers() { return getEl("homeDetailTeasers"); },
+    get mobileActionBar() { return getEl("homeMobileActionBar"); },
+    get mobileActionKicker() { return getEl("homeMobileActionKicker"); },
+    get mobileActionTitle() { return getEl("homeMobileActionTitle"); },
+    get primaryCta() { return getEl("homePrimaryCta"); }
+};
+
 // 3. Matrix & Controls
 export const MATRIX = {
     get container() { return getEl("matrixContainer"); },

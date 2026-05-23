@@ -4,12 +4,13 @@
 import { state } from '../core/state.js';
 import { ANALYSIS, SPEED_ORDER, TURN_BRANCHES } from '../core/dom.js';
 import { getFocusedTeam } from '../app-core.js';
-import { renderAll, updateIcons } from '../render/app.js';
+import { renderAll, renderHomeTacticalShell, updateIcons } from '../render/app.js';
 import { getEffectivenessBadgeHtml } from '../matrix/render.js';
 import { TYPE_META, TYPE_CHART } from '../core/constants.js';
 import { getTranslation } from '../utils/text.js';
-import { scoreThreat, inferStrategies } from '../analysis/threats.js';
+import { inferStrategies } from '../analysis/threats.js';
 import { buildTurnPlans, setTurnPlansRenderCallback } from '../analysis/turn-branches.js';
+import { buildThreatAnalysisProductModel } from '../analysis/product-adapters.js';
 import { evaluateKoConditions, renderKoConditionChips } from '../analysis/ko-conditions.js';
 import { buildSpeedOrder } from '../analysis/speed-order.js';
 import { calculateSpeed } from '../battle/speed.js';
@@ -24,6 +25,50 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function tacticalIcon(family = '') {
+  const map = {
+    speed_control: 'wind',
+    weather_core: 'cloud-sun',
+    terrain_core: 'sparkles',
+    fake_out_setup: 'hand',
+    redirection_setup: 'shield',
+    spread_abuse: 'radio-tower',
+    immunity_core: 'shield-check',
+    anti_intimidate: 'badge-alert',
+    priority_games: 'zap',
+    priority_denial: 'shield-alert',
+    setup_support: 'sparkles',
+    defensive_layering: 'layers',
+    trap_perish_lock: 'lock',
+    ally_protected_nuke: 'crosshair',
+    status_pressure: 'activity',
+    variable_power_wincon: 'trending-up',
+    late_game_cleaner: 'flag',
+    partner_engine: 'network',
+  };
+  return map[family] || 'info';
+}
+
+function confidenceClass(confidence = {}) {
+  const level = confidence.level || confidence.confidenceLevel || 'medium';
+  return ['high', 'medium', 'low'].includes(level) ? level : 'medium';
+}
+
+function renderConfidenceBadge(confidence = {}) {
+  const level = confidenceClass(confidence);
+  const value = Number(confidence.value ?? confidence.confidenceValue);
+  const label = Number.isFinite(value) ? `${Math.round(value * 100)}%` : level;
+  return `<span class="engine-confidence engine-confidence--${level}" title="Confianza del motor">${escapeHtml(label)}</span>`;
+}
+
+function renderTacticalSubjects(subjects = []) {
+  const labels = subjects
+    .map((subject) => subject.label || subject.id)
+    .filter(Boolean)
+    .slice(0, 3);
+  return labels.length ? labels.map((label) => `<span>${escapeHtml(label)}</span>`).join('') : '<span>Mesa</span>';
 }
 
 function getFilledTurnIndices(side) {
@@ -126,6 +171,13 @@ function getTurnPlanOwnCombos() {
 
 let currentTurnPlans = [];
 let currentTurnPlansStatus = 'idle';
+
+export function getCurrentTurnPlansForHome() {
+  return {
+    status: currentTurnPlansStatus,
+    plans: cloneTurnPlans(currentTurnPlans),
+  };
+}
 
 function comboKey(indices = []) {
   return (indices || [])
@@ -642,6 +694,55 @@ function renderPlanSnapshot(snapshot) {
   `;
 }
 
+function renderPlanFindingChips(plan) {
+  const findings = (plan.tacticalFindings || []).slice(0, 3);
+  const unsupported = (plan.unsupportedMechanics || []).slice(0, 2);
+  if (!findings.length && !unsupported.length) return '';
+
+  const findingHtml = findings.map((finding) => `
+    <span class="turn-plan-finding-chip is-${escapeHtml(confidenceClass(finding.confidence))}" title="${escapeHtml(finding.response || '')}">
+      <i data-lucide="${tacticalIcon(finding.family)}"></i>
+      <span>${escapeHtml(finding.label || finding.message || finding.family)}</span>
+      ${renderConfidenceBadge(finding.confidence)}
+    </span>
+  `).join('');
+  const unsupportedHtml = unsupported.map((item) => `
+    <span class="turn-plan-finding-chip is-unsupported">
+      <i data-lucide="alert-triangle"></i>
+      <span>${escapeHtml(item)}</span>
+    </span>
+  `).join('');
+
+  return `<div class="turn-plan-finding-row">${findingHtml}${unsupportedHtml}</div>`;
+}
+
+function renderPlanTraceSummary(plan) {
+  const events = [
+    ...(plan.mainLine?.explainEvents || []),
+    ...(plan.enemyLikelyResponse?.explainEvents || []),
+    ...(plan.explainEvents || []),
+  ].slice(0, 5);
+  if (!events.length && !(plan.confidenceNotes || []).length) return '';
+  const eventsHtml = events.map((event) => `
+    <span class="turn-plan-trace-chip" title="${escapeHtml(event.message || event.reason || event.type || '')}">
+      <i data-lucide="list-checks"></i>
+      ${escapeHtml(event.message || event.reason || event.type || 'Trace')}
+    </span>
+  `).join('');
+  const confidenceHtml = (plan.confidenceNotes || []).slice(0, 3).map((note) => `
+    <span class="turn-plan-trace-chip is-confidence">
+      <i data-lucide="${tacticalIcon(note.family)}"></i>
+      ${escapeHtml(note.label || note.family)} ${renderConfidenceBadge(note)}
+    </span>
+  `).join('');
+  return `
+    <div class="turn-plan-trace">
+      <div class="turn-plan-side-label">Trace y confianza</div>
+      <div class="turn-plan-chip-row">${eventsHtml}${confidenceHtml}</div>
+    </div>
+  `;
+}
+
 function renderPlanDetails(plan) {
   const why = (plan.why || []).map((item) => '<span class="turn-plan-chip">' + escapeHtml(item) + '</span>').join('');
   const breakers = (plan.breakers || []).length
@@ -689,6 +790,7 @@ function renderPlanDetails(plan) {
       }).join('')}
     </div>
     <div class="turn-plan-card__meta">
+      ${renderPlanTraceSummary(plan)}
       <div>
         <div class="turn-plan-side-label">Por que gana</div>
         <div class="turn-plan-chip-row">${why || '<span class="turn-plan-chip">Sin resumen tactico</span>'}</div>
@@ -712,6 +814,7 @@ function renderPlanSummary(plan, index) {
       ${renderPlanHeader(plan, index)}
       ${renderPlanMatchupRail(plan)}
       ${renderPlanCommandRail(actions)}
+      ${renderPlanFindingChips(plan)}
       ${renderPlanBoardDelta(plan.deltaSummary || plan.mainLine?.boardDelta || [])}
 
       <div class="turn-plan-summary__footer">
@@ -941,7 +1044,9 @@ export function renderTurnBranches() {
   const statusChip = lockedModel
     ? '<span class="tiny-chip">Plan fijado</span>'
     : plansModel?.status === 'loading'
-    ? '<span class="tiny-chip">Calculando...</span>'
+    ? plansModel?.stale
+      ? '<span class="tiny-chip">Actualizando</span>'
+      : '<span class="tiny-chip">Calculando...</span>'
     : `<span class="tiny-chip">${plans.length} ${plans.length === 1 ? 'plan' : 'planes'}</span>`;
   const enemyOverrideNote = forcedEnemyIndices.length >= 4
     ? `<div class="turn-plan-loading-note turn-plan-loading-note--enemy">
@@ -952,7 +1057,9 @@ export function renderTurnBranches() {
   const refreshNote = lockedModel
     ? '<div class="turn-plan-loading-note">Recomendaciones fijadas: puedes probar el plan activo sin que cambie el Top 3 original.<button class="turn-plan-unlock-btn" type="button">Recalcular</button></div>'
     : plansModel?.status === 'loading'
-      ? '<div class="turn-plan-loading-note">Actualizando el arbol con las nuevas condiciones de campo, bring y leads.</div>'
+      ? plansModel?.stale
+        ? '<div class="turn-plan-loading-note">Mostrando el Top 3 estable mientras el worker recalcula en segundo plano.</div>'
+        : '<div class="turn-plan-loading-note">Actualizando el arbol con las nuevas condiciones de campo, bring y leads.</div>'
       : '';
   const cards = plans.map((plan, index) => renderTurnPlanCard(plan, index, state.uiMode)).join('');
 
@@ -976,6 +1083,7 @@ export function renderTurnBranches() {
 
 setTurnPlansRenderCallback(() => {
   renderTurnBranches();
+  renderHomeTacticalShell();
 });
 
 function renderSpeedOrderEntry(entry, firstMoverId) {
@@ -1025,6 +1133,12 @@ export function renderSpeedOrderPanel() {
   const panel = SPEED_ORDER.panel;
   const content = SPEED_ORDER.content;
   if (!panel || !content) return;
+
+  if (state.uiMode === 'quick') {
+    panel.style.display = 'none';
+    content.innerHTML = '';
+    return;
+  }
 
   const isSupportedMode = ['quick', 'live', 'expert'].includes(state.uiMode);
   panel.style.display = isSupportedMode ? 'block' : 'none';
@@ -1084,68 +1198,62 @@ export function renderThreats() {
     return;
   }
 
-  const items = enemy
-    .map((mon) => {
-      const threat = scoreThreat(mon, getFocusedTeam('self'));
-      return { mon, threat };
-    })
-    .sort((a, b) => b.threat.score - a.threat.score);
-
-  const reds = items.filter(i => i.threat.level === 'red');
-  const ambers = items.filter(i => i.threat.level === 'amber');
-  const greens = items.filter(i => i.threat.level === 'green');
-
-  let html = '';
-
-  if (reds.length > 0) {
-    html += reds.map(({ mon, threat }) => `
-      <div class="threat-hero-card" data-scout="${mon.name}">
-        <div class="threat-hero-sprite">
-          <img src="${mon.sprite}" alt="${mon.displayName}">
+  const model = buildThreatAnalysisProductModel(state, {
+    activeSelfSlots: getQuickTurnIndices('self'),
+    activeEnemySlots: getQuickTurnIndices('enemy'),
+    highlightLimit: 16,
+    minThreatSeverity: 'medium',
+    includeActionEvidence: false,
+  });
+  const layerLabels = {
+    individual: 'Amenaza individual',
+    pair: 'Amenaza de pareja',
+    core: 'Core / engine',
+    wincon: 'Win condition',
+  };
+  const rows = model.rows || [];
+  const layerHtml = Object.entries(model.layers || {})
+    .filter(([, items]) => items?.length)
+    .map(([key, items]) => `
+      <section class="threat-engine-layer threat-engine-layer--${escapeHtml(key)}">
+        <div class="threat-engine-layer__head">
+          <i data-lucide="${key === 'individual' ? 'target' : key === 'pair' ? 'network' : key === 'wincon' ? 'flag' : 'layers'}"></i>
+          <span>${escapeHtml(layerLabels[key] || key)}</span>
         </div>
-        <div>
-          <div style="font-weight: 900; font-size: 1.15rem; color: #fff;">${mon.displayName}</div>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
-            ${threat.reasons.map(r => `<span class="tag-pill tag-pill--danger">${r}</span>`).join("")}
-            ${threat.isSupportThreat ? `<span class="tag-pill tag-pill--info"><i data-lucide="shield-alert"></i> Peligro de Soporte</span>` : ""}
-          </div>
-          ${threat.bestAnswers.length ? `
-            <div class="threat-kill-chain">
-              <span style="color: var(--muted); font-size: 0.7rem; font-weight: 800; text-transform: uppercase;">Respuestas</span>
-              <i data-lucide="arrow-right" style="color: var(--red); width: 14px; height: 14px;"></i>
-              ${threat.bestAnswers.map(ans => `<img src="${ans.sprite}" class="sprite-micro" title="${ans.displayName}" style="width: 28px; height: 28px;">`).join("")}
-            </div>
-          ` : ""}
+        <div class="threat-engine-grid">
+          ${items.slice(0, 5).map((row) => {
+            const subject = row.primarySubject || row.subjects?.[0] || {};
+            const mon = subject.side && Number.isFinite(Number(subject.slot)) ? state[subject.side]?.[Number(subject.slot)] : null;
+            return `
+              <article class="threat-engine-card is-${escapeHtml(row.severity || 'medium')}" data-scout="${escapeHtml(mon?.name || subject.id || '')}">
+                <div class="threat-engine-card__icon">
+                  ${mon?.sprite ? `<img src="${mon.sprite}" alt="${escapeHtml(mon.displayName || mon.name)}">` : `<i data-lucide="${tacticalIcon(row.family)}"></i>`}
+                </div>
+                <div class="threat-engine-card__body">
+                  <div class="threat-engine-card__top">
+                    <strong>${escapeHtml(subject.label || mon?.displayName || row.family)}</strong>
+                    ${renderConfidenceBadge({ level: row.confidenceLevel, value: row.confidenceValue })}
+                  </div>
+                  <p>${escapeHtml(row.message || '')}</p>
+                  <div class="threat-engine-card__subjects">${renderTacticalSubjects(row.subjects)}</div>
+                  ${row.recommendedResponse ? `<div class="threat-engine-card__response"><i data-lucide="reply"></i>${escapeHtml(row.recommendedResponse)}</div>` : ''}
+                </div>
+              </article>
+            `;
+          }).join('')}
         </div>
-      </div>
-    `).join("");
-  }
+      </section>
+    `).join('');
 
-  if (ambers.length > 0) {
-    html += `<div class="threat-amber-grid">`;
-    html += ambers.map(({ mon, threat }) => `
-      <div class="threat-compact-card" data-scout="${mon.name}">
-        <img src="${mon.sprite}" style="width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" alt="${mon.displayName}">
-        <div style="font-weight: 900; font-size: 0.85rem; color: #fff;">${mon.displayName}</div>
-        ${threat.reasons.length ? `<div style="color: var(--orange); font-size: 0.65rem; line-height: 1.2;">${threat.reasons[0]}</div>` : ""}
-        ${threat.isSupportThreat ? `<div style="color: var(--blue); font-size: 0.65rem; font-weight: bold; line-height: 1.2;">Soporte Clave</div>` : ""}
+  ANALYSIS.threatList.innerHTML = `
+    <div class="threat-engine-board">
+      <div class="threat-engine-summary">
+        <span><i data-lucide="brain"></i> ${rows.length} findings tacticos</span>
+        <span><i data-lucide="shield-alert"></i> ${model.summary?.summary?.unsupported?.length || 0} mecanicas parciales</span>
       </div>
-    `).join("");
-    html += `</div>`;
-  }
-
-  if (greens.length > 0) {
-    html += `<div class="threat-walled-zone">`;
-    html += greens.map(({ mon }) => `
-      <div class="threat-walled-sprite" title="${mon.displayName}" data-scout="${mon.name}">
-        <img src="${mon.sprite}" alt="${mon.displayName}">
-        <div class="threat-walled-check"><i data-lucide="shield-check"></i></div>
-      </div>
-    `).join("");
-    html += `</div>`;
-  }
-
-  ANALYSIS.threatList.innerHTML = html;
+      ${layerHtml || '<div class="empty">No hay amenazas estructurales medias o superiores con la mesa actual.</div>'}
+    </div>
+  `;
 
   updateIcons();
 }

@@ -27,14 +27,17 @@
 
 <body>
   <div class="app">
-    <section class="panel hero">
+    <section class="panel hero home-tactical-header" id="homeTacticalHeader">
       <div class="hero-top">
         <div>
-          <span class="eyebrow"><i data-lucide="swords" style="width:14px;height:14px;"></i> Matriz ofensiva + Smogon
-            Chaos</span>
-          <h1>Lectura rápida, decisiones claras</h1>
-          <p>La app aplica sets por defecto desde Smogon Champions OU, manteniendo matriz, semáforo, oportunidades,
-            estrategias y guardado local en un único HTML.</p>
+          <span class="eyebrow home-tactical-kicker"><i data-lucide="swords"></i> Team preview tactico
+          </span>
+          <h1 id="homeTacticalTitle">Prepara el plan de partida</h1>
+          <div class="home-tactical-status-row">
+            <span class="home-status-chip is-field" id="homeFieldChip"><i data-lucide="activity"></i> Campo neutro</span>
+            <span class="home-status-chip is-plan" id="homeVerdictChip"><i data-lucide="crosshair"></i> Esperando equipos</span>
+            <span class="home-status-chip is-confidence" id="homeConfidenceChip"><i data-lucide="gauge"></i> Sin lectura</span>
+          </div>
         </div>
 
         <div class="actions">
@@ -62,29 +65,22 @@
             </button>
           </div>
           <button class="btn gold" id="loadDemoBtn">Ejemplo</button>
-          <button class="btn blue" id="swapBtn" title="Swap"
-            style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;"><i
-              data-lucide="refresh-cw" style="width:16px;height:16px;"></i></button>
-          <button class="btn red" id="clearBtn" title="Limpiar"
-            style="padding: 9px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 1rem;"><i
-              data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+          <button class="btn blue icon-only" id="swapBtn" title="Swap"><i data-lucide="refresh-cw"></i></button>
+          <button class="btn red icon-only" id="clearBtn" title="Limpiar"><i data-lucide="trash-2"></i></button>
         </div>
       </div>
 
-      <div class="hero-stats-compact" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
-        <div class="tiny-chip"
-          style="background: rgba(255, 211, 90, 0.1); border-color: rgba(255, 211, 90, 0.2); color: #ffd35a;">
-          <span style="opacity: 0.8; font-weight: 500; margin-right: 4px;">Fuertes</span> <span
-            id="metricStrong">0</span>
+      <div class="hero-stats-compact">
+        <div class="tiny-chip home-metric home-metric--strong">
+          <span>Fuertes</span> <span id="metricStrong">0</span>
         </div>
-        <div class="tiny-chip"
-          style="background: rgba(255, 59, 48, 0.12); border-color: rgba(255, 59, 48, 0.28); color: #ff6b61;">
-          <span style="opacity: 0.8; font-weight: 500; margin-right: 4px;">Pico</span> <span id="metricPeak">×0</span>
+        <div class="tiny-chip home-metric home-metric--peak">
+          <span>Pico</span> <span id="metricPeak">×0</span>
         </div>
-        <div class="tiny-chip" style="opacity: 0.7;">
-          <span style="font-weight: 500; margin-right: 4px;">Meta</span> <span id="metricMeta">Cargando</span>
+        <div class="tiny-chip home-metric">
+          <span>Meta</span> <span id="metricMeta">Cargando</span>
         </div>
-        <div class="tiny-chip" style="opacity: 0.7;" title="Cruces Totales">
+        <div class="tiny-chip home-metric" title="Cruces Totales">
           <span id="metricCross">0</span> cruces
         </div>
         <div style="display:none;" id="metricAvg">0.00</div>
@@ -92,11 +88,48 @@
       </div>
     </section>
 
+    <section class="panel home-matchup-panel" id="homeMatchupPanel">
+      <div class="home-matchup-head">
+        <div>
+          <span class="home-section-kicker">Lectura inicial</span>
+          <h2>Tu equipo vs rival</h2>
+        </div>
+        <span class="home-matchup-ready" id="homeReadyChip">0/12 slots</span>
+      </div>
+      <div class="home-team-rail" id="homeTeamRail" aria-label="Comparacion rapida de equipos">
+        <div class="home-team-side is-self">
+          <span><i data-lucide="shield"></i> Tu lado</span>
+          <div class="home-team-slots" id="homeSelfRail"></div>
+        </div>
+        <div class="home-team-vs">VS</div>
+        <div class="home-team-side is-enemy">
+          <span><i data-lucide="swords"></i> Rival</span>
+          <div class="home-team-slots" id="homeEnemyRail"></div>
+        </div>
+      </div>
+      <div class="home-insight-strip" id="homeInsightStrip"></div>
+    </section>
+
+    <section class="panel home-decision-panel" id="homeDecisionPanel">
+      <div class="home-snapshot-card ui-card is-field" id="homeSnapshotCard"></div>
+      <div class="home-field-ribbon ui-ribbon" id="homeFieldRibbon"></div>
+      <div class="home-decision-grid">
+        <article class="home-recommended-card ui-card is-self" id="homeRecommendedBringCard"></article>
+        <article class="home-lead-plan-card ui-card is-tempo" id="homeLeadPlanCard"></article>
+      </div>
+      <section class="home-threat-lane ui-card is-enemy" id="homeThreatLane"></section>
+      <div class="home-detail-teasers" id="homeDetailTeasers"></div>
+    </section>
+
+    <section class="panel turn-branches-panel" id="turnBranchesPanel" style="display: none;">
+      <div id="turnBranchesContent"></div>
+    </section>
+
     <section class="panel" id="quickPreviewPanel" style="display: none;">
       <div class="premium-header">
         <div class="premium-header-content">
           <h2 class="section-title">Análisis rápido</h2>
-          <p class="section-subtitle">Plan recomendado basado en matchups</p>
+          <p class="section-subtitle">Resumen corto para apoyar el plan recomendado</p>
         </div>
         <div class="premium-badge">
           <i data-lucide="zap" style="width: 14px; height: 14px;"></i> Autopilot
@@ -131,10 +164,6 @@
       <div class="premium-body">
         <div id="quickCombosList" style="display: flex; flex-direction: column; gap: 12px;"></div>
       </div>
-    </section>
-
-    <section class="panel turn-branches-panel" id="turnBranchesPanel" style="display: none;">
-      <div id="turnBranchesContent"></div>
     </section>
 
     <section class="panel speed-order-panel" id="speedOrderPanel" style="display: none;">
@@ -413,6 +442,16 @@
         <div id="strategyList" class="list"></div>
       </article>
     </section>
+  </div>
+
+  <div class="home-mobile-action" id="homeMobileActionBar" aria-live="polite">
+    <div class="home-mobile-action__copy">
+      <span id="homeMobileActionKicker">Siguiente paso</span>
+      <strong id="homeMobileActionTitle">Completa ambos equipos</strong>
+    </div>
+    <button class="home-mobile-action__btn" id="homePrimaryCta" type="button" data-home-action="complete-teams">
+      Completar
+    </button>
   </div>
 
   <aside class="picker-dock">

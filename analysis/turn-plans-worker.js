@@ -27,6 +27,7 @@ if (typeof self.cancelAnimationFrame !== 'function') {
 }
 
 let plannerModulePromise = null;
+let latestRequestId = 0;
 
 async function ensurePlannerModule() {
   if (plannerModulePromise) return plannerModulePromise;
@@ -70,14 +71,19 @@ async function ensurePlannerModule() {
 self.onmessage = async (event) => {
   const message = event?.data || {};
   if (message.type !== 'compute-turn-plans') return;
+  const requestId = message.requestId;
+  latestRequestId = requestId;
+  const startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
 
   try {
     const plannerModule = await ensurePlannerModule();
-    const requestId = message.requestId;
     const payload = message.payload || {};
 
     const result = plannerModule.buildTurnPlansSnapshot(payload, {
       onProgress(progress) {
+        if (requestId !== latestRequestId) return;
         self.postMessage({
           type: 'turn-plans-progress',
           requestId,
@@ -86,15 +92,40 @@ self.onmessage = async (event) => {
       },
     });
 
+    if (requestId !== latestRequestId) {
+      self.postMessage({
+        type: 'turn-plans-cancelled',
+        requestId,
+      });
+      return;
+    }
+
+    const endedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
+
     self.postMessage({
       type: 'turn-plans-result',
       requestId,
-      result,
+      result: {
+        ...result,
+        debug: {
+          ...(result?.debug || {}),
+          workerDurationMs: Math.round(endedAt - startedAt),
+        },
+      },
     });
   } catch (error) {
+    if (requestId !== latestRequestId) {
+      self.postMessage({
+        type: 'turn-plans-cancelled',
+        requestId,
+      });
+      return;
+    }
     self.postMessage({
       type: 'turn-plans-error',
-      requestId: message.requestId,
+      requestId,
       error: error?.message || 'worker-error',
     });
   }
