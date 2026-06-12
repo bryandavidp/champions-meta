@@ -43,3 +43,9 @@ Cada caso incluye una etiqueta:
 ## Restricción
 
 Esta suite no intenta corregir el motor. Su objetivo es que cualquier cambio futuro muestre exactamente qué comportamiento cambió.
+
+## Historial de actualizaciones intencionales del snapshot
+
+- 2026-06-12 (unificación del motor en `battle/formulas.js`):
+  - `damage.weather-ball-by-weather` (clave `sand`): el daño especial contra tipos Roca bajo arena ahora aplica el boost defensivo oficial x1.5 de SpD (antes se ignoraba; 79 → 53).
+  - `speed.*` (Whimsicott): la prioridad ahora se resuelve con el dex canónico + habilidades; el Tailwind de un usuario Prankster aparece como ventana de prioridad +1 (antes se listaba "Ataque normal +0").

@@ -4,24 +4,19 @@ import { getDamageCache, getComboBestAttackCache, getRegistryBridge } from '../c
 import { effectiveness } from '../utils/types.js';
 import { calcMonHP, calculateEffectiveStats } from './stats.js';
 import { fetchMoveInfo, getMoveCandidates } from './moves.js';
+import {
+  damageRolls,
+  terrainDamageMultiplier,
+  weatherDamageMultiplier,
+  weatherDefenseMultiplier,
+} from './formulas.js';
 import { smartLog } from '../utils/debug.js';
 
 export function getWeatherAndTerrainMultipliers(field, candType, candMove) {
-  let wMul = 1;
-  const w = field.weather;
-  if (w === "sun") {
-    if (candType === "fire") wMul *= 1.5;
-    if (candType === "water") wMul *= 0.5;
-  } else if (w === "rain") {
-    if (candType === "water") wMul *= 1.5;
-    if (candType === "fire") wMul *= 0.5;
-  }
-
-  let terrMul = 1;
-  if (field.terrain === "electric" && candType === "electric") terrMul *= 1.3;
-  if (field.terrain === "grassy" && candMove === "Earthquake") terrMul *= 0.5;
-
-  return { wMul, terrMul };
+  return {
+    wMul: weatherDamageMultiplier(candType, field?.weather),
+    terrMul: terrainDamageMultiplier(candType, candMove, { terrain: field?.terrain }),
+  };
 }
 
 export function applyRegistryDamageModifiers(attacker, defender, cand, fieldSnapshot, eff, dmgClass, stats) {
@@ -58,11 +53,8 @@ export function applyRegistryDamageModifiers(attacker, defender, cand, fieldSnap
 }
 
 export function calculateDamageRolls(baseTotal) {
-  const rolls = [];
-  for (let i = 0; i < 16; i++) {
-    rolls.push(Math.floor(baseTotal * (0.85 + (i / 15) * 0.15)));
-  }
-  return { maxDamage: Math.max(...rolls), minDamage: Math.min(...rolls), critDamage: Math.floor(baseTotal * 1.5) };
+  const { minDamage, maxDamage, critDamage } = damageRolls(baseTotal);
+  return { maxDamage, minDamage, critDamage };
 }
 
 function cacheSlug(value) {
@@ -182,18 +174,12 @@ export function estimateMoveDamage(attacker, defender, cand, field) {
   }
 
   const eff = effectiveness(moveType, defender.types || []);
-  let { wMul, terrMul } = getWeatherAndTerrainMultipliers(field, moveType, moveName);
-
-  // Modificadores de clima reales
-  if (field.weather === 'sun') {
-      if (moveType.toLowerCase() === 'fire') wMul = 1.5;
-      else if (moveType.toLowerCase() === 'water') wMul = 0.5;
-  } else if (field.weather === 'rain') {
-      if (moveType.toLowerCase() === 'water') wMul = 1.5;
-      else if (moveType.toLowerCase() === 'fire') wMul = 0.5;
-  }
+  const { wMul, terrMul } = getWeatherAndTerrainMultipliers(field, moveType, moveName);
 
   let { atkS: atkStat, defS: defStat } = calculateEffectiveStats(attacker, defender, dmgClass);
+
+  // Boost defensivo pasivo de clima (Arena: SpD roca x1.5, Nieve: Def hielo x1.5)
+  defStat = Math.floor(defStat * weatherDefenseMultiplier(dmgClass, field?.weather, defender.types));
 
   // Habilidades ofensivas (Huge Power) sanitizadas
   const attackerAbility = (attacker.set?.ability || attacker.ability || '').toLowerCase().replace(/\s/g, '');

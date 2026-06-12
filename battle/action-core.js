@@ -7,6 +7,14 @@ import {
 } from '../data/canonical/dex.js';
 import { natureMod, stageMultiplier } from './stats.js';
 import {
+  baseStatAt,
+  damageRolls,
+  maxHpAt,
+  terrainDamageMultiplier,
+  weatherDamageMultiplier,
+  weatherDefenseMultiplier,
+} from './formulas.js';
+import {
   cloneBattleSnapshot,
   createCandidateAction,
   hydrateBattleSnapshot,
@@ -511,11 +519,12 @@ function getTargetBlock(action, targetRef, snapshot) {
 }
 
 function maxHp(pokemon) {
-  const level = pokemon?.set?.level || 50;
-  const base = pokemon?.baseStats?.hp || 80;
-  const ev = pokemon?.set?.evs?.hp || 0;
-  const iv = pokemon?.set?.ivs?.hp ?? 31;
-  return Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + level + 10;
+  return maxHpAt({
+    base: pokemon?.baseStats?.hp || 80,
+    ev: pokemon?.set?.evs?.hp || 0,
+    iv: pokemon?.set?.ivs?.hp ?? 31,
+    level: pokemon?.set?.level || 50,
+  });
 }
 
 function currentHp(pokemon) {
@@ -523,12 +532,13 @@ function currentHp(pokemon) {
 }
 
 function statValue(pokemon, stat) {
-  const level = pokemon?.set?.level || 50;
-  const base = pokemon?.baseStats?.[stat] || 80;
-  const ev = pokemon?.set?.evs?.[stat] || 0;
-  const iv = pokemon?.set?.ivs?.[stat] ?? 31;
   const stage = pokemon?.stages?.[stat] || 0;
-  const inner = Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + 5;
+  const inner = baseStatAt({
+    base: pokemon?.baseStats?.[stat] || 80,
+    ev: pokemon?.set?.evs?.[stat] || 0,
+    iv: pokemon?.set?.ivs?.[stat] ?? 31,
+    level: pokemon?.set?.level || 50,
+  });
   let value = Math.max(1, Math.floor(Math.floor(inner * natureMod(pokemon?.set?.nature || '', stat)) * stageMultiplier(stage)));
   if (activeBoosterStat(pokemon) === stat) value = Math.floor(value * (stat === 'spe' ? 1.5 : 1.3));
   return value;
@@ -637,26 +647,15 @@ function typeImmunity(moveType, move, defender, snapshot) {
 }
 
 function weatherModifier(type, snapshot) {
-  if (snapshot.field?.weather === 'sun') {
-    if (type === 'fire') return 1.5;
-    if (type === 'water') return 0.5;
-  }
-  if (snapshot.field?.weather === 'rain') {
-    if (type === 'water') return 1.5;
-    if (type === 'fire') return 0.5;
-  }
-  return 1;
+  return weatherDamageMultiplier(type, snapshot.field?.weather);
 }
 
 function terrainModifier(type, move, attacker, defender, snapshot) {
-  const terrain = snapshot.field?.terrain;
-  if (!terrain) return 1;
-  if (terrain === 'electric' && type === 'electric' && isGrounded(attacker, snapshot)) return 1.3;
-  if (terrain === 'grassy' && type === 'grass' && isGrounded(attacker, snapshot)) return 1.3;
-  if (terrain === 'psychic' && type === 'psychic' && isGrounded(attacker, snapshot)) return 1.3;
-  if (terrain === 'misty' && type === 'dragon' && isGrounded(defender, snapshot)) return 0.5;
-  if (terrain === 'grassy' && slug(move.id || move.name) === 'earthquake') return 0.5;
-  return 1;
+  return terrainDamageMultiplier(type, move.id || move.name, {
+    terrain: snapshot.field?.terrain,
+    attackerGrounded: isGrounded(attacker, snapshot),
+    defenderGrounded: isGrounded(defender, snapshot),
+  });
 }
 
 function screenModifier(category, targetSide, snapshot) {
@@ -675,11 +674,7 @@ function allyAbilityModifier(targetSide, snapshot) {
 }
 
 function calculateRolls(baseDamage) {
-  const rolls = [];
-  for (let index = 0; index < 16; index += 1) {
-    rolls.push(Math.max(1, Math.floor(baseDamage * (0.85 + (index / 15) * 0.15))));
-  }
-  return rolls;
+  return damageRolls(baseDamage).rolls;
 }
 
 export function runDamagePipeline(snapshot, action, targetRef, options = {}) {
@@ -735,8 +730,7 @@ export function runDamagePipeline(snapshot, action, targetRef, options = {}) {
     if (category === 'physical') attackStat *= 2;
   }
   if (itemId(defender) === 'assaultvest' && category === 'special') defenseStat = Math.floor(defenseStat * 1.5);
-  if (snapshot.field?.weather === 'sand' && category === 'special' && (defender.types || []).includes('rock')) defenseStat = Math.floor(defenseStat * 1.5);
-  if ((snapshot.field?.weather === 'snow' || snapshot.field?.weather === 'hail') && category === 'physical' && (defender.types || []).includes('ice')) defenseStat = Math.floor(defenseStat * 1.5);
+  defenseStat = Math.floor(defenseStat * weatherDefenseMultiplier(category, snapshot.field?.weather, defender.types));
   pushTrace('stats', { category, attackStat, defenseStat });
 
   const level = attacker.set?.level || 50;

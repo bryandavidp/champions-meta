@@ -376,10 +376,10 @@
         },
         "sand": {
           "blocked": false,
-          "damage": 79,
+          "damage": 53,
           "immunityData": null,
-          "maxDamage": 79,
-          "minDamage": 67,
+          "maxDamage": 53,
+          "minDamage": 45,
           "registryExplain": [],
           "tags": [],
           "terrMul": 1,
@@ -1239,15 +1239,15 @@
             },
             {
               "blockedPriorityReason": null,
-              "cause": "Speed efectiva",
+              "cause": "Tailwind +1",
               "effectiveSpeed": 136,
-              "maxPriority": 0,
+              "maxPriority": 1,
               "modifiers": [],
               "name": "Whimsicott",
               "priorityWindows": [
                 {
-                  "move": "Ataque normal",
-                  "priority": 0
+                  "move": "Tailwind",
+                  "priority": 1
                 }
               ],
               "rank": 3,

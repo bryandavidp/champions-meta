@@ -1,4 +1,9 @@
-import { NATURE_PAIR } from '../core/constants.js';
+import {
+  baseStatAt,
+  maxHpAt,
+  natureMultiplier,
+  stageMultiplier as formulaStageMultiplier,
+} from './formulas.js';
 
 const EV_KEYS = ["hp", "atk", "def", "spa", "spd", "spe"];
 
@@ -108,11 +113,7 @@ export function getNatureSpeModifier(nature) {
 }
 
 export function natureMod(nature, stat) {
-  const p = NATURE_PAIR[nature];
-  if (!p) return 1;
-  if (p[0] === stat) return 1.1;
-  if (p[1] === stat) return 0.9;
-  return 1;
+  return natureMultiplier(nature, stat);
 }
 
 export function getBaseStatRaw(mon, apiName) {
@@ -138,27 +139,16 @@ export function getBaseStatRaw(mon, apiName) {
 }
 
 export function calcMonHP(mon) {
-  const b = getBaseStatRaw(mon, "hp");
-  const ev = getResolvedEvs(mon).hp;
-  return Math.floor(((2 * b + 31 + Math.floor(ev / 4)) * 50) / 100) + 60;
+  return maxHpAt({ base: getBaseStatRaw(mon, "hp"), ev: getResolvedEvs(mon).hp });
 }
 
 export function stageMultiplier(stage) {
-  // Fórmula estándar de Showdown
-  if (!Number.isFinite(stage) || stage === 0) return 1;
-  if (stage > 0) {
-    return (2 + stage) / 2;
-  }
-  // stage < 0
-  return 2 / (2 - stage);
+  return formulaStageMultiplier(stage);
 }
 
 export function calcOtherStatLv50(base, ev, natureMultiplier, stage = 0) {
-  const evSafe = Number(ev || 0);
-  const inner =
-    Math.floor(((2 * base + 31 + Math.floor(evSafe / 4)) * 50) / 100) + 5;
-
-  const staged = inner * stageMultiplier(stage);
+  const inner = baseStatAt({ base, ev: Number(ev || 0) });
+  const staged = inner * formulaStageMultiplier(stage);
   return Math.floor(staged * natureMultiplier);
 }
 
