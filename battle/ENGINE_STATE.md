@@ -3,6 +3,12 @@
 Fase 2 introduce una frontera explicita entre estado de aplicacion y estado de motor.
 Fase 3 anade el primer nucleo puro de acciones y dano sobre esa frontera.
 Fase 5 anade una capa de lectura tactica basada en evidencia del motor.
+Unificacion 2026-06: `battle/formulas.js` es la FUENTE UNICA de las matematicas
+(rolls, stats/HP, clima/terreno, potencia dinamica, prioridad canonica con
+habilidades). `battle/damage.js`, `battle/speed.js`, `battle/stats.js`,
+`battle/action-core.js` y `app-core.getPriority` delegan en el manteniendo sus
+firmas. Las reglas de FORMATO (regulaciones M-A/M-B, cláusulas, roster) viven
+en `rules/`; las de mecanica de combate siguen en el motor.
 
 ## App state
 

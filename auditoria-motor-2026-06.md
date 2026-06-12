@@ -1,5 +1,24 @@
 # Auditoría y plan de unificación del motor — champions-meta
 
+> **Estado de ejecución (2026-06-12).** Completado en esta tanda:
+> Fase 1 (motor único `battle/formulas.js`: rolls con clamp, prioridad canónica
+> con Prankster/Gale Wings/Triage/Grassy Glide condicional, First Impression +2,
+> Upper Hand +3, clima/terreno completos, parálisis ya no se aplica dos veces en
+> speed tiers), Fase 2 parcial (`recalculateActiveField` ya no borra stages,
+> Competitive +2 SpA, Guard Dog/Clear Amulet/Hyper Cutter correctos, potencia
+> dinámica Eruption/Hex/Acrobatics/Flail en ambos pipelines), Fase 3 (`rules/`
+> con regulaciones M-A/M-B, cláusulas species/item, formatos y validateTeam,
+> expuesto como `window.ChampionsRules` y `state.rules`), y el fix crítico de
+> aliases del dex (Venusaur ya no resuelve a la Mega). Loader de tests
+> endurecido (link único de grafo). 9 suites en verde
+> (`node --experimental-vm-modules tests/<suite>/run-*.mjs`).
+>
+> Pendiente (fases siguientes): poblar rosters M-A/M-B con fuente oficial +
+> overrides de Megas exclusivas de Champions, unificar `getRows()` de matrix,
+> Choice lock lifecycle, Fake Out vs Inner Focus/Covert Cloak en action-core,
+> integración UI del selector de regulación y badges de legalidad, migración de
+> storage v4→v5, extracción de modos de app-core, ui-smoke (requiere Chrome).
+
 ## Contexto
 
 PWA vanilla JS (ESM nativo, sin bundler) de análisis competitivo de Pokémon Champions. Una refactorización a medias dejó tres capas de lógica solapadas: el monolito `app-core.js` (6.076 líneas, sigue siendo el hub real), el motor modular `battle/` (damage/speed/stats/effects) y el motor alternativo `battle/action-core.js`. El usuario pide auditoría completa y un plan para unificar el motor y alinearlo con las reglas reales del competitivo de Pokémon Champions.
