@@ -3548,6 +3548,12 @@ overflow: auto;
   color: #ffe6a8;
 }
 
+.result-tag-chip.illegal {
+  border-color: rgba(255, 92, 92, 0.45);
+  background: rgba(255, 92, 92, 0.14);
+  color: #ffb3b3;
+}
+
 .result-type-chip {
   border: 1px solid color-mix(in srgb, var(--type-color) 55%, transparent);
   background: color-mix(in srgb, var(--type-color) 22%, transparent);

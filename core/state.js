@@ -1,12 +1,13 @@
-import { RATING_STORAGE_KEY } from './constants.js';
-import { getActiveRegulation } from '../rules/regulations.js';
+import { RATING_STORAGE_KEY, REGULATION_STORAGE_KEY } from './constants.js';
+import { getActiveRegulation, getRegulation } from '../rules/regulations.js';
 
 export function createInitialState() {
+  const savedRegulation = getRegulation(localStorage.getItem(REGULATION_STORAGE_KEY) || '');
   return {
-    // Regulación competitiva activa (rules/): se resuelve por fecha y el
-    // usuario puede cambiarla; 'doubles' es el único formato cableado.
+    // Regulación competitiva activa (rules/): por defecto la vigente por
+    // fecha; el usuario puede fijar otra y se persiste.
     rules: {
-      regulationId: getActiveRegulation()?.id || 'M-B',
+      regulationId: savedRegulation?.id || getActiveRegulation()?.id || 'M-B',
       format: 'doubles',
     },
     self: Array(6).fill(null),

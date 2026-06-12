@@ -44,7 +44,12 @@ export function isSpeciesLegal(monOrName, regulation) {
   if (!id) return { legal: true, verified: false, reason: 'especie no canónica' };
   if (reg.bannedSpecies?.has(id)) return { legal: false, verified: true, reason: `vetado en ${reg.id}` };
   if (!reg.roster) return { legal: true, verified: false, reason: `roster de ${reg.id} no verificado` };
-  const inRoster = reg.roster.has(id) || (species?.baseSpeciesId && reg.roster.has(species.baseSpeciesId));
+  // Las Megas se listan una a una en el roster oficial: una Mega fuera de
+  // lista NO es legal por tener su base en el roster. Para el resto de
+  // formas (género, cosméticas) basta con la especie base.
+  const inRoster = species?.isMega
+    ? reg.roster.has(id)
+    : reg.roster.has(id) || (species?.baseSpeciesId && reg.roster.has(species.baseSpeciesId));
   return inRoster
     ? { legal: true, verified: true, reason: null }
     : { legal: false, verified: true, reason: `fuera del roster de ${reg.id}` };

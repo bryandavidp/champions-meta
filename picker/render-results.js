@@ -3,6 +3,7 @@ import { state } from '../core/state.js';
 import { escapeHtml, normalizeText } from '../utils/text.js';
 import { fallbackSprite } from './search-index.js';
 import { getRecentEntries } from './recent-picks.js';
+import { isSpeciesLegal } from '../rules/index.js';
 
 function formatUsage(value) {
   const usage = Number(value || 0);
@@ -28,6 +29,16 @@ function renderTypeChips(types = []) {
     const meta = TYPE_META[type] || { short: type.slice(0, 2), color: '#8aa2c6' };
     return `<span class="result-type-chip" style="--type-color:${meta.color};">${escapeHtml(meta.short || type)}</span>`;
   }).join('');
+}
+
+// Badge de legalidad según la regulación activa (rules/). No oculta el
+// resultado: marca lo ilegal para que el usuario decida.
+function renderLegalityBadge(mon) {
+  const regulationId = state.rules?.regulationId;
+  if (!regulationId) return '';
+  const legality = isSpeciesLegal(mon.name, regulationId);
+  if (legality.legal || !legality.verified) return '';
+  return `<span class="result-tag-chip illegal" title="${escapeHtml(legality.reason || '')}">Ilegal ${escapeHtml(regulationId)}</span>`;
 }
 
 function renderFormBadge(mon) {
@@ -113,7 +124,7 @@ export function renderPokemonResults(payload, query = '') {
         </div>
         <div class="result-main">
           <div class="result-name">${highlightMatch(mon.displayNamePretty, query)}</div>
-          <div class="result-sub">${renderFormBadge(mon)}${renderTypeChips(mon.types)}</div>
+          <div class="result-sub">${renderFormBadge(mon)}${renderLegalityBadge(mon)}${renderTypeChips(mon.types)}</div>
           <div class="result-meta">#${mon.rank || '-'} · ${formatUsage(mon.usage)} ${reasons}</div>
         </div>
       </button>

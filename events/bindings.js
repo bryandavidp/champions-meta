@@ -1,5 +1,5 @@
 import { state } from '../core/state.js';
-import { DEMO_ENEMY, DEMO_SELF, META_PRESETS, RATING_STORAGE_KEY, TYPE_META } from '../core/constants.js';
+import { DEMO_ENEMY, DEMO_SELF, META_PRESETS, RATING_STORAGE_KEY, REGULATION_STORAGE_KEY, TYPE_META } from '../core/constants.js';
 import { LIVE, UI_MODES } from '../core/dom.js';
 import { renderAll, setUiMode } from '../render/app.js';
 import { renderSpeedTiers } from '../render/analysis.js';
@@ -337,6 +337,7 @@ export function initEventBindings(callbacks = {}) {
   const enemySlots = document.getElementById('enemySlots');
   const matrixContainer = document.getElementById('matrixContainer');
   const ratingSelect = document.getElementById('ratingSelect');
+  const regulationSelect = document.getElementById('regulationSelect');
   const matrixModeToggleGroup = document.getElementById('matrixModeToggleGroup');
   const matrixDetailToggleGroup = document.getElementById('matrixDetailToggleGroup');
   const matrixHelpToggleBtn = document.getElementById('matrixHelpToggleBtn');
@@ -524,6 +525,15 @@ export function initEventBindings(callbacks = {}) {
 
   if (enemyTeamConfigBtn) {
     enemyTeamConfigBtn.addEventListener('click', () => renderTeamConfigDrawer('enemy'));
+  }
+
+  if (regulationSelect) {
+    regulationSelect.value = state.rules?.regulationId || 'M-B';
+    regulationSelect.addEventListener('change', (e) => {
+      state.rules = { ...(state.rules || { format: 'doubles' }), regulationId: e.target.value };
+      localStorage.setItem(REGULATION_STORAGE_KEY, e.target.value);
+      renderAll();
+    });
   }
 
   if (ratingSelect) {

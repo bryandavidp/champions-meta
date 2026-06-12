@@ -13,11 +13,33 @@
 > endurecido (link único de grafo). 9 suites en verde
 > (`node --experimental-vm-modules tests/<suite>/run-*.mjs`).
 >
-> Pendiente (fases siguientes): poblar rosters M-A/M-B con fuente oficial +
-> overrides de Megas exclusivas de Champions, unificar `getRows()` de matrix,
-> Choice lock lifecycle, Fake Out vs Inner Focus/Covert Cloak en action-core,
-> integración UI del selector de regulación y badges de legalidad, migración de
-> storage v4→v5, extracción de modos de app-core, ui-smoke (requiere Chrome).
+> Segunda tanda (2026-06-12, tarde): rosters M-A (259 ids) y M-B poblados desde
+> la lista oficial de Serebii y validados contra el dex (las Megas exclusivas
+> de Champions SÍ existen en @pkmn/dex 0.10.9 — premisa corregida, sin overrides
+> manuales); selector de regulación en la cabecera con persistencia; badge
+> "Ilegal M-X" en el picker; migración de storage v4→v5 con saneo de shape;
+> Fake Out respeta Inner Focus/Covert Cloak también en el simulador de la app;
+> el Choice lock se libera al cambiar (y el que sale limpia stages/volatiles);
+> suite tests/storage nueva. La "duplicación" de getRows() se descartó: render
+> ya delegaba en matrix/core (es un adaptador, no un duplicado).
+>
+> Tercera tanda (2026-06-12, noche, con Chrome): extracción COMPLETA de los
+> modos — modes/live.js (~1.100 líneas) y modes/quick.js (~4.700 líneas) ya
+> contienen la implementación real y app-core.js queda en 260 líneas de
+> bootstrap/wiring con reexports de compatibilidad. Roster M-A corregido
+> (261 ids: el parseo perdía Kommo-o y Mr. Rime). Kind inventado del seed de
+> efectos sustituido por major_status_immunity consumido por el bridge.
+> Suite nueva tests/ui-smoke/run-console-smoke.mjs: carga la app en Chrome
+> headless, captura errores de consola y ejercita selector de regulación,
+> badge de ilegalidad (Urshifu), validateCurrentTeam y los modos Live/Expert.
+> Verificado todo en navegador: ui-smoke (4 viewports) + console-smoke sin
+> errores de consola, más las 10 suites Node en verde.
+>
+> Pendiente (menor): consolidar los listeners inline que queden en modes/ hacia
+> events/bindings.js, eliminar los globals window.open*/setUiMode sustituyendo
+> los onclick inline, revisar el roster M-B cuando Serebii publique la lista
+> completa (hoy solo lista el delta de Megas Raichu), y ejecutar ui-smoke +
+> console-smoke en CI con Chrome.
 
 ## Contexto
 

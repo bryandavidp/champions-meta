@@ -5,12 +5,14 @@
 // Fuentes (consultadas 2026-06-12): Serebii (Ranked Battle Regulation M-A y
 // M-B), Victory Road (Champions Regulations), Game8.
 //
-// roster: Set de speciesIds canónicos legales, o null si el roster completo
-// aún no está verificado contra una fuente oficial. Con roster null la
-// validación de roster se OMITE y se reporta como "no verificado" — nunca
-// se inventa una lista. Para poblarlo: tools/build-regulation-roster.mjs
-// (pendiente) debe validar cada id contra data/canonical/generated.js.
+// roster: Set de speciesIds canónicos legales (rules/rosters/*, generados
+// desde las listas oficiales de Serebii y validados contra
+// data/canonical/generated.js en tests/rules), o null si la lista de una
+// futura regulación aún no está verificada — nunca se inventa una lista.
 // =========================================================================
+
+import { REGULATION_M_A_ROSTER } from './rosters/regulation-m-a.js';
+import { REGULATION_M_B_ROSTER } from './rosters/regulation-m-b.js';
 
 export const REGULATIONS = {
   'M-A': {
@@ -18,9 +20,8 @@ export const REGULATIONS = {
     label: 'Regulación M-A',
     from: '2026-04-08',
     to: '2026-06-17',
-    // ~186 especies (las transferibles vía Pokémon HOME en el lanzamiento),
-    // 59 con Mega. Lista completa pendiente de verificación → null.
-    roster: null,
+    // 183 especies base + 60 Megas + formas regionales (lista oficial Serebii).
+    roster: new Set(REGULATION_M_A_ROSTER),
     // Mega Lucario Z y Mega Garchomp Z están vetadas en M-A.
     bannedSpecies: new Set(['lucariomegaz', 'garchompmegaz']),
     mechanic: 'mega',
@@ -33,9 +34,8 @@ export const REGULATIONS = {
     label: 'Regulación M-B',
     from: '2026-06-17',
     to: '2026-09-02',
-    // Añade especies y las nuevas Mega Raichu X/Y. Lista completa pendiente
-    // de verificación → null.
-    roster: null,
+    // M-A + Mega Raichu X/Y (lista oficial Serebii).
+    roster: new Set(REGULATION_M_B_ROSTER),
     bannedSpecies: new Set(),
     mechanic: 'mega',
     omniRing: { oncePerBattle: true },

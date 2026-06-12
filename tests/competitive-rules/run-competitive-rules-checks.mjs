@@ -149,6 +149,27 @@ function move(snapshot, side, slot, moveName, targetSlot = undefined) {
 }
 
 {
+  // El Choice lock se libera al salir del campo.
+  const snapshot = snap({
+    self: [
+      makeMon('arcanine', { item: 'Choice Band', moves: ['Flare Blitz', 'Head Smash'], side: 'self' }),
+      makeMon('whimsicott', { moves: ['Tailwind'], side: 'self' }),
+      makeMon('azumarill', { moves: ['Aqua Jet'], side: 'self' }),
+    ],
+    enemy: [
+      makeMon('tyranitar', { moves: ['Rock Slide'], side: 'enemy' }),
+      makeMon('kingambit', { moves: ['Iron Head'], side: 'enemy' }),
+    ],
+  });
+  const locked = simulateTurn(snapshot, [move(snapshot, 'self', 0, 'Flare Blitz', 0)]).snapshot;
+  same(String(locked.sides.self.slots[0].pokemon.volatiles.choiceLocked || '').replace(/[^a-z0-9]/g, ''), 'flareblitz', 'Choice lock queda registrado tras atacar');
+  const switchAction = generateLegalActions(locked, 'self', 0).find((action) => action.kind === 'switch');
+  assert(switchAction, 'hay acción de cambio legal con banca disponible');
+  const afterSwitch = simulateTurn(locked, [switchAction]).snapshot;
+  same(afterSwitch.sides.self.slots[0].pokemon.volatiles.choiceLocked, null, 'el Choice lock se libera al cambiar');
+}
+
+{
   const snapshot = snap({
     self: [
       makeMon('charizard', { item: 'Life Orb', moves: ['Air Slash'], side: 'self' }),

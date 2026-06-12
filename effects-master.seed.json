@@ -510,13 +510,14 @@
         ],
         "effects": [
           {
-            "kind": "major_status_immunity_subset",
+            "kind": "major_status_immunity",
             "value": [
               "burn",
               "poison",
               "toxic",
               "paralysis",
-              "sleep"
+              "sleep",
+              "freeze"
             ]
           },
           {
