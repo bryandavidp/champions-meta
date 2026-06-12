@@ -24,12 +24,13 @@ import { ensureBattleState, homeSpriteFromPokemon, setOnPokemonFetched } from '.
 import { ensureAbilityRegistry, ensureItemRegistry, ensureMoveRegistry, ensureStatusRegistry } from './battle/registry.js';
 import { isSupportMove, fetchMoveInfo, getMoveCandidates } from './battle/moves.js';
 import { getSpeedModifier, calculateSpeed } from './battle/speed.js';
+import { resolveMovePriority } from './battle/formulas.js';
 import { getWeatherAndTerrainMultipliers, applyRegistryDamageModifiers, calculateDamageRolls, estimateMoveDamage, bestAttack } from './battle/damage.js';
 import { scoreThreat, inferStrategies } from './analysis/threats.js';
 import { buildTurn1ProductModel } from './analysis/product-adapters.js';
 import { evaluateKoConditions, renderKoConditionChips } from './analysis/ko-conditions.js';
 import { tickField, recalculateActiveField, applySwitchInEffects, applyHazardsOnSwitchIn, applyMoveResolutionEffects } from './battle/effects.js';
-import { getCanonicalMovePriority, isCanonicalSpreadMove } from './data/canonical/dex.js';
+import { isCanonicalSpreadMove } from './data/canonical/dex.js';
 import {
   STORAGE_KEY,
   CACHE_KEY_PREFIX,
@@ -65,30 +66,35 @@ import {
 } from './core/constants.js';
 
 import { setEffectsActiveIndicesCallback } from './battle/effects.js';
+import * as championsRules from './rules/index.js';
 // Expose openSetEditor globally so it can be called by inline onclick handlers if any
 window.openSetEditor = openSetEditor;
 window.openModal = openModal;
 window.setUiMode = setUiMode;
+
+// Capa de regulaciones oficiales (rules/): expuesta para la UI y la consola.
+// validateCurrentTeam() valida el equipo propio contra la regulación activa
+// en state.rules (cláusulas species/item, tamaño, vetos y roster si existe).
+window.ChampionsRules = {
+  ...championsRules,
+  validateCurrentTeam() {
+    return championsRules.validateTeam(state.self, {
+      regulation: state.rules?.regulationId,
+      format: state.rules?.format || 'doubles',
+    });
+  },
+  setRegulation(regulationId) {
+    const reg = championsRules.getRegulation(regulationId);
+    if (!reg) return null;
+    state.rules = { ...(state.rules || {}), regulationId: reg.id };
+    return reg;
+  },
+};
 setEffectsActiveIndicesCallback((side) => state.uiMode === 'quick' ? quickMode.getTurn1ResolvedLeadIndices(side) : (side === 'self' ? state.activeSelfSlots : state.activeEnemySlots));
 
+// Prioridad unificada: dex can\u00f3nico + habilidades (battle/formulas.js).
 export function getPriority(moveName, mon = null) {
-  if (!moveName) return 0;
-  const m = getMoveSlug(moveName);
-  let prio = 0;
-  if (['helpinghand', 'refuerzo'].includes(m)) prio = 5;
-  else if (['protect', 'proteccion', 'detect', 'deteccion', 'spikyshield', 'barreraespinosa', 'kingsshield', 'escudoreal', 'banefulbunker', 'bunker', 'obstruct', 'obstruccion', 'silktrap'].includes(m)) prio = 4;
-  else if (['wideguard', 'vastaguardia', 'quickguard', 'anticipo'].includes(m)) prio = 3;
-  else if (['fakeout', 'sorpresa', 'firstimpression', 'escaramuza'].includes(m)) prio = 3;
-  else if (['extremespeed', 'velocidadextrema', 'feint', 'amago', 'followme', 'senuelo', 'seuelo', 'ragepowder', 'polvoira'].includes(m)) prio = 2;
-  else if (['suckerpunch', 'golpebajo', 'aquajet', 'acuajet', 'machpunch', 'ultrapuno', 'bulletpunch', 'punobala', 'iceshard', 'cantohelado', 'shadowsneak', 'sombravil', 'grassyglide', 'fitimpulso'].includes(m)) prio = 1;
-  else if (['trickroom', 'espacioraro'].includes(m)) prio = -7;
-  else prio = getCanonicalMovePriority(moveName) || (typeof MOVE_PRIORITY_LEVELS !== 'undefined' ? (MOVE_PRIORITY_LEVELS[String(moveName).toLowerCase()] || MOVE_PRIORITY_LEVELS[m] || 0) : 0);
-
-  const ability = (mon?.set?.ability || mon?.ability || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
-  if (['prankster', 'bromista'].includes(ability) && isStatusMoveForSimulation(moveName) && prio >= 0) {
-    prio += 1;
-  }
-  return prio;
+  return resolveMovePriority(moveName, mon, state.field);
 }
 
 window.loggedMessages = window.loggedMessages || new Set();

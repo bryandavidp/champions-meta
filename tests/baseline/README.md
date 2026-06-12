@@ -43,3 +43,14 @@ Cada caso incluye una etiqueta:
 ## Restricción
 
 Esta suite no intenta corregir el motor. Su objetivo es que cualquier cambio futuro muestre exactamente qué comportamiento cambió.
+
+## Historial de actualizaciones intencionales del snapshot
+
+- 2026-06-12 (unificación del motor en `battle/formulas.js`):
+  - `damage.weather-ball-by-weather` (clave `sand`): el daño especial contra tipos Roca bajo arena ahora aplica el boost defensivo oficial x1.5 de SpD (antes se ignoraba; 79 → 53).
+  - `speed.*` (Whimsicott): la prioridad ahora se resuelve con el dex canónico + habilidades; el Tailwind de un usuario Prankster aparece como ventana de prioridad +1 (antes se listaba "Ataque normal +0").
+- 2026-06-12 (switch-in idempotente y reacciones a Intimidate):
+  - `switchin.intimidate-reactions` (known-gap → corregido): Competitive ahora reacciona con +2 SpA conservando el -1 Atk (antes subía Atk por error).
+  - `effects.recalculate-active-field-mutation-baseline` (known-gap → corregido): `recalculateActiveField()` ya no borra todos los stages; solo revierte los deltas autogenerados por switch-in (`battle.autoStages`), preservando stages manuales o ganados en batalla.
+- 2026-06-12 (potencia base dinámica en el pipeline de UI):
+  - `damage.variable-power-known-gaps` (known-gap → corregido): Eruption/Water Spout escalan con el HP del atacante también en `estimateMoveDamage` (antes siempre 150 BP; el caso a bajo HP pasa de 297 a 78 de daño). Hex/Infernal Parade, Acrobatics, Facade, Flail/Reversal, Stored Power comparten la misma fórmula (`battle/formulas.js dynamicBasePower`).

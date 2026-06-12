@@ -1,8 +1,7 @@
-import { MOVE_PRIORITY_LEVELS } from '../core/constants.js';
 import { state } from '../core/state.js';
 import { calculateSpeed } from '../battle/speed.js';
 import { getNatureSpeModifier } from '../battle/stats.js';
-import { fetchMoveInfo } from '../battle/moves.js';
+import { resolveMovePriority } from '../battle/formulas.js';
 
 const WEATHER_SPEED_ABILITIES = {
   sun: new Set(['chlorophyll', 'clorofila']),
@@ -27,10 +26,8 @@ function displayName(mon) {
   return mon?.displayName || mon?.name || 'Slot';
 }
 
-function movePriority(moveName) {
-  const raw = String(moveName || '').toLowerCase();
-  const info = fetchMoveInfo(moveName) || {};
-  return (Number.isFinite(info.priority) ? info.priority : 0) || MOVE_PRIORITY_LEVELS[raw] || MOVE_PRIORITY_LEVELS[slug(moveName)] || 0;
+function movePriority(moveName, mon = null, field = null) {
+  return resolveMovePriority(moveName, mon, field);
 }
 
 function rawSpeed(mon) {
@@ -84,13 +81,13 @@ function priorityBlockedReason(entry, opponents, field) {
   return null;
 }
 
-function buildPriorityWindows(mon) {
+function buildPriorityWindows(mon, field = null) {
   const moves = mon?.set?.moves || [];
   const windows = moves
     .filter(Boolean)
     .map((move) => ({
       move,
-      priority: movePriority(move),
+      priority: movePriority(move, mon, field),
     }))
     .filter((item) => item.priority !== 0)
     .sort((a, b) => b.priority - a.priority);
@@ -130,8 +127,8 @@ function applyExtraSpeedModifiers(baseEffective, mon, side, field) {
     if (consumed) effectiveAbs = Math.max(effectiveAbs, raw * 2);
   }
   if (status === 'par' || status === 'paralysis' || status === 'paralisis') {
+    // calculateSpeed ya aplica el x0.5 de parálisis; aquí solo se etiqueta.
     modifiers.push({ id: 'paralysis', label: 'Paralisis', type: 'status', multiplier: 0.5 });
-    effectiveAbs = Math.floor(effectiveAbs * 0.5);
   }
 
   const effectiveSpeed = field?.trickRoom ? -effectiveAbs : effectiveAbs;
@@ -141,7 +138,7 @@ function applyExtraSpeedModifiers(baseEffective, mon, side, field) {
 function createEntry(input, field) {
   const baseEffective = calculateSpeed(input.mon, input.side, field);
   const extra = applyExtraSpeedModifiers(baseEffective, input.mon, input.side, field);
-  const priorityWindows = buildPriorityWindows(input.mon);
+  const priorityWindows = buildPriorityWindows(input.mon, field);
   const maxPriority = Math.max(...priorityWindows.map((item) => item.priority));
 
   return {

@@ -394,6 +394,13 @@ async function main() {
     addAlias(aliases, 'species', legacy.displayName, id);
   }
 
+  // Pasada final: el alias de un id real apunta SIEMPRE a sí mismo. Sin esto,
+  // el alias de baseSpecies de la última forma iterada secuestra a la base
+  // (p.ej. butterfree → butterfreegmax, venusaur → venusaurmega).
+  for (const id of Object.keys(species)) {
+    aliases.species[id] = id;
+  }
+
   const moves = {};
   for (const raw of Dex.moves.all()) {
     if (!raw.exists) continue;

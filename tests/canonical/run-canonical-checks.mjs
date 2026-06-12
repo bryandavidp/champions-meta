@@ -50,6 +50,10 @@ same(resolveCanonicalId('moves', 'Viento Afin'), 'tailwind', 'Spanish move alias
 same(resolveCanonicalId('moves', 'Viento Afín'), 'tailwind', 'accented Spanish move alias resolves to Tailwind');
 same(resolveCanonicalId('items', 'Banda Focus'), 'focussash', 'Spanish item alias resolves to Focus Sash');
 same(resolveCanonicalId('species', 'Mega Charizard Y'), 'charizardmegay', 'form alias resolves to Mega Charizard Y');
+// Regresión: el alias de una forma no debe secuestrar a la especie base.
+same(resolveCanonicalId('species', 'Butterfree'), 'butterfree', 'base species resolves to itself (not Gmax form)');
+same(resolveCanonicalId('species', 'Venusaur'), 'venusaur', 'base species resolves to itself (not Mega form)');
+same(getCanonicalSpecies('Venusaur')?.isMega ?? false, false, 'Venusaur base is not flagged as Mega');
 same(canonicalizeWeather('tormenta arena'), 'sand', 'Spanish weather alias resolves to sand');
 same(canonicalizeTerrain('Campo Psiquico'), 'psychic', 'Spanish terrain alias resolves to psychic');
 

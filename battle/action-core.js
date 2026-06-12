@@ -7,6 +7,15 @@ import {
 } from '../data/canonical/dex.js';
 import { natureMod, stageMultiplier } from './stats.js';
 import {
+  baseStatAt,
+  damageRolls,
+  dynamicBasePower,
+  maxHpAt,
+  terrainDamageMultiplier,
+  weatherDamageMultiplier,
+  weatherDefenseMultiplier,
+} from './formulas.js';
+import {
   cloneBattleSnapshot,
   createCandidateAction,
   hydrateBattleSnapshot,
@@ -511,11 +520,12 @@ function getTargetBlock(action, targetRef, snapshot) {
 }
 
 function maxHp(pokemon) {
-  const level = pokemon?.set?.level || 50;
-  const base = pokemon?.baseStats?.hp || 80;
-  const ev = pokemon?.set?.evs?.hp || 0;
-  const iv = pokemon?.set?.ivs?.hp ?? 31;
-  return Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + level + 10;
+  return maxHpAt({
+    base: pokemon?.baseStats?.hp || 80,
+    ev: pokemon?.set?.evs?.hp || 0,
+    iv: pokemon?.set?.ivs?.hp ?? 31,
+    level: pokemon?.set?.level || 50,
+  });
 }
 
 function currentHp(pokemon) {
@@ -523,12 +533,13 @@ function currentHp(pokemon) {
 }
 
 function statValue(pokemon, stat) {
-  const level = pokemon?.set?.level || 50;
-  const base = pokemon?.baseStats?.[stat] || 80;
-  const ev = pokemon?.set?.evs?.[stat] || 0;
-  const iv = pokemon?.set?.ivs?.[stat] ?? 31;
   const stage = pokemon?.stages?.[stat] || 0;
-  const inner = Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + 5;
+  const inner = baseStatAt({
+    base: pokemon?.baseStats?.[stat] || 80,
+    ev: pokemon?.set?.evs?.[stat] || 0,
+    iv: pokemon?.set?.ivs?.[stat] ?? 31,
+    level: pokemon?.set?.level || 50,
+  });
   let value = Math.max(1, Math.floor(Math.floor(inner * natureMod(pokemon?.set?.nature || '', stat)) * stageMultiplier(stage)));
   if (activeBoosterStat(pokemon) === stat) value = Math.floor(value * (stat === 'spe' ? 1.5 : 1.3));
   return value;
@@ -571,16 +582,6 @@ function electroBallBasePower(attacker, defender, snapshot) {
   return 40;
 }
 
-function lowHpBasePower(pokemon) {
-  const hpRatio = Math.max(0, Math.min(1, (pokemon?.hpPct ?? 100) / 100));
-  if (hpRatio <= 1 / 48) return 200;
-  if (hpRatio <= 4 / 48) return 150;
-  if (hpRatio <= 9 / 48) return 100;
-  if (hpRatio <= 16 / 48) return 80;
-  if (hpRatio <= 32 / 48) return 40;
-  return 20;
-}
-
 function positiveBoostCount(pokemon) {
   return Object.values(pokemon?.stages || {}).reduce((acc, value) => acc + Math.max(0, Number(value || 0)), 0);
 }
@@ -589,7 +590,6 @@ function resolveMoveTypeAndPower(move, attacker, defender, snapshot) {
   let type = move.type || 'normal';
   let basePower = move.basePower || move.power || 0;
   const moveId = slug(move.id || move.name);
-  const hpRatio = Math.max(0, Math.min(1, (attacker?.hpPct ?? 100) / 100));
   if (moveId === 'weatherball' && snapshot.field?.weather) {
     basePower = 100;
     if (snapshot.field.weather === 'sun') type = 'fire';
@@ -597,17 +597,19 @@ function resolveMoveTypeAndPower(move, attacker, defender, snapshot) {
     else if (snapshot.field.weather === 'sand') type = 'rock';
     else if (snapshot.field.weather === 'snow' || snapshot.field.weather === 'hail') type = 'ice';
   }
-  if (moveId === 'eruption' || moveId === 'waterspout') basePower = Math.max(1, Math.floor(150 * hpRatio));
-  if (moveId === 'flail' || moveId === 'reversal') basePower = lowHpBasePower(attacker);
-  if (moveId === 'hex' && defender?.status) basePower = Math.max(basePower, 130);
-  if (moveId === 'acrobatics' && !itemId(attacker)) basePower = 110;
+  basePower = dynamicBasePower(moveId, basePower, {
+    attackerHpPct: attacker?.hpPct,
+    attackerHasItem: !!itemId(attacker),
+    attackerHasStatus: !!attacker?.status,
+    defenderHasStatus: !!defender?.status,
+    attackerPositiveBoosts: positiveBoostCount(attacker),
+    timesHit: attacker?.volatiles?.rageFistHits,
+    faintedAllies: snapshot?.meta?.faintedAllies?.[attacker?.side] ?? attacker?.volatiles?.faintedAllies,
+  });
   if (moveId === 'gyroball') basePower = Math.min(150, Math.max(1, Math.floor((25 * effectiveSpeed(defender, defender?.side || otherSide(attacker?.side || 'self'), snapshot)) / Math.max(1, effectiveSpeed(attacker, attacker?.side || 'self', snapshot))) + 1));
   if (moveId === 'electroball') basePower = electroBallBasePower(attacker, defender, snapshot);
   if (moveId === 'lowkick' || moveId === 'grassknot') basePower = weightBasePower(pokemonWeight(defender));
   if (moveId === 'heavyslam' || moveId === 'heatcrash') basePower = heavySlamBasePower(attacker, defender);
-  if (moveId === 'storedpower' || moveId === 'powertrip') basePower = 20 + positiveBoostCount(attacker) * 20;
-  if (moveId === 'ragefist') basePower = Math.min(350, 50 + Number(attacker?.volatiles?.rageFistHits || 0) * 50);
-  if (moveId === 'lastrespects') basePower = Math.min(5050, 50 + Number(snapshot?.meta?.faintedAllies?.[attacker?.side] || attacker?.volatiles?.faintedAllies || 0) * 50);
   return { type, basePower };
 }
 
@@ -637,26 +639,15 @@ function typeImmunity(moveType, move, defender, snapshot) {
 }
 
 function weatherModifier(type, snapshot) {
-  if (snapshot.field?.weather === 'sun') {
-    if (type === 'fire') return 1.5;
-    if (type === 'water') return 0.5;
-  }
-  if (snapshot.field?.weather === 'rain') {
-    if (type === 'water') return 1.5;
-    if (type === 'fire') return 0.5;
-  }
-  return 1;
+  return weatherDamageMultiplier(type, snapshot.field?.weather);
 }
 
 function terrainModifier(type, move, attacker, defender, snapshot) {
-  const terrain = snapshot.field?.terrain;
-  if (!terrain) return 1;
-  if (terrain === 'electric' && type === 'electric' && isGrounded(attacker, snapshot)) return 1.3;
-  if (terrain === 'grassy' && type === 'grass' && isGrounded(attacker, snapshot)) return 1.3;
-  if (terrain === 'psychic' && type === 'psychic' && isGrounded(attacker, snapshot)) return 1.3;
-  if (terrain === 'misty' && type === 'dragon' && isGrounded(defender, snapshot)) return 0.5;
-  if (terrain === 'grassy' && slug(move.id || move.name) === 'earthquake') return 0.5;
-  return 1;
+  return terrainDamageMultiplier(type, move.id || move.name, {
+    terrain: snapshot.field?.terrain,
+    attackerGrounded: isGrounded(attacker, snapshot),
+    defenderGrounded: isGrounded(defender, snapshot),
+  });
 }
 
 function screenModifier(category, targetSide, snapshot) {
@@ -675,11 +666,7 @@ function allyAbilityModifier(targetSide, snapshot) {
 }
 
 function calculateRolls(baseDamage) {
-  const rolls = [];
-  for (let index = 0; index < 16; index += 1) {
-    rolls.push(Math.max(1, Math.floor(baseDamage * (0.85 + (index / 15) * 0.15))));
-  }
-  return rolls;
+  return damageRolls(baseDamage).rolls;
 }
 
 export function runDamagePipeline(snapshot, action, targetRef, options = {}) {
@@ -735,8 +722,7 @@ export function runDamagePipeline(snapshot, action, targetRef, options = {}) {
     if (category === 'physical') attackStat *= 2;
   }
   if (itemId(defender) === 'assaultvest' && category === 'special') defenseStat = Math.floor(defenseStat * 1.5);
-  if (snapshot.field?.weather === 'sand' && category === 'special' && (defender.types || []).includes('rock')) defenseStat = Math.floor(defenseStat * 1.5);
-  if ((snapshot.field?.weather === 'snow' || snapshot.field?.weather === 'hail') && category === 'physical' && (defender.types || []).includes('ice')) defenseStat = Math.floor(defenseStat * 1.5);
+  defenseStat = Math.floor(defenseStat * weatherDefenseMultiplier(category, snapshot.field?.weather, defender.types));
   pushTrace('stats', { category, attackStat, defenseStat });
 
   const level = attacker.set?.level || 50;

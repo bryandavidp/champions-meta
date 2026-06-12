@@ -376,10 +376,10 @@
         },
         "sand": {
           "blocked": false,
-          "damage": 79,
+          "damage": 53,
           "immunityData": null,
-          "maxDamage": 79,
-          "minDamage": 67,
+          "maxDamage": 53,
+          "minDamage": 45,
           "registryExplain": [],
           "tags": [],
           "terrMul": 1,
@@ -490,9 +490,9 @@
           "spe": 0
         },
         "competitiveStages": {
-          "atk": 1,
+          "atk": -1,
           "def": 0,
-          "spa": 0,
+          "spa": 2,
           "spd": 0,
           "spe": 0
         },
@@ -578,10 +578,10 @@
         },
         "eruptionLowHp": {
           "blocked": false,
-          "damage": 297,
+          "damage": 78,
           "immunityData": null,
-          "maxDamage": 297,
-          "minDamage": 252,
+          "maxDamage": 78,
+          "minDamage": 66,
           "registryExplain": [],
           "tags": [
             "🔥 Sol x1.5",
@@ -1239,15 +1239,15 @@
             },
             {
               "blockedPriorityReason": null,
-              "cause": "Speed efectiva",
+              "cause": "Tailwind +1",
               "effectiveSpeed": 136,
-              "maxPriority": 0,
+              "maxPriority": 1,
               "modifiers": [],
               "name": "Whimsicott",
               "priorityWindows": [
                 {
-                  "move": "Ataque normal",
-                  "priority": 0
+                  "move": "Tailwind",
+                  "priority": 1
                 }
               ],
               "rank": 3,
@@ -1296,7 +1296,7 @@
           "spe": 0
         },
         "tyranitarStagesAfterRecalc": {
-          "atk": 0,
+          "atk": 2,
           "def": 0,
           "spa": 0,
           "spd": 0,

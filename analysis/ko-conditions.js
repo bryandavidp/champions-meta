@@ -1,8 +1,9 @@
-import { MOVE_PRIORITY_LEVELS, SPREAD_MOVES } from '../core/constants.js';
+import { SPREAD_MOVES } from '../core/constants.js';
 import { state } from '../core/state.js';
 import { calculateSpeed } from '../battle/speed.js';
 import { bestAttack } from '../battle/damage.js';
 import { fetchMoveInfo } from '../battle/moves.js';
+import { resolveMovePriority } from '../battle/formulas.js';
 
 const PROTECT_MOVES = new Set(['protect', 'proteccion', 'detect', 'deteccion', 'spikyshield', 'barreraespinosa', 'kingsshield', 'escudoreal']);
 const SASH_ITEMS = new Set(['focussash', 'bandafocus']);
@@ -16,10 +17,8 @@ function slug(value) {
     .replace(/[^a-z0-9]/g, '');
 }
 
-function movePriority(moveName) {
-  const raw = String(moveName || '').toLowerCase();
-  const info = fetchMoveInfo(moveName) || {};
-  return (Number.isFinite(info.priority) ? info.priority : 0) || MOVE_PRIORITY_LEVELS[raw] || MOVE_PRIORITY_LEVELS[slug(moveName)] || 0;
+function movePriority(moveName, mon = null, field = null) {
+  return resolveMovePriority(moveName, mon, field);
 }
 
 function hasProtect(mon) {
@@ -71,7 +70,7 @@ function movesBefore(attacker, defender, atk, context) {
   const defenderSide = context.defenderSide || (attackerSide === 'self' ? 'enemy' : 'self');
   const attackerEntry = context.attackerEntry || { mon: attacker, side: attackerSide };
   const defenderEntry = context.defenderEntry || { mon: defender, side: defenderSide };
-  const ownPrio = Number.isFinite(context.attackerPriority) ? context.attackerPriority : movePriority(atk?.move);
+  const ownPrio = Number.isFinite(context.attackerPriority) ? context.attackerPriority : movePriority(atk?.move, attacker, field);
   const enemyPrio = Number.isFinite(context.defenderPriority) ? context.defenderPriority : 0;
   if (ownPrio !== enemyPrio) return ownPrio > enemyPrio;
   const ownSpeed = getSpeed(attackerEntry, attackerSide, field);

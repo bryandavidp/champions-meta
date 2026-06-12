@@ -56,7 +56,6 @@ function createDocumentStub() {
 
 export async function createModuleHarness(rootDir) {
   const moduleCache = new Map();
-  const moduleLinkPromises = new Map();
   const sandbox = {
     console,
     setTimeout,
@@ -120,36 +119,35 @@ export async function createModuleHarness(rootDir) {
     return path.resolve(parentDir, specifier);
   }
 
-  async function loadModule(filename) {
+  // Crea (y cachea) el módulo sin enlazarlo: el link de TODO el grafo lo hace
+  // una única llamada a mod.link() en la raíz (importModule). Encadenar
+  // mod.link() por módulo dentro del resolver provoca
+  // ERR_VM_MODULE_LINK_FAILURE intermitentes con grafos en diamante.
+  function loadModule(filename) {
     const normalized = path.normalize(filename);
     if (moduleCache.has(normalized)) return moduleCache.get(normalized);
-    if (moduleLinkPromises.has(normalized)) return moduleLinkPromises.get(normalized);
 
-    const linkPromise = (async () => {
+    const modulePromise = (async () => {
       const code = await readFile(normalized, 'utf8');
-      const mod = new vm.SourceTextModule(code, {
+      return new vm.SourceTextModule(code, {
         context,
         identifier: normalized,
         initializeImportMeta(meta) {
           meta.url = pathToFileURL(normalized).href;
         },
       });
-      moduleCache.set(normalized, mod);
-
-      await mod.link(async (specifier, referencingModule) => {
-        const resolved = resolveModule(specifier, referencingModule.identifier);
-        return loadModule(resolved);
-      });
-
-      return mod;
     })();
-    moduleLinkPromises.set(normalized, linkPromise);
-    return linkPromise;
+    moduleCache.set(normalized, modulePromise);
+    return modulePromise;
   }
 
   async function importModule(relativePath) {
     const filename = path.resolve(rootDir, relativePath);
     const mod = await loadModule(filename);
+    if (mod.status === 'unlinked') {
+      await mod.link((specifier, referencingModule) =>
+        loadModule(resolveModule(specifier, referencingModule.identifier)));
+    }
     if (mod.status !== 'evaluated') {
       await mod.evaluate();
     }
