@@ -101,6 +101,41 @@ export function terrainDamageMultiplier(type, moveName, { terrain, attackerGroun
   return mult;
 }
 
+// Potencia base dinámica (casos puros, compartidos por ambos pipelines).
+// Los casos que dependen de velocidad/peso del snapshot (Gyro Ball,
+// Electro Ball, Low Kick, Heavy Slam) viven en el consumidor.
+export function dynamicBasePower(moveName, basePower, ctx = {}) {
+  const id = normalizeId(moveName);
+  const hpRatio = Math.max(0, Math.min(1, (ctx.attackerHpPct ?? 100) / 100));
+
+  if (id === 'eruption' || id === 'waterspout' || id === 'dragonenergy') {
+    return Math.max(1, Math.floor(150 * hpRatio));
+  }
+  if (id === 'flail' || id === 'reversal') {
+    if (hpRatio <= 1 / 48) return 200;
+    if (hpRatio <= 4 / 48) return 150;
+    if (hpRatio <= 9 / 48) return 100;
+    if (hpRatio <= 16 / 48) return 80;
+    if (hpRatio <= 32 / 48) return 40;
+    return 20;
+  }
+  if ((id === 'hex' || id === 'infernalparade') && ctx.defenderHasStatus) {
+    return (basePower || 65) * 2;
+  }
+  if (id === 'acrobatics' && !ctx.attackerHasItem) return 110;
+  if (id === 'facade' && ctx.attackerHasStatus) return 140;
+  if (id === 'storedpower' || id === 'powertrip') {
+    return 20 + Math.max(0, Number(ctx.attackerPositiveBoosts || 0)) * 20;
+  }
+  if (id === 'ragefist') {
+    return Math.min(350, 50 + Math.max(0, Number(ctx.timesHit || 0)) * 50);
+  }
+  if (id === 'lastrespects') {
+    return Math.min(5050, 50 + Math.max(0, Number(ctx.faintedAllies || 0)) * 50);
+  }
+  return basePower;
+}
+
 // --- Prioridad -------------------------------------------------------------
 
 function readMonField(mon, keys) {

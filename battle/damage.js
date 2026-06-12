@@ -6,6 +6,7 @@ import { calcMonHP, calculateEffectiveStats } from './stats.js';
 import { fetchMoveInfo, getMoveCandidates } from './moves.js';
 import {
   damageRolls,
+  dynamicBasePower,
   terrainDamageMultiplier,
   weatherDamageMultiplier,
   weatherDefenseMultiplier,
@@ -172,6 +173,16 @@ export function estimateMoveDamage(attacker, defender, cand, field) {
       else if (field.weather === 'sand' || field.weather === 'sandstorm') moveType = 'rock';
       else if (field.weather === 'snow' || field.weather === 'hail') moveType = 'ice';
   }
+
+  // Potencia base dinámica (Eruption/Water Spout escalan con HP, Hex, Acrobatics...)
+  const attackerStages = attacker.battle?.stages || {};
+  basePower = dynamicBasePower(moveId, basePower, {
+      attackerHpPct: attacker.battle?.hpPct,
+      attackerHasItem: !!(attacker.set?.item || attacker.item),
+      attackerHasStatus: !!attacker.battle?.status,
+      defenderHasStatus: !!defender.battle?.status,
+      attackerPositiveBoosts: Object.values(attackerStages).reduce((acc, v) => acc + Math.max(0, Number(v || 0)), 0),
+  });
 
   const eff = effectiveness(moveType, defender.types || []);
   const { wMul, terrMul } = getWeatherAndTerrainMultipliers(field, moveType, moveName);

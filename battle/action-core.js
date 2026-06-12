@@ -9,6 +9,7 @@ import { natureMod, stageMultiplier } from './stats.js';
 import {
   baseStatAt,
   damageRolls,
+  dynamicBasePower,
   maxHpAt,
   terrainDamageMultiplier,
   weatherDamageMultiplier,
@@ -581,16 +582,6 @@ function electroBallBasePower(attacker, defender, snapshot) {
   return 40;
 }
 
-function lowHpBasePower(pokemon) {
-  const hpRatio = Math.max(0, Math.min(1, (pokemon?.hpPct ?? 100) / 100));
-  if (hpRatio <= 1 / 48) return 200;
-  if (hpRatio <= 4 / 48) return 150;
-  if (hpRatio <= 9 / 48) return 100;
-  if (hpRatio <= 16 / 48) return 80;
-  if (hpRatio <= 32 / 48) return 40;
-  return 20;
-}
-
 function positiveBoostCount(pokemon) {
   return Object.values(pokemon?.stages || {}).reduce((acc, value) => acc + Math.max(0, Number(value || 0)), 0);
 }
@@ -599,7 +590,6 @@ function resolveMoveTypeAndPower(move, attacker, defender, snapshot) {
   let type = move.type || 'normal';
   let basePower = move.basePower || move.power || 0;
   const moveId = slug(move.id || move.name);
-  const hpRatio = Math.max(0, Math.min(1, (attacker?.hpPct ?? 100) / 100));
   if (moveId === 'weatherball' && snapshot.field?.weather) {
     basePower = 100;
     if (snapshot.field.weather === 'sun') type = 'fire';
@@ -607,17 +597,19 @@ function resolveMoveTypeAndPower(move, attacker, defender, snapshot) {
     else if (snapshot.field.weather === 'sand') type = 'rock';
     else if (snapshot.field.weather === 'snow' || snapshot.field.weather === 'hail') type = 'ice';
   }
-  if (moveId === 'eruption' || moveId === 'waterspout') basePower = Math.max(1, Math.floor(150 * hpRatio));
-  if (moveId === 'flail' || moveId === 'reversal') basePower = lowHpBasePower(attacker);
-  if (moveId === 'hex' && defender?.status) basePower = Math.max(basePower, 130);
-  if (moveId === 'acrobatics' && !itemId(attacker)) basePower = 110;
+  basePower = dynamicBasePower(moveId, basePower, {
+    attackerHpPct: attacker?.hpPct,
+    attackerHasItem: !!itemId(attacker),
+    attackerHasStatus: !!attacker?.status,
+    defenderHasStatus: !!defender?.status,
+    attackerPositiveBoosts: positiveBoostCount(attacker),
+    timesHit: attacker?.volatiles?.rageFistHits,
+    faintedAllies: snapshot?.meta?.faintedAllies?.[attacker?.side] ?? attacker?.volatiles?.faintedAllies,
+  });
   if (moveId === 'gyroball') basePower = Math.min(150, Math.max(1, Math.floor((25 * effectiveSpeed(defender, defender?.side || otherSide(attacker?.side || 'self'), snapshot)) / Math.max(1, effectiveSpeed(attacker, attacker?.side || 'self', snapshot))) + 1));
   if (moveId === 'electroball') basePower = electroBallBasePower(attacker, defender, snapshot);
   if (moveId === 'lowkick' || moveId === 'grassknot') basePower = weightBasePower(pokemonWeight(defender));
   if (moveId === 'heavyslam' || moveId === 'heatcrash') basePower = heavySlamBasePower(attacker, defender);
-  if (moveId === 'storedpower' || moveId === 'powertrip') basePower = 20 + positiveBoostCount(attacker) * 20;
-  if (moveId === 'ragefist') basePower = Math.min(350, 50 + Number(attacker?.volatiles?.rageFistHits || 0) * 50);
-  if (moveId === 'lastrespects') basePower = Math.min(5050, 50 + Number(snapshot?.meta?.faintedAllies?.[attacker?.side] || attacker?.volatiles?.faintedAllies || 0) * 50);
   return { type, basePower };
 }
 

@@ -578,10 +578,10 @@
         },
         "eruptionLowHp": {
           "blocked": false,
-          "damage": 297,
+          "damage": 78,
           "immunityData": null,
-          "maxDamage": 297,
-          "minDamage": 252,
+          "maxDamage": 78,
+          "minDamage": 66,
           "registryExplain": [],
           "tags": [
             "🔥 Sol x1.5",
