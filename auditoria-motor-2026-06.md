@@ -23,11 +23,23 @@
 > suite tests/storage nueva. La "duplicación" de getRows() se descartó: render
 > ya delegaba en matrix/core (es un adaptador, no un duplicado).
 >
-> Pendiente (fases siguientes): extracción de la implementación de Quick/Live
-> de app-core.js a modes/, consolidación de listeners inline, sanear los kinds
-> inventados de effects-master.seed.json, ui-smoke en CI con Chrome, y revisión
-> del roster M-B cuando Serebii publique la lista completa (hoy solo lista el
-> delta de Megas Raichu).
+> Tercera tanda (2026-06-12, noche, con Chrome): extracción COMPLETA de los
+> modos — modes/live.js (~1.100 líneas) y modes/quick.js (~4.700 líneas) ya
+> contienen la implementación real y app-core.js queda en 260 líneas de
+> bootstrap/wiring con reexports de compatibilidad. Roster M-A corregido
+> (261 ids: el parseo perdía Kommo-o y Mr. Rime). Kind inventado del seed de
+> efectos sustituido por major_status_immunity consumido por el bridge.
+> Suite nueva tests/ui-smoke/run-console-smoke.mjs: carga la app en Chrome
+> headless, captura errores de consola y ejercita selector de regulación,
+> badge de ilegalidad (Urshifu), validateCurrentTeam y los modos Live/Expert.
+> Verificado todo en navegador: ui-smoke (4 viewports) + console-smoke sin
+> errores de consola, más las 10 suites Node en verde.
+>
+> Pendiente (menor): consolidar los listeners inline que queden en modes/ hacia
+> events/bindings.js, eliminar los globals window.open*/setUiMode sustituyendo
+> los onclick inline, revisar el roster M-B cuando Serebii publique la lista
+> completa (hoy solo lista el delta de Megas Raichu), y ejecutar ui-smoke +
+> console-smoke en CI con Chrome.
 
 ## Contexto
 

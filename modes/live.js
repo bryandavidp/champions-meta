@@ -21,15 +21,14 @@ import { evaluateKoConditions, renderKoConditionChips } from '../analysis/ko-con
 import { tickField, recalculateActiveField, applySwitchInEffects, applyMoveResolutionEffects } from '../battle/effects.js';
 import { isCanonicalSpreadMove } from '../data/canonical/dex.js';
 import { SPREAD_MOVES, GUARANTEED_MULTI_HITS } from '../core/constants.js';
+import { cloneSimulationState, getPriority } from '../app-core.js';
 import {
-  cloneSimulationState,
-  getPriority,
   getTurn1ResolvedLeadIndices,
   advanceMonTurnState,
   applyManualMoveSideEffects,
   getActionBlockReason,
   isProtectMove,
-} from '../app-core.js';
+} from './quick.js';
 
 export function isBattleFocusActive() {
   return (state.uiMode === "expert" && state.battleFocus === "active") || state.uiMode === "live";
