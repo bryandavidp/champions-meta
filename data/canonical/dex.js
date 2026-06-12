@@ -38,6 +38,9 @@ export function resolveCanonicalId(kind, value) {
   const table = tableName(kind);
   const raw = toCanonicalId(value);
   if (!raw) return '';
+  // Un id exacto SIEMPRE gana sobre un alias: evita que el alias generado de
+  // una forma (p.ej. butterfree → butterfreegmax) secuestre a la especie base.
+  if (CANONICAL_DEX[table]?.[raw]) return raw;
   return CANONICAL_DEX.aliases?.[table]?.[raw] || raw;
 }
 
