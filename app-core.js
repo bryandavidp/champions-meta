@@ -1,4 +1,4 @@
-import { DEBUG_MODE, smartLog, flowLog, debounce, resetSmartLog, configureDebugActions } from './utils/debug.js';
+import { DEBUG_MODE, smartLog, flowLog, debounce, resetSmartLog, configureDebugActions, installStateMutationTracer } from './utils/debug.js';
 import { openSetEditor, closeSetEditor, renderSetEditor, ensureEditableSet, changeCurrentPokemonFromEditor, openSetChoice, closeSetChoice, renderSetChoiceList, applySetChoice, clearSetChoiceValue, resetCurrentSetToMeta, uniqValues, getEditorMon, getQuickOptions, getTopSpreads, guessSpreadRole, getMegaForm, getChoiceStateLabel } from './editor/set-editor.js';
 import { renderDock } from './render/dock.js';
 import { renderThreats, renderOpportunities, renderStrategies, renderDefensiveAlerts } from './render/analysis.js';
@@ -244,6 +244,7 @@ export function bootstrapApp() {
     cloneSimulationState,
     getState: () => state,
   });
+  installStateMutationTracer(state);
 
   initEventBindings({
     clearAll,

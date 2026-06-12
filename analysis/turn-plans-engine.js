@@ -1799,7 +1799,8 @@ function actionHeadlinePart(action) {
 }
 
 function buildPlanHeadline(actions = []) {
-  const parts = actions.map(actionHeadlinePart).filter(Boolean).slice(0, 2);
+  // Dedupe: dos acciones equivalentes no repiten el titular ("Presion X + Presion X").
+  const parts = [...new Set(actions.map(actionHeadlinePart).filter(Boolean))].slice(0, 2);
   return parts.length ? parts.join(' + ') : 'Linea estable de apertura';
 }
 

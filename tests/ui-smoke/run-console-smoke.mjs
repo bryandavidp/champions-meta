@@ -147,6 +147,7 @@ const IGNORED_CONSOLE = [
   /Failed to load resource/i,
   /lucide/i,
   /fonts?\./i,
+  /\[STATE-TRACE\]/, // tracer de mutaciones (debug intencional)
 ];
 
 function isIgnored(text) {
@@ -252,6 +253,37 @@ try {
   if (!validation || typeof validation.legal !== 'boolean') {
     failures.push('validateCurrentTeam() no devuelve un resultado válido');
   }
+
+  // 5b. Calidad del home con un equipo cargado por especies (incluye una
+  // especie sin datos meta/fuera de roster: Amoonguss).
+  await evaluate(`(async () => { const a = await import('/teams/actions.js');
+    await a.fillTeamWithSpecies('self', ['snorlax','umbreon','toxapex','amoonguss','slowbro','corviknight']);
+    await a.fillTeamWithSpecies('enemy', ['torkoal','venusaur','charizard','typhlosion','roserade','talonflame']);
+    return true; })()`, 30000);
+  await sleep(2500);
+  const homeQuality = await evaluate(`(() => {
+    const v = window.ChampionsRules.validateCurrentTeam();
+    const title = document.getElementById('homeTacticalTitle')?.textContent.trim() || '';
+    const parts = title.split(' + ').map((p) => p.trim());
+    const planBtns = document.querySelectorAll('.home-plan-btn').length;
+    const laneNames = [...document.querySelectorAll('#homeThreatLane .home-threat-item strong')].map((el) => el.textContent.trim());
+    const fieldChip = document.getElementById('homeFieldChip')?.textContent || '';
+    const warningBadges = document.querySelectorAll('#selfSlots .slot-warning-badge').length;
+    return {
+      itemClauseViolations: v.violations.filter((x) => x.rule === 'clause-item').length,
+      duplicatedTitle: parts.length === 2 && parts[0] === parts[1],
+      planBtns,
+      laneDuplicated: new Set(laneNames).size !== laneNames.length,
+      rawWeatherChip: /\\b(sun|rain|sand|snow)\\b/.test(fieldChip),
+      warningBadges,
+    };
+  })()`);
+  if (homeQuality.itemClauseViolations > 0) failures.push(`sets sugeridos violan Item Clause (${homeQuality.itemClauseViolations})`);
+  if (homeQuality.duplicatedTitle) failures.push('el titular del plan duplica el mismo texto (X + X)');
+  if (homeQuality.planBtns < 2) failures.push(`solo ${homeQuality.planBtns} botones de plan en home (esperado >=2 con Top 3)`);
+  if (homeQuality.laneDuplicated) failures.push('la threat lane repite el mismo Pokémon');
+  if (homeQuality.rawWeatherChip) failures.push('chip de clima sin traducir (sun/rain/sand/snow crudos)');
+  if (homeQuality.warningBadges < 1) failures.push('especie sin datos meta no muestra badge de aviso en su slot');
 
   // 6. Cambiar a modo Live y Expert renderiza sus paneles sin excepciones.
   await evaluate(`window.setUiMode && window.setUiMode('live'); true;`);

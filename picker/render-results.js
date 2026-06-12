@@ -33,6 +33,13 @@ function renderTypeChips(types = []) {
 
 // Badge de legalidad según la regulación activa (rules/). No oculta el
 // resultado: marca lo ilegal para que el usuario decida.
+function isIllegalForActiveRegulation(mon) {
+  const regulationId = state.rules?.regulationId;
+  if (!regulationId) return false;
+  const legality = isSpeciesLegal(mon.name, regulationId);
+  return legality.verified && !legality.legal;
+}
+
 function renderLegalityBadge(mon) {
   const regulationId = state.rules?.regulationId;
   if (!regulationId) return '';
@@ -113,7 +120,7 @@ export function renderPokemonResults(payload, query = '') {
 
     return `
       <button
-        class="result ${active ? 'active' : ''}"
+        class="result ${active ? 'active' : ''} ${isIllegalForActiveRegulation(mon) ? 'is-illegal' : ''}"
         data-action="pick-result"
         data-name="${escapeHtml(mon.name)}"
         data-index="${idx}"

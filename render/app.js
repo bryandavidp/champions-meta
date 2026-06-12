@@ -3,7 +3,7 @@
 
 import { state } from '../core/state.js';
 import { HOME, LIVE, QUICK, UI_MODES } from '../core/dom.js';
-import { UIMODE_KEY } from '../core/constants.js';
+import { UIMODE_KEY, WEATHER_LABELS, TERRAIN_LABELS } from '../core/constants.js';
 import { flowLog } from '../utils/debug.js';
 import { renderDock } from './dock.js';
 import { getRows, renderMatrix } from '../matrix/render.js';
@@ -294,7 +294,12 @@ function renderHomeSnapshot(model) {
     </div>
     <div class="home-snapshot-main is-${escapeHtml(risk)}">
       <i data-lucide="${plan ? 'crosshair' : 'info'}"></i>
-      <strong>${escapeHtml(model.verdict || 'Completa equipos para leer el matchup')}</strong>
+      <strong>${escapeHtml(
+        // El titular ya está en el <h1>: aquí va el siguiente paso, no el eco.
+        model.verdict && model.verdict !== plan?.headline
+          ? model.verdict
+          : (model.action?.title || (plan ? `Riesgo ${risk === 'low' ? 'bajo' : risk === 'high' ? 'alto' : 'medio'}` : 'Completa equipos para leer el matchup'))
+      )}</strong>
     </div>
     <div class="home-snapshot-meta">
       <span class="ui-chip is-field"><i data-lucide="activity"></i>${escapeHtml(model.fieldContext?.label || 'Campo neutro')}</span>
@@ -309,8 +314,8 @@ function renderHomeFieldRibbon(model) {
   if (!HOME.fieldRibbon) return;
   const field = model.fieldContext?.raw || {};
   const chips = [
-    field.weather ? ['cloud-sun', `Clima ${field.weather}`, 'field'] : null,
-    field.terrain ? ['sparkles', `Terreno ${field.terrain}`, 'setup'] : null,
+    field.weather ? ['cloud-sun', `Clima ${WEATHER_LABELS[field.weather] || field.weather}`, 'field'] : null,
+    field.terrain ? ['sparkles', `Terreno ${TERRAIN_LABELS[field.terrain] || field.terrain}`, 'setup'] : null,
     field.trickRoom ? ['timer-reset', 'Trick Room', 'tempo'] : null,
     field.tailwindSelf ? ['wind', 'Tu Tailwind', 'self'] : null,
     field.tailwindEnemy ? ['wind', 'Tailwind rival', 'enemy'] : null,
@@ -320,26 +325,35 @@ function renderHomeFieldRibbon(model) {
     : '<span class="ui-chip is-field"><i data-lucide="activity"></i>Campo neutro</span>';
 }
 
-function renderHomeRecommendedBring(model) {
+function renderHomeRecommendedBring(model, allPlans = []) {
   if (!HOME.recommendedBringCard) return;
   const plan = model.recommendedPlan;
   const bring = model.recommendedBring || [];
+  // Alternativas del Top 3 (sin repetir el plan recomendado).
+  const alternatives = (allPlans || [])
+    .filter((p) => p && p.id && p.id !== plan?.id)
+    .slice(0, 2);
   HOME.recommendedBringCard.innerHTML = `
     <div class="home-card-head">
       <span class="home-section-kicker">Bring recomendado</span>
-      <span class="ui-badge is-self">${bring.length || 0}/4</span>
-    </div>
-    <div class="home-card-title-row">
-      <strong>${escapeHtml(plan?.headline || 'Esperando Top 3')}</strong>
-      ${plan?.selected ? '<span class="ui-badge is-selected"><i data-lucide="check-circle"></i>Activo</span>' : ''}
+      ${plan?.selected ? '<span class="ui-badge is-selected"><i data-lucide="check-circle"></i>Activo</span>' : `<span class="ui-badge is-self">${bring.length || 0}/4</span>`}
     </div>
     <div class="home-bring-strip">
       ${bring.length ? bring.map((mon, index) => renderHomeMonToken(mon, 'self', index < 2 ? 'lead' : (mon.role || 'back'))).join('') : '<span class="muted-small">Completa equipos para calcular el bring.</span>'}
     </div>
-    <button class="ui-action-btn is-self" type="button" data-home-action="${plan?.selected ? 'open-simulator' : plan?.id ? 'use-recommended-plan' : 'scroll-plans'}" ${plan?.id ? `data-plan-id="${escapeHtml(plan.id)}"` : ''}>
+    <button class="ui-action-btn is-self home-plan-btn" type="button" data-home-action="${plan?.selected ? 'open-simulator' : plan?.id ? 'use-recommended-plan' : 'scroll-plans'}" ${plan?.id ? `data-plan-id="${escapeHtml(plan.id)}"` : ''}>
       <i data-lucide="${plan?.selected ? 'play' : 'circle-plus'}"></i>
       ${plan?.selected ? 'Abrir simulador' : plan?.id ? 'Usar este plan' : 'Ver Top 3'}
     </button>
+    ${alternatives.length ? `
+    <div class="home-plan-alternatives">
+      ${alternatives.map((alt, i) => `
+        <button class="home-plan-alt home-plan-btn" type="button" data-home-action="use-recommended-plan" data-plan-id="${escapeHtml(alt.id)}" title="${escapeHtml(alt.headline || '')}">
+          <span>Plan ${String.fromCharCode(66 + i)}</span>
+          <small>${escapeHtml(alt.headline || 'Alternativa')}</small>
+        </button>
+      `).join('')}
+    </div>` : ''}
   `;
 }
 
@@ -375,7 +389,15 @@ function renderThreatSubject(row = {}) {
 
 function renderHomeThreatLane(model) {
   if (!HOME.threatLane) return;
-  const threats = (model.topThreats || []).slice(0, 3);
+  // Una card por Pokémon rival: agrupa duplicados quedándose con la primera
+  // (vienen ordenadas por severidad) en vez de repetir Torkoal x3.
+  const seenSubjects = new Set();
+  const threats = (model.topThreats || []).filter((row) => {
+    const key = (row.primarySubject?.label || row.family || '').toLowerCase();
+    if (!key || seenSubjects.has(key)) return false;
+    seenSubjects.add(key);
+    return true;
+  }).slice(0, 3);
   HOME.threatLane.innerHTML = `
     <div class="home-card-head">
       <span class="home-section-kicker">Threat lane</span>
@@ -445,11 +467,17 @@ export function renderHomeTacticalShell() {
     threatLimit: 4,
   });
 
+  const homeHeadline = model.recommendedPlan?.headline || model.verdict || 'Prepara el plan de partida';
   if (HOME.title) {
-    HOME.title.textContent = model.recommendedPlan?.headline || model.verdict || 'Prepara el plan de partida';
+    HOME.title.textContent = homeHeadline;
   }
   setHomeChip(HOME.fieldChip, 'activity', model.fieldContext?.label || 'Campo neutro');
-  setHomeChip(HOME.verdictChip, model.recommendedPlan ? 'crosshair' : 'info', model.verdict || 'Esperando equipos');
+  // El chip de veredicto no repite el titular que ya está en el <h1>.
+  if (HOME.verdictChip) {
+    const verdictText = model.verdict && model.verdict !== homeHeadline ? model.verdict : '';
+    HOME.verdictChip.style.display = verdictText ? '' : 'none';
+    if (verdictText) setHomeChip(HOME.verdictChip, model.recommendedPlan ? 'crosshair' : 'info', verdictText);
+  }
   setHomeChip(HOME.confidenceChip, 'gauge', confidenceLabel(model.confidence));
   if (HOME.readyChip) {
     HOME.readyChip.textContent = `${model.status.selfCount + model.status.enemyCount}/12 slots`;
@@ -459,7 +487,7 @@ export function renderHomeTacticalShell() {
   renderHomeInsightStrip(model);
   renderHomeSnapshot(model);
   renderHomeFieldRibbon(model);
-  renderHomeRecommendedBring(model);
+  renderHomeRecommendedBring(model, turnPlans.plans || []);
   renderHomeLeadPlan(model);
   renderHomeThreatLane(model);
   renderHomeDetailTeasers(model);
