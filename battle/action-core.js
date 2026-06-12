@@ -1132,6 +1132,14 @@ function performSwitch(snapshot, action, events) {
   inSlot.pokemon.active = true;
   inSlot.pokemon.volatiles.enteredThisTurn = true;
   outSlot.pokemon.active = false;
+  // Al salir del campo se pierden los volatiles ligados a la presencia:
+  // el Choice lock se libera y stages/volatiles de turno se limpian.
+  outSlot.pokemon.volatiles.choiceLocked = null;
+  outSlot.pokemon.volatiles.flinched = false;
+  outSlot.pokemon.volatiles.protected = false;
+  outSlot.pokemon.volatiles.protectedBy = null;
+  outSlot.pokemon.volatiles.helpingHand = false;
+  outSlot.pokemon.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
   events.push({ kind: 'switch', side, actor: displayName(outSlot.pokemon), into: displayName(inSlot.pokemon) });
   applySwitchInReactionsToMutable(snapshot, [{ side, slot: to, slotIndex: to, pokemon: inSlot.pokemon }], events);
   return true;

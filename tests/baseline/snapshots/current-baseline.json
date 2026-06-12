@@ -272,7 +272,7 @@
     },
     {
       "id": "fakeout.inner-focus-and-covert-cloak",
-      "note": "El baseline conserva que el daño existe, pero flinch/secondary prevention no es universal en el motor puro.",
+      "note": "El daño de Fake Out se mantiene; el flinch ya se bloquea con Inner Focus/Shield Dust/Covert Cloak en ambos pipelines (blocksFlinch).",
       "output": {
         "covertCloakDamage": {
           "blocked": false,
@@ -297,7 +297,7 @@
           "wMul": 1
         }
       },
-      "status": "known-gap aceptado temporalmente"
+      "status": "comportamiento correcto actual"
     },
     {
       "id": "survival.focus-sash-full-vs-chip",

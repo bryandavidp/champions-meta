@@ -235,7 +235,7 @@ async function main() {
     };
   }, 'Congela que algunos bloqueos dependen de registry/parches y otros son cobertura incompleta.');
 
-  addCase('fakeout.inner-focus-and-covert-cloak', CASE_STATUS.gap, () => {
+  addCase('fakeout.inner-focus-and-covert-cloak', CASE_STATUS.correct, () => {
     resetState();
     const attacker = makeMon('raichu', { ability: 'Lightning Rod', moves: ['Fake Out'], side: 'self' });
     const innerFocus = makeMon('dragonite', { ability: 'Inner Focus', moves: ['Extreme Speed'], side: 'enemy' });
@@ -245,7 +245,7 @@ async function main() {
       innerFocusDamage: compactDamage(estimateMoveDamage(attacker, innerFocus, { ...moveCandidate('Fake Out'), priority: 3 }, state.field)),
       covertCloakDamage: compactDamage(estimateMoveDamage(attacker, cloak, { ...moveCandidate('Fake Out'), priority: 3 }, state.field)),
     };
-  }, 'El baseline conserva que el daño existe, pero flinch/secondary prevention no es universal en el motor puro.');
+  }, 'El daño de Fake Out se mantiene; el flinch ya se bloquea con Inner Focus/Shield Dust/Covert Cloak en ambos pipelines (blocksFlinch).');
 
   addCase('survival.focus-sash-full-vs-chip', CASE_STATUS.correct, () => {
     resetState();

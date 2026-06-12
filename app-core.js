@@ -22,6 +22,7 @@ import { serializeSetSummary, getCacheKey, buildMetaIndex } from './data/meta.js
 import { chooseBestItem, buildDefaultSetForSpecies } from './data/sets.js';
 import { ensureBattleState, homeSpriteFromPokemon, setOnPokemonFetched } from './data/pokemon.js';
 import { ensureAbilityRegistry, ensureItemRegistry, ensureMoveRegistry, ensureStatusRegistry } from './battle/registry.js';
+import { blocksFlinch } from './battle/rule-registry.js';
 import { isSupportMove, fetchMoveInfo, getMoveCandidates } from './battle/moves.js';
 import { getSpeedModifier, calculateSpeed } from './battle/speed.js';
 import { resolveMovePriority } from './battle/formulas.js';
@@ -2402,6 +2403,12 @@ function applyManualMoveSideEffects(attacker, defender, moveName, targetSide) {
   }
 
   if (['fakeout', 'sorpresa'].includes(slug)) {
+    const defAbility = defender.set?.ability || defender.ability || '';
+    const defItem = defender.set?.item || defender.item || '';
+    if (blocksFlinch(defAbility, defItem)) {
+      const blocker = defAbility && blocksFlinch(defAbility, '') ? defAbility : defItem;
+      return `${formatName(defender.displayName || defender.name)} no retrocede (${formatName(blocker)}).`;
+    }
     defender.battle.flinched = true;
     defender.battle.flinchedBy = formatName(attacker?.displayName || attacker?.name || getTranslation(moveName, 'move') || moveName);
     return `${formatName(defender.displayName || defender.name)} queda marcado por retroceso este turno.`;
