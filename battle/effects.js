@@ -59,6 +59,31 @@ export function tickField(state) {
   f.redirectionEnemy = null;
 }
 
+function clampStage(value) {
+  return Math.max(-6, Math.min(6, value));
+}
+
+// Aplica un delta de stage registrándolo como "autogenerado" para que
+// recalculateActiveField pueda revertir SOLO lo aplicado por switch-in,
+// sin borrar stages manuales o acumulados en batalla.
+function applyAutoStageDelta(targetMon, stat, delta) {
+  if (!targetMon?.battle || !stat || !delta) return;
+  const before = targetMon.battle.stages[stat] || 0;
+  const after = clampStage(before + delta);
+  targetMon.battle.stages[stat] = after;
+  const auto = targetMon.battle.autoStages || (targetMon.battle.autoStages = {});
+  auto[stat] = (auto[stat] || 0) + (after - before);
+}
+
+function revertAutoStages(mon) {
+  if (!mon?.battle?.autoStages) return;
+  for (const [stat, delta] of Object.entries(mon.battle.autoStages)) {
+    if (!delta) continue;
+    mon.battle.stages[stat] = clampStage((mon.battle.stages[stat] || 0) - delta);
+  }
+  mon.battle.autoStages = {};
+}
+
 export function recalculateActiveField() {
   // Limpiamos los estados autogenerados
   state.field.weather = null;
@@ -66,13 +91,11 @@ export function recalculateActiveField() {
   state.field.terrain = null;
   state.field.terrainTurns = 0;
 
-  // Limpiamos los stages de los Pokémon para no acumular reducciones
-  state.self.forEach(m => {
-    if (m && m.battle) m.battle.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
-  });
-  state.enemy.forEach(m => {
-    if (m && m.battle) m.battle.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
-  });
+  // Revertimos solo los stages autogenerados por switch-in (Intimidate, etc.)
+  // para no acumular reducciones al recalcular, preservando los stages
+  // manuales o ganados en batalla.
+  state.self.forEach(revertAutoStages);
+  state.enemy.forEach(revertAutoStages);
 
   const actives = [];
   
@@ -148,21 +171,27 @@ export function applySwitchInEffects(mon, explicitSide, battleState = state) {
           if (!targetMon || !targetMon.battle) return;
 
           const abilityId = (targetMon.set?.ability || targetMon.ability || '').toLowerCase().replace(/[^a-z]/g, '');
+          const itemId = (targetMon.set?.item || targetMon.item || '').toLowerCase().replace(/[^a-z]/g, '');
           let finalValue = value;
 
           if (value < 0 && targetSide === oppSide) {
-             if (['defiant', 'competitive', 'competitivo', 'tenacidad'].includes(abilityId)) {
-                 if (stat === 'atk') {
-                     finalValue = 1; // Intimidación (-1) + Tenacidad (+2) = +1 Atk
-                 } else {
-                     targetMon.battle.stages['atk'] = Math.max(-6, Math.min(6, (targetMon.battle.stages['atk'] || 0) + 2));
-                 }
-             } else if (['clearbody', 'innerfocus', 'hypercutter', 'guarddog', 'focointerno', 'cuerpopuro'].includes(abilityId)) {
-                 finalValue = 0; // Inmunidad a bajadas
+             if (['clearbody', 'cuerpopuro', 'whitesmoke', 'fullmetalbody'].includes(abilityId)
+                 || ['clearamulet', 'amuletopuro'].includes(itemId)
+                 || (abilityId === 'hypercutter' && stat === 'atk')
+                 || (['innerfocus', 'focointerno', 'oblivious', 'owntempo', 'scrappy'].includes(abilityId) && stat === 'atk')) {
+                 finalValue = 0; // Inmunidad a la bajada (Intimidate incluido)
+             } else if (['guarddog', 'perroguardian'].includes(abilityId)) {
+                 // Guard Dog: inmune a Intimidate y además sube +1 Atk
+                 finalValue = 0;
+                 applyAutoStageDelta(targetMon, 'atk', 1);
+             } else if (['defiant', 'tenacidad'].includes(abilityId)) {
+                 applyAutoStageDelta(targetMon, 'atk', 2); // Defiant: +2 Atk por cada bajada
+             } else if (['competitive', 'competitivo'].includes(abilityId)) {
+                 applyAutoStageDelta(targetMon, 'spa', 2); // Competitive: +2 SpA por cada bajada
              }
           }
 
-          targetMon.battle.stages[stat] = Math.max(-6, Math.min(6, (targetMon.battle.stages[stat] || 0) + finalValue));
+          applyAutoStageDelta(targetMon, stat, finalValue);
         });
       }
 

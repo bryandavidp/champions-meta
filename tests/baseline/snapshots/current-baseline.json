@@ -490,9 +490,9 @@
           "spe": 0
         },
         "competitiveStages": {
-          "atk": 1,
+          "atk": -1,
           "def": 0,
-          "spa": 0,
+          "spa": 2,
           "spd": 0,
           "spe": 0
         },
@@ -1296,7 +1296,7 @@
           "spe": 0
         },
         "tyranitarStagesAfterRecalc": {
-          "atk": 0,
+          "atk": 2,
           "def": 0,
           "spa": 0,
           "spd": 0,

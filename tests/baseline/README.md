@@ -49,3 +49,6 @@ Esta suite no intenta corregir el motor. Su objetivo es que cualquier cambio fut
 - 2026-06-12 (unificación del motor en `battle/formulas.js`):
   - `damage.weather-ball-by-weather` (clave `sand`): el daño especial contra tipos Roca bajo arena ahora aplica el boost defensivo oficial x1.5 de SpD (antes se ignoraba; 79 → 53).
   - `speed.*` (Whimsicott): la prioridad ahora se resuelve con el dex canónico + habilidades; el Tailwind de un usuario Prankster aparece como ventana de prioridad +1 (antes se listaba "Ataque normal +0").
+- 2026-06-12 (switch-in idempotente y reacciones a Intimidate):
+  - `switchin.intimidate-reactions` (known-gap → corregido): Competitive ahora reacciona con +2 SpA conservando el -1 Atk (antes subía Atk por error).
+  - `effects.recalculate-active-field-mutation-baseline` (known-gap → corregido): `recalculateActiveField()` ya no borra todos los stages; solo revierte los deltas autogenerados por switch-in (`battle.autoStages`), preservando stages manuales o ganados en batalla.
