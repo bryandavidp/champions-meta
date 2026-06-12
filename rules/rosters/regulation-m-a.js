@@ -4,7 +4,7 @@
 // GENERADO desde la lista oficial "Newly Useable Pokémon" de Serebii
 // (serebii.net/pokemonchampions/rankedbattle/regulationm-a.shtml,
 // extraído el 2026-06-12 parseando los iconos nº de dex + sufijo de forma).
-// 259 ids canónicos: 183 especies base + 60 Megas (Meowstic tiene Mega por
+// 261 ids canónicos: 185 especies base + 60 Megas (Meowstic tiene Mega por
 // género) + formas regionales. Todos los ids validados contra
 // data/canonical/generated.js (tests/rules).
 // Mega Lucario Z y Mega Garchomp Z NO están en el roster (restringidas).
@@ -149,6 +149,7 @@ export const REGULATION_M_A_ROSTER = [
   'kingambit',
   'kleavor',
   'klefki',
+  'kommoo',
   'krookodile',
   'leafeon',
   'liepard',
@@ -174,6 +175,7 @@ export const REGULATION_M_A_ROSTER = [
   'milotic',
   'mimikyu',
   'morpeko',
+  'mrrime',
   'mudsdale',
   'ninetales',
   'ninetalesalola',
