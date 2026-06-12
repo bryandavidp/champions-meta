@@ -358,6 +358,7 @@
         blocksStatusMoves: false,
         blocksSecondary: false,
         blocksStatDrops: false,
+        blocksMajorStatus: false,
         choiceLocked: false,
         forbidsStatusMoves: false,
         ignoreWeatherDamage: false,
@@ -432,6 +433,13 @@
             break;
           case 'block_stat_drop':
             result.flags.blocksStatDrops = true;
+            break;
+          case 'major_status_immunity':
+            // Inmunidad a estados mayores (Purifying Salt). Si el seed declara
+            // una lista en value, solo bloquea esos estados.
+            if (!Array.isArray(effect.value) || !context.statusId || effect.value.map(function (s) { return slugify(s, 'status'); }).indexOf(slugify(context.statusId, 'status')) !== -1) {
+              result.flags.blocksMajorStatus = true;
+            }
             break;
           case 'choice_lock':
             result.flags.choiceLocked = true;
