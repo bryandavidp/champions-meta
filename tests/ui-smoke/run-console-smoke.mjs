@@ -253,6 +253,34 @@ try {
     failures.push('validateCurrentTeam() no devuelve un resultado válido');
   }
 
+  // 6. Cambiar a modo Live y Expert renderiza sus paneles sin excepciones.
+  await evaluate(`window.setUiMode && window.setUiMode('live'); true;`);
+  await sleep(1500);
+  // #liveStatePanel está comentado en index.html: la UI real de Live es la
+  // toolbar de urgencia + la matriz con slots activos.
+  const liveReport = await evaluate(`(() => {
+    const toolbar = document.getElementById('liveBattleToolbar');
+    const matrix = document.getElementById('matrixContainer');
+    return {
+      mode: window.state.uiMode,
+      toolbarVisible: !!toolbar && getComputedStyle(toolbar).display !== 'none',
+      toolbarHasContent: !!toolbar && toolbar.innerHTML.trim().length > 50,
+      matrixRows: matrix ? matrix.querySelectorAll('tr').length : 0,
+    };
+  })()`);
+  if (!liveReport || liveReport.mode !== 'live') failures.push('setUiMode("live") no activó el modo Live');
+  else if (!liveReport.toolbarVisible || !liveReport.toolbarHasContent) failures.push(`la toolbar Live no renderizó (${JSON.stringify(liveReport)})`);
+  else if (liveReport.matrixRows < 2) failures.push('la matriz no renderizó filas en modo Live');
+
+  await evaluate(`window.setUiMode('expert'); true;`);
+  await sleep(1500);
+  const expertReport = await evaluate(`(() => {
+    const matrix = document.getElementById('matrixContainer');
+    return { mode: window.state.uiMode, matrixRows: matrix ? matrix.querySelectorAll('tr').length : 0 };
+  })()`);
+  if (!expertReport || expertReport.mode !== 'expert') failures.push('setUiMode("expert") no activó el modo Expert');
+  else if (expertReport.matrixRows < 2) failures.push(`la matriz no renderizó filas en Expert (${expertReport?.matrixRows})`);
+
   await client.send('Target.closeTarget', { targetId });
 } catch (error) {
   failures.push(error.message);
