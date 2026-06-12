@@ -66,10 +66,30 @@ import {
 } from './core/constants.js';
 
 import { setEffectsActiveIndicesCallback } from './battle/effects.js';
+import * as championsRules from './rules/index.js';
 // Expose openSetEditor globally so it can be called by inline onclick handlers if any
 window.openSetEditor = openSetEditor;
 window.openModal = openModal;
 window.setUiMode = setUiMode;
+
+// Capa de regulaciones oficiales (rules/): expuesta para la UI y la consola.
+// validateCurrentTeam() valida el equipo propio contra la regulación activa
+// en state.rules (cláusulas species/item, tamaño, vetos y roster si existe).
+window.ChampionsRules = {
+  ...championsRules,
+  validateCurrentTeam() {
+    return championsRules.validateTeam(state.self, {
+      regulation: state.rules?.regulationId,
+      format: state.rules?.format || 'doubles',
+    });
+  },
+  setRegulation(regulationId) {
+    const reg = championsRules.getRegulation(regulationId);
+    if (!reg) return null;
+    state.rules = { ...(state.rules || {}), regulationId: reg.id };
+    return reg;
+  },
+};
 setEffectsActiveIndicesCallback((side) => state.uiMode === 'quick' ? quickMode.getTurn1ResolvedLeadIndices(side) : (side === 'self' ? state.activeSelfSlots : state.activeEnemySlots));
 
 // Prioridad unificada: dex can\u00f3nico + habilidades (battle/formulas.js).

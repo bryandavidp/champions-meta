@@ -1,7 +1,14 @@
 import { RATING_STORAGE_KEY } from './constants.js';
+import { getActiveRegulation } from '../rules/regulations.js';
 
 export function createInitialState() {
   return {
+    // Regulación competitiva activa (rules/): se resuelve por fecha y el
+    // usuario puede cambiarla; 'doubles' es el único formato cableado.
+    rules: {
+      regulationId: getActiveRegulation()?.id || 'M-B',
+      format: 'doubles',
+    },
     self: Array(6).fill(null),
     enemy: Array(6).fill(null),
     modal: { side: "self", index: 0 },
