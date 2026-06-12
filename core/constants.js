@@ -3,6 +3,7 @@ export const MODULE_READY = true;
 export const STORAGE_KEY = "offensive-matrix-saved-teams-v4";
 export const CACHE_KEY_PREFIX = "smogon-chaos-cache-2026-04-";
 export const RATING_STORAGE_KEY = "smogon-champions-rating";
+export const REGULATION_STORAGE_KEY = "champions-regulation-v1";
 export const SMOGON_MONTH = "2026-04";
 export const SMOGON_BASE = "./data/";
 

@@ -13,11 +13,21 @@
 > endurecido (link único de grafo). 9 suites en verde
 > (`node --experimental-vm-modules tests/<suite>/run-*.mjs`).
 >
-> Pendiente (fases siguientes): poblar rosters M-A/M-B con fuente oficial +
-> overrides de Megas exclusivas de Champions, unificar `getRows()` de matrix,
-> Choice lock lifecycle, Fake Out vs Inner Focus/Covert Cloak en action-core,
-> integración UI del selector de regulación y badges de legalidad, migración de
-> storage v4→v5, extracción de modos de app-core, ui-smoke (requiere Chrome).
+> Segunda tanda (2026-06-12, tarde): rosters M-A (259 ids) y M-B poblados desde
+> la lista oficial de Serebii y validados contra el dex (las Megas exclusivas
+> de Champions SÍ existen en @pkmn/dex 0.10.9 — premisa corregida, sin overrides
+> manuales); selector de regulación en la cabecera con persistencia; badge
+> "Ilegal M-X" en el picker; migración de storage v4→v5 con saneo de shape;
+> Fake Out respeta Inner Focus/Covert Cloak también en el simulador de la app;
+> el Choice lock se libera al cambiar (y el que sale limpia stages/volatiles);
+> suite tests/storage nueva. La "duplicación" de getRows() se descartó: render
+> ya delegaba en matrix/core (es un adaptador, no un duplicado).
+>
+> Pendiente (fases siguientes): extracción de la implementación de Quick/Live
+> de app-core.js a modes/, consolidación de listeners inline, sanear los kinds
+> inventados de effects-master.seed.json, ui-smoke en CI con Chrome, y revisión
+> del roster M-B cuando Serebii publique la lista completa (hoy solo lista el
+> delta de Megas Raichu).
 
 ## Contexto
 
