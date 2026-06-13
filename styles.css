@@ -10803,3 +10803,54 @@ body[data-ui-mode="live"] #matrixPanel { order: -2; }
   .home-tactical-status-row .home-status-chip.is-plan { display: none; }
   #loadDemoBtn { padding: 4px 10px; font-size: 0.7rem; }
 }
+
+
+/* === Fase 3: acordeón "Más detalles" (progressive disclosure) === */
+.home-more { padding: 0; }
+.home-more__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-caption);
+  list-style: none;
+  min-height: var(--touch-target);
+}
+.home-more__summary::-webkit-details-marker { display: none; }
+.home-more__summary > span:first-child { display: inline-flex; align-items: center; gap: var(--space-2); }
+.home-more[open] .home-more__summary { border-bottom: 1px solid var(--line); }
+.home-more__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+/* === Fase 2: header de 2 fases + menú de ajustes ============= */
+.phase-switch { font-weight: var(--fw-black); }
+.phase-switch .segmented-btn { min-height: var(--touch-target); padding: var(--space-2) var(--space-4); }
+
+.actions { position: relative; }
+
+.settings-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-2));
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  width: min(280px, 92vw);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line2);
+  background: var(--panel2);
+  box-shadow: var(--shadow);
+}
+.settings-popover[hidden] { display: none; }
+.settings-popover .select-pill { width: 100%; justify-content: space-between; }
+.settings-popover__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.settings-popover__actions .btn { flex: 1; min-height: var(--touch-target); justify-content: center; }

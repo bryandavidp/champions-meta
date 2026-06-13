@@ -41,96 +41,83 @@
         </div>
 
         <div class="actions">
-          <label class="select-pill">
-            <span>Regulación</span>
-            <select id="regulationSelect">
-              <option value="M-A">M-A</option>
-              <option value="M-B">M-B</option>
-            </select>
-          </label>
-          <label class="select-pill">
-            <span>Corte</span>
-            <select id="ratingSelect">
-              <option value="1760">1760</option>
-              <option value="1630">1630</option>
-              <option value="1500">1500</option>
-              <option value="0">0</option>
-            </select>
-          </label>
-          <div class="segmented-control" id="uiModeToggle" aria-label="Cambiar modo de interfaz">
+          <div class="segmented-control phase-switch" id="uiModeToggle" aria-label="Fase de la partida">
             <button type="button" class="segmented-btn active" data-mode="quick">
-              <i data-lucide="zap"></i>
-              Quick
-            </button>
-            <button type="button" class="segmented-btn" data-mode="expert">
-              <i data-lucide="sliders-horizontal"></i>
-              Expert
+              <i data-lucide="clipboard-list"></i>
+              Preparar
             </button>
             <button type="button" class="segmented-btn" data-mode="live">
-              <i data-lucide="activity"></i>
-              Live
+              <i data-lucide="swords"></i>
+              En combate
             </button>
           </div>
-          <button class="btn gold" id="loadDemoBtn">Ejemplo</button>
-          <button class="btn blue icon-only" id="swapBtn" title="Swap"><i data-lucide="refresh-cw"></i></button>
-          <button class="btn red icon-only" id="clearBtn" title="Limpiar"><i data-lucide="trash-2"></i></button>
+          <button class="btn ghost icon-only" id="settingsToggleBtn" title="Ajustes" aria-expanded="false" aria-controls="settingsPopover"><i data-lucide="settings-2"></i></button>
+          <div class="settings-popover" id="settingsPopover" hidden>
+            <label class="select-pill">
+              <span>Regulación</span>
+              <select id="regulationSelect">
+                <option value="M-A">M-A</option>
+                <option value="M-B">M-B</option>
+              </select>
+            </label>
+            <label class="select-pill">
+              <span>Corte</span>
+              <select id="ratingSelect">
+                <option value="1760">1760</option>
+                <option value="1630">1630</option>
+                <option value="1500">1500</option>
+                <option value="0">0</option>
+              </select>
+            </label>
+            <div class="settings-popover__actions">
+              <button class="btn gold" id="loadDemoBtn">Cargar ejemplo</button>
+              <button class="btn blue" id="swapBtn"><i data-lucide="refresh-cw"></i> Intercambiar</button>
+              <button class="btn red" id="clearBtn"><i data-lucide="trash-2"></i> Limpiar</button>
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div class="hero-stats-compact">
-        <div class="tiny-chip home-metric home-metric--strong">
-          <span>Fuertes</span> <span id="metricStrong">0</span>
-        </div>
-        <div class="tiny-chip home-metric home-metric--peak">
-          <span>Pico</span> <span id="metricPeak">×0</span>
-        </div>
-        <div class="tiny-chip home-metric">
-          <span>Meta</span> <span id="metricMeta">Cargando</span>
-        </div>
-        <div class="tiny-chip home-metric" title="Cruces Totales">
-          <span id="metricCross">0</span> cruces
-        </div>
-        <div style="display:none;" id="metricAvg">0.00</div>
-        <div style="display:none;" id="metaStatusText">Smogon Champions OU 2026-04</div>
       </div>
     </section>
 
     <section class="panel home-decision-panel" id="homeDecisionPanel">
-      <div class="home-snapshot-card ui-card is-field" id="homeSnapshotCard"></div>
-      <div class="home-field-ribbon ui-ribbon" id="homeFieldRibbon"></div>
       <div class="home-decision-grid">
         <article class="home-recommended-card ui-card is-self" id="homeRecommendedBringCard"></article>
         <article class="home-lead-plan-card ui-card is-tempo" id="homeLeadPlanCard"></article>
       </div>
       <section class="home-threat-lane ui-card is-enemy" id="homeThreatLane"></section>
-      <div class="home-detail-teasers" id="homeDetailTeasers"></div>
     </section>
 
-    <section class="panel home-matchup-panel" id="homeMatchupPanel">
-      <div class="home-matchup-head">
-        <div>
-          <span class="home-section-kicker">Lectura inicial</span>
-          <h2>Tu equipo vs rival</h2>
-        </div>
+    <details class="panel home-more" id="homeMorePanel">
+      <summary class="home-more__summary">
+        <span><i data-lucide="layers"></i> Más detalles del matchup</span>
         <span class="home-matchup-ready" id="homeReadyChip">0/12 slots</span>
-      </div>
-      <div class="home-team-rail" id="homeTeamRail" aria-label="Comparacion rapida de equipos">
-        <div class="home-team-side is-self">
-          <span><i data-lucide="shield"></i> Tu lado</span>
-          <div class="home-team-slots" id="homeSelfRail"></div>
+      </summary>
+      <div class="home-more__body">
+        <div class="home-field-ribbon ui-ribbon" id="homeFieldRibbon"></div>
+        <div class="home-team-rail" id="homeTeamRail" aria-label="Comparacion rapida de equipos">
+          <div class="home-team-side is-self">
+            <span><i data-lucide="shield"></i> Tu lado</span>
+            <div class="home-team-slots" id="homeSelfRail"></div>
+          </div>
+          <div class="home-team-vs">VS</div>
+          <div class="home-team-side is-enemy">
+            <span><i data-lucide="swords"></i> Rival</span>
+            <div class="home-team-slots" id="homeEnemyRail"></div>
+          </div>
         </div>
-        <div class="home-team-vs">VS</div>
-        <div class="home-team-side is-enemy">
-          <span><i data-lucide="swords"></i> Rival</span>
-          <div class="home-team-slots" id="homeEnemyRail"></div>
-        </div>
+        <div class="home-insight-strip" id="homeInsightStrip"></div>
+        <div class="home-detail-teasers" id="homeDetailTeasers"></div>
       </div>
-      <div class="home-insight-strip" id="homeInsightStrip"></div>
-    </section>
+    </details>
 
-    <section class="panel turn-branches-panel" id="turnBranchesPanel" style="display: none;">
+    <div class="home-snapshot-card ui-card is-field" id="homeSnapshotCard" hidden></div>
+
+    <details class="panel turn-branches-panel" id="turnBranchesPanel" style="display: none;">
+      <summary class="home-more__summary">
+        <span><i data-lucide="git-branch"></i> Análisis de los 3 planes</span>
+      </summary>
       <div id="turnBranchesContent"></div>
-    </section>
+    </details>
 
     <section class="panel" id="quickPreviewPanel" style="display: none;">
       <div class="premium-header">

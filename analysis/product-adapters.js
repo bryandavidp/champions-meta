@@ -264,7 +264,7 @@ function buildHomeAction(appState = {}, recommendedPlan = null, status = {}) {
     return {
       kind: 'complete-teams',
       label: status.selfCount < 6 ? 'Completar mi equipo' : 'Completar rival',
-      title: `${status.selfCount + status.enemyCount}/12 slots cargados`,
+      title: `Tú ${status.selfCount}/6 · Rival ${status.enemyCount}/6`,
     };
   }
   if (recommendedPlan?.id && !recommendedPlan.selected) {
@@ -272,7 +272,8 @@ function buildHomeAction(appState = {}, recommendedPlan = null, status = {}) {
       kind: 'use-recommended-plan',
       planId: recommendedPlan.id,
       label: 'Usar plan',
-      title: recommendedPlan.headline || 'Plan recomendado listo',
+      // No repetir el titular (ya está en el h1): mostrar el siguiente paso.
+      title: 'Fija el plan para abrir el simulador',
     };
   }
   if (appState.chosenFour?.length >= 4) {

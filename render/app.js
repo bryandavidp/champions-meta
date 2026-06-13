@@ -280,7 +280,9 @@ function renderActionPill(action = {}, index = 0) {
 }
 
 function renderHomeSnapshot(model) {
-  if (!HOME.snapshotCard) return;
+  // El snapshot se fusionó en el header (un dato, un lugar): el elemento
+  // permanece oculto por compatibilidad y no se renderiza.
+  if (!HOME.snapshotCard || HOME.snapshotCard.hidden) return;
   const plan = model.recommendedPlan || null;
   const risk = plan?.riskLevel || (model.risks?.[0]?.severity || 'medium');
   const unsupported = (model.unsupportedMechanics || []).length;
@@ -480,7 +482,7 @@ export function renderHomeTacticalShell() {
   }
   setHomeChip(HOME.confidenceChip, 'gauge', confidenceLabel(model.confidence));
   if (HOME.readyChip) {
-    HOME.readyChip.textContent = `${model.status.selfCount + model.status.enemyCount}/12 slots`;
+    HOME.readyChip.textContent = `Tú ${model.status.selfCount}/6 · Rival ${model.status.enemyCount}/6`;
     HOME.readyChip.classList.toggle('is-ready', model.status.readyForPreview);
   }
   renderHomeRail(model);
@@ -616,24 +618,38 @@ export function setUiMode(mode) {
 
 export function renderUiMode() {
   const isQuick = state.uiMode === 'quick';
+  const isExpert = state.uiMode === 'expert';
   const isLive = state.uiMode === 'live';
-  const hideExpertPanels = isQuick || isLive;
 
+  // Navegación por 2 fases. PREPARAR = quick (home answer-first) + Matriz
+  // avanzada (expert, sub-vista). EN COMBATE = live (toolbar de urgencia,
+  // matchup de activos y matriz de activos arriba).
+  const activePhase = isLive ? 'live' : 'quick';
   document.querySelectorAll('#uiModeToggle .segmented-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.mode === state.uiMode);
+    btn.classList.toggle('active', btn.dataset.mode === activePhase);
   });
   document.body.dataset.uiMode = state.uiMode;
+  document.body.dataset.phase = activePhase;
 
   if (QUICK.previewPanel) QUICK.previewPanel.style.display = 'none';
   if (QUICK.combosSection) QUICK.combosSection.style.display = 'none';
   const quickPlanActive = state.chosenFour?.length >= 4 && !!state.turnPlanSelection?.planId;
   if (QUICK.turn1Panel) QUICK.turn1Panel.style.display = isQuick && quickPlanActive ? 'block' : 'none';
 
+  // El home answer-first (decisión + acordeón de detalles) es de la fase
+  // Preparar/quick. En Combate y en Matriz avanzada cede el sitio.
+  if (HOME.decisionPanel) HOME.decisionPanel.style.display = isQuick ? '' : 'none';
+  const morePanel = document.getElementById('homeMorePanel');
+  if (morePanel) morePanel.style.display = isQuick ? '' : 'none';
+
+  // La matriz se muestra en Matriz avanzada (6x6) y en Combate (activos 2x2).
   const matrixSection = UI_MODES.matrixSectionTitle?.closest('section');
-  if (matrixSection) matrixSection.style.display = hideExpertPanels ? 'none' : 'block';
-  if (UI_MODES.insightGrid) UI_MODES.insightGrid.style.display = hideExpertPanels ? 'none' : 'grid';
-  if (UI_MODES.defensiveAlertFloat) UI_MODES.defensiveAlertFloat.style.display = hideExpertPanels ? 'none' : 'flex';
-  if (UI_MODES.turnBranchesPanel) UI_MODES.turnBranchesPanel.style.display = (isQuick || isLive || state.uiMode === 'expert') ? 'block' : 'none';
+  if (matrixSection) matrixSection.style.display = (isExpert || isLive) ? 'block' : 'none';
+  // El análisis extendido (insights/alertas) es de Matriz avanzada.
+  if (UI_MODES.insightGrid) UI_MODES.insightGrid.style.display = isExpert ? 'grid' : 'none';
+  if (UI_MODES.defensiveAlertFloat) UI_MODES.defensiveAlertFloat.style.display = isExpert ? 'flex' : 'none';
+  // Top-3 detallado: planificación (Preparar/expert). En combate manda el planner vivo.
+  if (UI_MODES.turnBranchesPanel) UI_MODES.turnBranchesPanel.style.display = (isQuick || isExpert) ? 'block' : 'none';
 }
 
 export function setBatchUpdating(val) {

@@ -134,7 +134,7 @@ function handleHomeAction(node) {
   }
 
   if (action === 'scroll-plans') {
-    document.getElementById('turnBranchesPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    (() => { const p = document.getElementById('turnBranchesPanel'); if (p) { p.open = true; p.scrollIntoView({ behavior: 'smooth', block: 'start' }); } })();
     return true;
   }
 
@@ -525,6 +525,26 @@ export function initEventBindings(callbacks = {}) {
 
   if (enemyTeamConfigBtn) {
     enemyTeamConfigBtn.addEventListener('click', () => renderTeamConfigDrawer('enemy'));
+  }
+
+  const settingsToggleBtn = document.getElementById('settingsToggleBtn');
+  const settingsPopover = document.getElementById('settingsPopover');
+  if (settingsToggleBtn && settingsPopover) {
+    const closeSettings = () => {
+      settingsPopover.hidden = true;
+      settingsToggleBtn.setAttribute('aria-expanded', 'false');
+    };
+    settingsToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = settingsPopover.hidden;
+      settingsPopover.hidden = !open;
+      settingsToggleBtn.setAttribute('aria-expanded', String(open));
+    });
+    document.addEventListener('click', (e) => {
+      if (settingsPopover.hidden) return;
+      if (!settingsPopover.contains(e.target) && e.target !== settingsToggleBtn) closeSettings();
+    });
+    settingsPopover.addEventListener('click', (e) => e.stopPropagation());
   }
 
   if (regulationSelect) {
