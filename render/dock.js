@@ -3,6 +3,15 @@
 
 import { state } from '../core/state.js';
 import { DOCK } from '../core/dom.js';
+import { isSpeciesLegal } from '../rules/index.js';
+
+function slotWarning(mon) {
+  if (!mon) return null;
+  const legality = isSpeciesLegal(mon, state.rules?.regulationId);
+  if (legality.verified && !legality.legal) return `Fuera de las reglas: ${legality.reason}`;
+  if (mon.set?._generic) return 'Sin datos meta: set genérico, revisa movimientos y objeto';
+  return null;
+}
 
 export function renderDock(side) {
   const arr = state[side];
@@ -23,9 +32,12 @@ export function renderDock(side) {
         ? `<div class="chosen-badge">${chosenIndex + 1}</div>`
         : '';
 
+      const warning = slotWarning(mon);
+
       return `
-          <button class="mini-slot" data-action="pick" data-side="${side}" data-index="${idx}" aria-label="${mon.displayName}" ${side === "enemy" ? `data-scout="${mon.name}"` : ""}>
+          <button class="mini-slot ${warning ? 'has-warning' : ''}" data-action="pick" data-side="${side}" data-index="${idx}" aria-label="${mon.displayName}" ${side === "enemy" ? `data-scout="${mon.name}"` : ""}>
             ${chosenBadge}
+            ${warning ? `<span class="slot-warning-badge" title="${warning}">!</span>` : ''}
             ${mon.name.includes("-mega") ? '<div class="mega-icon"></div>' : ""}
             <img src="${mon.sprite}" alt="${mon.displayName}" loading="lazy">
             ${side === "self" ? `<span class="slot-edit-dot" title="Set configurado"></span>` : ""}

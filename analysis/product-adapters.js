@@ -4,6 +4,7 @@ import {
   DATA_VERSION,
   stableStringify,
 } from '../battle/snapshot.js';
+import { WEATHER_LABELS, TERRAIN_LABELS } from '../core/constants.js';
 import {
   buildSnapshotCacheKey,
   buildVersionedCacheKey,
@@ -250,8 +251,8 @@ function compactLegacyBring(appState = {}) {
 
 function fieldLabel(field = {}) {
   const labels = [];
-  if (field.weather) labels.push(`Clima: ${field.weather}`);
-  if (field.terrain) labels.push(`Terreno: ${field.terrain}`);
+  if (field.weather) labels.push(`Clima: ${WEATHER_LABELS[field.weather] || field.weather}`);
+  if (field.terrain) labels.push(`Terreno: ${TERRAIN_LABELS[field.terrain] || field.terrain}`);
   if (field.trickRoom) labels.push('Trick Room');
   if (field.tailwindSelf) labels.push('Tu Tailwind');
   if (field.tailwindEnemy) labels.push('Tailwind rival');

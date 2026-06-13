@@ -2,7 +2,7 @@ import { TEST_TEAMS } from '../core/constants.js';
 import { state } from '../core/state.js';
 import { getSavedTeams } from './storage.js';
 import { fetchPokemon, ensureBattleState } from '../data/pokemon.js';
-import { buildDefaultSetForSpecies } from '../data/sets.js';
+import { buildDefaultSetForSpecies, resolveTeamItems } from '../data/sets.js';
 import { flowLog } from '../utils/debug.js';
 import { scheduleMoveWarmup, requestUiRender, setBatchUpdatingBridge } from '../bridges/ui-bridges.js';
 
@@ -76,6 +76,7 @@ export async function fillTeamWithSpecies(side, speciesList) {
         mons.push(mon);
       } catch {}
     }
+    resolveTeamItems(mons);
     state[side] = mons;
     while (state[side].length < 6) state[side].push(null);
 

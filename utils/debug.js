@@ -41,6 +41,32 @@ export function setDebugMode(force) {
     return DEBUG_MODE;
 }
 
+// Tracer de mutaciones "sensibles" del estado (chosenFour, leads.self,
+// activeSelfSlots): el usuario reportó cambios repentinos de equipo no
+// iniciados por él. Con DEBUG_MODE activo, cada REASIGNACIÓN de estos campos
+// queda en consola con su stack para identificar al responsable.
+export function installStateMutationTracer(state) {
+    const trace = (field, value) => {
+        if (!DEBUG_MODE) return;
+        const stack = (new Error().stack || '').split('\n').slice(2, 5).join(' <- ');
+        console.warn(`[STATE-TRACE] ${field} = ${JSON.stringify(value)} | ${stack}`);
+    };
+    const watch = (obj, key, label) => {
+        let current = obj[key];
+        try {
+            Object.defineProperty(obj, key, {
+                configurable: true,
+                enumerable: true,
+                get() { return current; },
+                set(value) { trace(label, value); current = value; },
+            });
+        } catch { /* entorno sin defineProperty utilizable: tracer opcional */ }
+    };
+    watch(state, 'chosenFour', 'state.chosenFour');
+    watch(state, 'activeSelfSlots', 'state.activeSelfSlots');
+    if (state.leads) watch(state.leads, 'self', 'state.leads.self');
+}
+
 export function configureDebugActions(callbacks = {}) {
     if (typeof callbacks.renderAll === 'function') {
         renderAllCallback = callbacks.renderAll;
