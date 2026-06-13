@@ -56,6 +56,42 @@
   --shadow-card: 0 14px 32px rgba(0, 0, 0, 0.32);
   --touch-target: 44px;
   --z-sticky-home: 85;
+
+  /* === Escala de espaciado (Fase 0 del rediseño) ============= */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* === Escala tipográfica: 5 niveles ========================= */
+  --fs-micro: 0.62rem;   /* chips, badges, micro-etiquetas */
+  --fs-caption: 0.72rem; /* subtítulos, metadatos */
+  --fs-body: 0.85rem;    /* texto base */
+  --fs-h2: 1rem;         /* títulos de sección */
+  --fs-h1: 1.25rem;      /* titular principal */
+  --fw-regular: 400;
+  --fw-medium: 600;
+  --fw-bold: 800;
+  --fw-black: 900;
+
+  /* === Color derivado tokenizado (intents) =================== */
+  --intent-danger-soft: rgba(255, 95, 87, 0.14);
+  --intent-danger-line: rgba(255, 95, 87, 0.4);
+  --intent-safe-soft: rgba(48, 209, 88, 0.14);
+  --intent-safe-line: rgba(48, 209, 88, 0.4);
+  --intent-tempo-soft: rgba(77, 215, 255, 0.14);
+  --intent-tempo-line: rgba(77, 215, 255, 0.4);
+  --intent-field-soft: rgba(255, 211, 90, 0.14);
+  --intent-field-line: rgba(255, 211, 90, 0.4);
+  --intent-setup-soft: rgba(167, 139, 250, 0.14);
+  --intent-setup-line: rgba(167, 139, 250, 0.4);
+
+  /* === Breakpoints estándar (referencia; las @media usan literales) ===
+     sm: 480px · md: 768px · lg: 1024px */
 }
 
 * {
@@ -455,11 +491,12 @@ button:active,
   position: relative;
   z-index: 1;
   width: min(1180px, 100%);
-  /* CORRECCIÓN CRÍTICA: Cambiamos margin por padding y lo hacemos gigante para superar el dock */
   margin: 6px auto 0 auto;
-  padding: 0 5px 240px !important;
+  /* Reserva para el dock fijo inferior (.picker-dock). Tokenizado: JS puede
+     ajustar --dock-clearance a la altura real; el default cubre el caso peor. */
+  padding: 0 var(--space-2) var(--dock-clearance, 240px);
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .panel {
