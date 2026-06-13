@@ -5,6 +5,7 @@ import { state } from '../core/state.js';
 import { SET_EDITOR, PICKER } from '../core/dom.js';
 import { getTranslation, normalizeText, formatName, escapeHtml } from '../utils/text.js';
 import { serializeSetSummary, getMetaRecord } from '../data/meta.js';
+import { buildDefaultSetForSpecies } from '../data/sets.js';
 import { getResolvedEvs, looksCompactEvSpread, parseSpread } from '../battle/stats.js';
 import { topEntries, typeChip } from '../utils/types.js';
 import { MEGA_STONES, TYPE_META } from '../core/constants.js';
@@ -338,6 +339,13 @@ export function renderSetEditor() {
               )
               .join("")}
           </div>
+          ${(() => {
+            const total = evStatMeta.reduce((acc, { key }) => acc + (Number(evs[key]) || 0), 0);
+            const over = total > 508;
+            return `<div class="ev-total ${over ? 'is-over' : ''}">
+              EVs ${total}/508${over ? ' · supera el máximo legal' : ''}
+            </div>`;
+          })()}
         </article>
 
         <article class="editor-section">

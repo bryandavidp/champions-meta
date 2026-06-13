@@ -10854,3 +10854,14 @@ body[data-ui-mode="live"] #matrixPanel { order: -2; }
 .settings-popover .select-pill { width: 100%; justify-content: space-between; }
 .settings-popover__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .settings-popover__actions .btn { flex: 1; min-height: var(--touch-target); justify-content: center; }
+
+
+/* === Fase 5: total de EVs en vivo ============================ */
+.ev-total {
+  margin-top: var(--space-2);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-bold);
+  color: var(--muted);
+  text-align: right;
+}
+.ev-total.is-over { color: var(--intent-danger); }

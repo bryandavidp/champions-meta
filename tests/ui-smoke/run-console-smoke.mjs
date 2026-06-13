@@ -248,6 +248,23 @@ try {
   await evaluate('document.getElementById("closeModalBtn")?.click(); true;');
   await sleep(300);
 
+  // 4b. "Autocompletar set meta" rellena los 4 movimientos + total de EVs
+  // (regresión: el botón estaba roto porque no importaba buildDefaultSetForSpecies).
+  await evaluate('window.openSetEditor && window.openSetEditor(0); true;');
+  await sleep(400);
+  await evaluate('document.getElementById("resetSetBtn")?.click(); true;');
+  await sleep(700);
+  const setEditorReport = await evaluate(`(() => ({
+    moves: (window.state.self[0]?.set?.moves || []).filter(Boolean).length,
+    ability: !!window.state.self[0]?.set?.ability,
+    evTotalShown: !!document.querySelector('.ev-total'),
+  }))()`);
+  if (!setEditorReport || setEditorReport.moves < 4) failures.push(`Autocompletar set meta no rellenó 4 movimientos (${setEditorReport?.moves})`);
+  if (!setEditorReport.ability) failures.push('Autocompletar set meta no asignó habilidad');
+  if (!setEditorReport.evTotalShown) failures.push('el editor no muestra el total de EVs');
+  await evaluate('document.getElementById("doneSetBtn")?.click(); true;');
+  await sleep(300);
+
   // 5. validateCurrentTeam funciona sobre el equipo demo.
   const validation = await evaluate('window.ChampionsRules.validateCurrentTeam()');
   if (!validation || typeof validation.legal !== 'boolean') {
