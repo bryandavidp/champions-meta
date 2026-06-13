@@ -56,6 +56,42 @@
   --shadow-card: 0 14px 32px rgba(0, 0, 0, 0.32);
   --touch-target: 44px;
   --z-sticky-home: 85;
+
+  /* === Escala de espaciado (Fase 0 del rediseño) ============= */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* === Escala tipográfica: 5 niveles ========================= */
+  --fs-micro: 0.62rem;   /* chips, badges, micro-etiquetas */
+  --fs-caption: 0.72rem; /* subtítulos, metadatos */
+  --fs-body: 0.85rem;    /* texto base */
+  --fs-h2: 1rem;         /* títulos de sección */
+  --fs-h1: 1.25rem;      /* titular principal */
+  --fw-regular: 400;
+  --fw-medium: 600;
+  --fw-bold: 800;
+  --fw-black: 900;
+
+  /* === Color derivado tokenizado (intents) =================== */
+  --intent-danger-soft: rgba(255, 95, 87, 0.14);
+  --intent-danger-line: rgba(255, 95, 87, 0.4);
+  --intent-safe-soft: rgba(48, 209, 88, 0.14);
+  --intent-safe-line: rgba(48, 209, 88, 0.4);
+  --intent-tempo-soft: rgba(77, 215, 255, 0.14);
+  --intent-tempo-line: rgba(77, 215, 255, 0.4);
+  --intent-field-soft: rgba(255, 211, 90, 0.14);
+  --intent-field-line: rgba(255, 211, 90, 0.4);
+  --intent-setup-soft: rgba(167, 139, 250, 0.14);
+  --intent-setup-line: rgba(167, 139, 250, 0.4);
+
+  /* === Breakpoints estándar (referencia; las @media usan literales) ===
+     sm: 480px · md: 768px · lg: 1024px */
 }
 
 * {
@@ -455,11 +491,12 @@ button:active,
   position: relative;
   z-index: 1;
   width: min(1180px, 100%);
-  /* CORRECCIÓN CRÍTICA: Cambiamos margin por padding y lo hacemos gigante para superar el dock */
   margin: 6px auto 0 auto;
-  padding: 0 5px 240px !important;
+  /* Reserva para el dock fijo inferior (.picker-dock). Tokenizado: JS puede
+     ajustar --dock-clearance a la altura real; el default cubre el caso peor. */
+  padding: 0 var(--space-2) var(--dock-clearance, 240px);
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .panel {
@@ -10766,3 +10803,65 @@ body[data-ui-mode="live"] #matrixPanel { order: -2; }
   .home-tactical-status-row .home-status-chip.is-plan { display: none; }
   #loadDemoBtn { padding: 4px 10px; font-size: 0.7rem; }
 }
+
+
+/* === Fase 3: acordeón "Más detalles" (progressive disclosure) === */
+.home-more { padding: 0; }
+.home-more__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-caption);
+  list-style: none;
+  min-height: var(--touch-target);
+}
+.home-more__summary::-webkit-details-marker { display: none; }
+.home-more__summary > span:first-child { display: inline-flex; align-items: center; gap: var(--space-2); }
+.home-more[open] .home-more__summary { border-bottom: 1px solid var(--line); }
+.home-more__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+/* === Fase 2: header de 2 fases + menú de ajustes ============= */
+.phase-switch { font-weight: var(--fw-black); }
+.phase-switch .segmented-btn { min-height: var(--touch-target); padding: var(--space-2) var(--space-4); }
+
+.actions { position: relative; }
+
+.settings-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-2));
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  width: min(280px, 92vw);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line2);
+  background: var(--panel2);
+  box-shadow: var(--shadow);
+}
+.settings-popover[hidden] { display: none; }
+.settings-popover .select-pill { width: 100%; justify-content: space-between; }
+.settings-popover__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.settings-popover__actions .btn { flex: 1; min-height: var(--touch-target); justify-content: center; }
+
+
+/* === Fase 5: total de EVs en vivo ============================ */
+.ev-total {
+  margin-top: var(--space-2);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-bold);
+  color: var(--muted);
+  text-align: right;
+}
+.ev-total.is-over { color: var(--intent-danger); }

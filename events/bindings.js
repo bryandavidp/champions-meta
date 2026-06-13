@@ -134,7 +134,7 @@ function handleHomeAction(node) {
   }
 
   if (action === 'scroll-plans') {
-    document.getElementById('turnBranchesPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    (() => { const p = document.getElementById('turnBranchesPanel'); if (p) { p.open = true; p.scrollIntoView({ behavior: 'smooth', block: 'start' }); } })();
     return true;
   }
 
@@ -527,6 +527,26 @@ export function initEventBindings(callbacks = {}) {
     enemyTeamConfigBtn.addEventListener('click', () => renderTeamConfigDrawer('enemy'));
   }
 
+  const settingsToggleBtn = document.getElementById('settingsToggleBtn');
+  const settingsPopover = document.getElementById('settingsPopover');
+  if (settingsToggleBtn && settingsPopover) {
+    const closeSettings = () => {
+      settingsPopover.hidden = true;
+      settingsToggleBtn.setAttribute('aria-expanded', 'false');
+    };
+    settingsToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = settingsPopover.hidden;
+      settingsPopover.hidden = !open;
+      settingsToggleBtn.setAttribute('aria-expanded', String(open));
+    });
+    document.addEventListener('click', (e) => {
+      if (settingsPopover.hidden) return;
+      if (!settingsPopover.contains(e.target) && e.target !== settingsToggleBtn) closeSettings();
+    });
+    settingsPopover.addEventListener('click', (e) => e.stopPropagation());
+  }
+
   if (regulationSelect) {
     regulationSelect.value = state.rules?.regulationId || 'M-B';
     regulationSelect.addEventListener('change', (e) => {
@@ -692,25 +712,23 @@ export function initEventBindings(callbacks = {}) {
     e.preventDefault();
     e.stopPropagation();
 
-    if (state.selectedMatrixCell === cell) {
-      openBattleSheet({ cell });
-    } else {
-      clearSelectedMatrixCells();
-
-      cell.classList.add('cell--selected');
-      const td = cell.closest('td');
-      const tr = cell.closest('tr');
-      if (tr) tr.classList.add('matrix-row-selected');
-      if (td) {
-        const colIndex = Array.from(tr.children).indexOf(td);
-        const table = cell.closest('table');
-        if (table) {
-          table.querySelectorAll('tr').forEach((row) => {
-            if (row.children[colIndex]) row.children[colIndex].classList.add('matrix-col-selected');
-          });
-        }
+    // Single-click: resalta fila/columna para contexto y abre la ficha de
+    // batalla en el acto (antes hacían falta dos clics: seleccionar + abrir).
+    clearSelectedMatrixCells();
+    cell.classList.add('cell--selected');
+    const td = cell.closest('td');
+    const tr = cell.closest('tr');
+    if (tr) tr.classList.add('matrix-row-selected');
+    if (td) {
+      const colIndex = Array.from(tr.children).indexOf(td);
+      const table = cell.closest('table');
+      if (table) {
+        table.querySelectorAll('tr').forEach((row) => {
+          if (row.children[colIndex]) row.children[colIndex].classList.add('matrix-col-selected');
+        });
       }
-      state.selectedMatrixCell = cell;
     }
+    state.selectedMatrixCell = cell;
+    openBattleSheet({ cell });
   });
 }
