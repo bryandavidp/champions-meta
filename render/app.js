@@ -669,6 +669,8 @@ export function renderUiMode() {
   if (UI_MODES.defensiveAlertFloat) UI_MODES.defensiveAlertFloat.style.display = isExpert ? 'flex' : 'none';
   // Top-3 detallado: planificación (Preparar/expert). En combate manda el planner vivo.
   if (UI_MODES.turnBranchesPanel) UI_MODES.turnBranchesPanel.style.display = (isQuick || isExpert) ? 'block' : 'none';
+  // Centro de mando en vivo: solo en combate (renderLiveStatePanel rellena su contenido).
+  if (LIVE.statePanel) LIVE.statePanel.style.display = isLive ? 'block' : 'none';
 }
 
 export function setBatchUpdating(val) {
