@@ -1,7 +1,7 @@
 import { state } from '../core/state.js';
 import { DEMO_ENEMY, DEMO_SELF, META_PRESETS, RATING_STORAGE_KEY, REGULATION_STORAGE_KEY, TYPE_META } from '../core/constants.js';
 import { LIVE, UI_MODES } from '../core/dom.js';
-import { renderAll, setUiMode } from '../render/app.js';
+import { renderAll, setUiMode, updateIcons } from '../render/app.js';
 import { renderSpeedTiers } from '../render/analysis.js';
 import { triggerMatrixFlash, setMatrixDetailMode, toggleMatrixHelp, getRows } from '../matrix/render.js';
 import { openModal, closeModal } from '../picker/modal.js';
@@ -347,7 +347,6 @@ export function initEventBindings(callbacks = {}) {
   const loadDemoBtn = document.getElementById('loadDemoBtn');
   const swapBtn = document.getElementById('swapBtn');
   const clearBtn = document.getElementById('clearBtn');
-  const bestFourCard = document.getElementById('bestFourCard');
   const toggleTailwindSelfBtn = document.getElementById('toggleTailwindSelfBtn');
   const toggleTailwindEnemyBtn = document.getElementById('toggleTailwindEnemyBtn');
   const toggleTrickRoomBtn = document.getElementById('toggleTrickRoomBtn');
@@ -527,6 +526,13 @@ export function initEventBindings(callbacks = {}) {
     enemyTeamConfigBtn.addEventListener('click', () => renderTeamConfigDrawer('enemy'));
   }
 
+  // Los <details> renderizan su contenido oculto; al abrirlos hay que
+  // re-crear los iconos lucide que quedaron sin pintar.
+  ['homeMorePanel', 'turnBranchesPanel'].forEach((paneId) => {
+    const pane = document.getElementById(paneId);
+    if (pane) pane.addEventListener('toggle', () => { if (pane.open) updateIcons(); });
+  });
+
   const settingsToggleBtn = document.getElementById('settingsToggleBtn');
   const settingsPopover = document.getElementById('settingsPopover');
   if (settingsToggleBtn && settingsPopover) {
@@ -568,12 +574,6 @@ export function initEventBindings(callbacks = {}) {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
   });
-
-  if (bestFourCard) {
-    bestFourCard.addEventListener('click', () => {
-      // Feature: Click to highlight/expand best four (Future enhancement)
-    });
-  }
 
   if (uiModeToggle) {
     uiModeToggle.addEventListener('click', (e) => {

@@ -719,3 +719,14 @@ export const TOOL_GROUPS = {
 };
 
 export const UIMODE_KEY = 'offensive-matrix-ui-mode';
+
+// Umbrales compartidos de daño/KO. Fuente única para que la matriz, la ficha
+// de batalla (ko-conditions) y la threat lane etiqueten el mismo matchup con
+// los mismos cortes. Valores preservados del comportamiento previo.
+export const DAMAGE_THRESHOLDS = {
+  koLikelyOhko: 75,   // OHKO "probable" (matriz: KO probable)
+  koRollOhko: 50,     // OHKO "depende de roll alto"
+  pressureMaxPct: 50, // presión alta
+  chipMaxPct: 25,     // chip útil
+  requiresChipMaxPct: 65, // KO que necesita daño previo
+};

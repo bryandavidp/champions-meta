@@ -152,7 +152,43 @@ export function calcOtherStatLv50(base, ev, natureMultiplier, stage = 0) {
   return Math.floor(staged * natureMultiplier);
 }
 
-export function calculateEffectiveStats(attacker, defender, dmgClass) {
+function abilityId(mon) {
+  return (mon?.set?.ability || mon?.ability || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+}
+function itemId(mon) {
+  return (mon?.set?.item || mon?.item || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+}
+
+// Stat potenciado por Protosynthesis (sol/Booster) o Quark Drive (campo
+// eléctrico/Booster): el más alto del Pokémon tras EVs/naturaleza. Speed x1.5,
+// el resto x1.3. Devuelve null si no está activo. Caso central del meta dobles
+// (Flutter Mane, Iron Hands, Roaring Moon, etc.).
+export function getBoosterStat(mon, field = {}) {
+  const ab = abilityId(mon);
+  const isProto = ab === 'protosynthesis';
+  const isQuark = ab === 'quarkdrive';
+  if (!isProto && !isQuark) return null;
+  const weather = String(field?.weather || '').toLowerCase();
+  const terrain = String(field?.terrain || '').toLowerCase();
+  const active = itemId(mon) === 'boosterenergy'
+    || (isProto && (weather === 'sun' || weather === 'sunnyday'))
+    || (isQuark && terrain === 'electric');
+  if (!active) return null;
+  const nat = mon?.set?.nature || '';
+  const ev = getResolvedEvs(mon);
+  const stats = {
+    atk: calcOtherStatLv50(getBaseStatRaw(mon, 'attack'), ev.atk, natureMod(nat, 'atk')),
+    def: calcOtherStatLv50(getBaseStatRaw(mon, 'defense'), ev.def, natureMod(nat, 'def')),
+    spa: calcOtherStatLv50(getBaseStatRaw(mon, 'special-attack'), ev.spa, natureMod(nat, 'spa')),
+    spd: calcOtherStatLv50(getBaseStatRaw(mon, 'special-defense'), ev.spd, natureMod(nat, 'spd')),
+    spe: calcOtherStatLv50(getBaseStatRaw(mon, 'speed'), ev.spe, natureMod(nat, 'spe')),
+  };
+  let best = 'atk';
+  for (const k of ['def', 'spa', 'spd', 'spe']) if (stats[k] > stats[best]) best = k;
+  return best;
+}
+
+export function calculateEffectiveStats(attacker, defender, dmgClass, field = {}) {
   const natA = attacker.set?.nature || "";
   const natD = defender.set?.nature || "";
   const evA = getResolvedEvs(attacker);
@@ -160,14 +196,21 @@ export function calculateEffectiveStats(attacker, defender, dmgClass) {
   const stagesA = attacker.battle?.stages || {};
   const stagesD = defender.battle?.stages || {};
 
+  const boostA = getBoosterStat(attacker, field);
+  const boostD = getBoosterStat(defender, field);
+  const atkKey = dmgClass === "physical" ? "atk" : "spa";
+  const defKey = dmgClass === "physical" ? "def" : "spd";
+  const atkBoost = boostA === atkKey ? 1.3 : 1;
+  const defBoost = boostD === defKey ? 1.3 : 1;
+
   if (dmgClass === "physical") {
     return {
-      atkS: calcOtherStatLv50(getBaseStatRaw(attacker, "attack"), evA.atk, natureMod(natA, "atk"), stagesA.atk || 0),
-      defS: calcOtherStatLv50(getBaseStatRaw(defender, "defense"), evD.def, natureMod(natD, "def"), stagesD.def || 0)
+      atkS: Math.floor(calcOtherStatLv50(getBaseStatRaw(attacker, "attack"), evA.atk, natureMod(natA, "atk"), stagesA.atk || 0) * atkBoost),
+      defS: Math.floor(calcOtherStatLv50(getBaseStatRaw(defender, "defense"), evD.def, natureMod(natD, "def"), stagesD.def || 0) * defBoost)
     };
   }
   return {
-    atkS: calcOtherStatLv50(getBaseStatRaw(attacker, "special-attack"), evA.spa, natureMod(natA, "spa"), stagesA.spa || 0),
-    defS: calcOtherStatLv50(getBaseStatRaw(defender, "special-defense"), evD.spd, natureMod(natD, "spd"), stagesD.spd || 0)
+    atkS: Math.floor(calcOtherStatLv50(getBaseStatRaw(attacker, "special-attack"), evA.spa, natureMod(natA, "spa"), stagesA.spa || 0) * atkBoost),
+    defS: Math.floor(calcOtherStatLv50(getBaseStatRaw(defender, "special-defense"), evD.spd, natureMod(natD, "spd"), stagesD.spd || 0) * defBoost)
   };
 }

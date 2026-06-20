@@ -510,6 +510,17 @@ export let isBatchUpdating = false;
 let renderTimer = null;
 let lastSelfLength = -1;
 let lastEnemyLength = -1;
+// Firma de CONTENIDO de los equipos: dispara la re-evaluación de combos/plan
+// cuando cambia un Pokémon o su set, no solo cuando cambia el número de slots.
+let lastTeamSignature = null;
+
+function currentTeamSignature() {
+  return [
+    state.matrixMode,
+    state.self.map(monMatrixSignature).join('|'),
+    state.enemy.map(monMatrixSignature).join('|'),
+  ].join('::');
+}
 
 export function renderAll(force = false) {
   flowLog('renderAll: Solicitud de renderizado recibida', { force, isBatchUpdating, renderTimerActive: !!renderTimer });
@@ -534,11 +545,15 @@ export function _doRender(force = false) {
   const isLive = state.uiMode === 'live';
   const currentSelfLength = state.self.filter(Boolean).length;
   const currentEnemyLength = state.enemy.filter(Boolean).length;
-  const lengthsChanged = currentSelfLength !== lastSelfLength || currentEnemyLength !== lastEnemyLength;
+  const teamSignature = currentTeamSignature();
+  // Recalcular cuando cambia el CONTENIDO (especie/set/modo), no solo el número
+  // de slots: editar o intercambiar un Pokémon manteniendo 6 también invalida
+  // combos/MVP/plan recomendado.
+  const teamChanged = teamSignature !== lastTeamSignature;
 
   if (isQuick || force) {
-    if (lengthsChanged || force || state.needsReevaluation) {
-      flowLog('_doRender: Cambios estructurales detectados, disparando evaluateAllCombos', {
+    if (teamChanged || force || state.needsReevaluation) {
+      flowLog('_doRender: Cambios de contenido detectados, disparando evaluateAllCombos', {
         lastSelfLength,
         currentSelfLength,
         lastEnemyLength,
@@ -547,6 +562,7 @@ export function _doRender(force = false) {
       evaluateAllCombos();
       lastSelfLength = currentSelfLength;
       lastEnemyLength = currentEnemyLength;
+      lastTeamSignature = teamSignature;
       state.needsReevaluation = false;
     }
     renderTurn1Simulator();
@@ -592,7 +608,9 @@ export function _doRender(force = false) {
 export function loadUiMode() {
   try {
     const saved = localStorage.getItem(UIMODE_KEY);
-    if (saved === 'quick' || saved === 'expert' || saved === 'live') {
+    // Solo las 2 fases persisten. 'expert' es una sub-vista de Preparar: al
+    // recargar se vuelve a 'quick' (evita el estado fantasma sin botón).
+    if (saved === 'quick' || saved === 'live') {
       state.uiMode = saved;
     }
   } catch {}
@@ -601,7 +619,8 @@ export function loadUiMode() {
 export function setUiMode(mode) {
   state.uiMode = mode;
   try {
-    localStorage.setItem(UIMODE_KEY, mode);
+    // Persistir solo la FASE (Expert no es una fase: se guarda como Preparar).
+    localStorage.setItem(UIMODE_KEY, mode === 'live' ? 'live' : 'quick');
   } catch {}
 
   if (mode === 'expert' || mode === 'live') {

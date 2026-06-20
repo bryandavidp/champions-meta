@@ -1,4 +1,4 @@
-import { SPREAD_MOVES } from '../core/constants.js';
+import { SPREAD_MOVES, DAMAGE_THRESHOLDS } from '../core/constants.js';
 import { state } from '../core/state.js';
 import { calculateSpeed } from '../battle/speed.js';
 import { bestAttack } from '../battle/damage.js';
@@ -107,12 +107,12 @@ function baseKoTags(atk, defender, context) {
     addUnique(tags, { id: 'ohko-clean', label: 'OHKO limpio', tone: 'green', type: 'result' });
   } else if (lethalRoll) {
     addUnique(tags, {
-      id: ohkoProb >= 50 ? 'roll-high' : 'ko-unreliable',
-      label: ohkoProb >= 50 ? 'depende de roll alto' : 'KO no fiable',
-      tone: ohkoProb >= 50 ? 'amber' : 'red',
+      id: ohkoProb >= DAMAGE_THRESHOLDS.koRollOhko ? 'roll-high' : 'ko-unreliable',
+      label: ohkoProb >= DAMAGE_THRESHOLDS.koRollOhko ? 'depende de roll alto' : 'KO no fiable',
+      tone: ohkoProb >= DAMAGE_THRESHOLDS.koRollOhko ? 'amber' : 'red',
       type: 'prereq',
     });
-  } else if (maxPct >= 65) {
+  } else if (maxPct >= DAMAGE_THRESHOLDS.requiresChipMaxPct) {
     addUnique(tags, {
       id: 'requires-chip',
       label: chipNeeded > 0 ? `requiere chip ${Math.ceil(chipNeeded)}%` : 'requiere chip',
@@ -171,7 +171,7 @@ export function evaluateKoConditions(attacker, defender, atk, options = {}) {
     });
   }
 
-  if (protect && (lethal || maxPct >= 65)) {
+  if (protect && (lethal || maxPct >= DAMAGE_THRESHOLDS.requiresChipMaxPct)) {
     addUnique(tags, { id: 'loses-to-protect', label: 'no mata si Protect', tone: 'red', type: 'invalidator' });
   }
 
@@ -182,7 +182,7 @@ export function evaluateKoConditions(attacker, defender, atk, options = {}) {
   }
 
   if (!tags.length && maxPct > 0) {
-    addUnique(tags, { id: 'no-ko-pressure', label: maxPct >= 50 ? 'presion sin KO' : 'chip bajo', tone: maxPct >= 50 ? 'amber' : 'red', type: 'result' });
+    addUnique(tags, { id: 'no-ko-pressure', label: maxPct >= DAMAGE_THRESHOLDS.pressureMaxPct ? 'presion sin KO' : 'chip bajo', tone: maxPct >= DAMAGE_THRESHOLDS.pressureMaxPct ? 'amber' : 'red', type: 'result' });
   }
 
   const visible = tags.slice(0, options.maxVisible || 3);

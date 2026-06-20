@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smogon-champions-cache-v6';
+const CACHE_NAME = 'smogon-champions-cache-v7';
 const POKEAPI_CACHE_NAME = 'pokeapi-cache-v1';
 const urlsToCache = [
   './',
