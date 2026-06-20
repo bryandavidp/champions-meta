@@ -14,6 +14,7 @@ import {
   estimateActionOutcome,
   generateLegalActions,
 } from '../battle/action-core.js';
+import { DAMAGE_THRESHOLDS } from '../core/constants.js';
 
 export const MATRIX_CORE_VERSION = 'matrix-core-v2';
 export const MATRIX_PERF_VERSION = 'matrix-memo-v1';
@@ -385,10 +386,10 @@ export function classifyMatrixCell(cell, offensive = true) {
   if (offensive) {
     if (cell.blocked) return { tone: 'blocked', label: cell.blockReason || 'Bloqueado', shortLabel: 'Bloq.' };
     if (cell.mult === 0) return { tone: 'immune', label: 'Inmune', shortLabel: 'Inmune' };
-    if (cell.ohkoProb >= 75 || (maxPct >= 100 && minPct >= 85)) return { tone: 'ko', label: 'KO probable', shortLabel: 'KO' };
-    if (cell.mult >= 2 && maxPct >= 50) return { tone: 'pressure', label: 'Presion alta', shortLabel: 'Presion' };
-    if (cell.mult > 1 || maxPct >= 25) return { tone: 'chip', label: 'Chip util', shortLabel: 'Chip' };
-    if (cell.mult < 1 || maxPct < 25) return { tone: 'wall', label: 'Muro', shortLabel: 'Muro' };
+    if (cell.ohkoProb >= DAMAGE_THRESHOLDS.koLikelyOhko || (maxPct >= 100 && minPct >= 85)) return { tone: 'ko', label: 'KO probable', shortLabel: 'KO' };
+    if (cell.mult >= 2 && maxPct >= DAMAGE_THRESHOLDS.pressureMaxPct) return { tone: 'pressure', label: 'Presion alta', shortLabel: 'Presion' };
+    if (cell.mult > 1 || maxPct >= DAMAGE_THRESHOLDS.chipMaxPct) return { tone: 'chip', label: 'Chip util', shortLabel: 'Chip' };
+    if (cell.mult < 1 || maxPct < DAMAGE_THRESHOLDS.chipMaxPct) return { tone: 'wall', label: 'Muro', shortLabel: 'Muro' };
     return { tone: 'neutral', label: 'Neutral', shortLabel: 'Neutral' };
   }
 

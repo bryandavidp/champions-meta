@@ -187,7 +187,7 @@ export function estimateMoveDamage(attacker, defender, cand, field) {
   const eff = effectiveness(moveType, defender.types || []);
   const { wMul, terrMul } = getWeatherAndTerrainMultipliers(field, moveType, moveName);
 
-  let { atkS: atkStat, defS: defStat } = calculateEffectiveStats(attacker, defender, dmgClass);
+  let { atkS: atkStat, defS: defStat } = calculateEffectiveStats(attacker, defender, dmgClass, field);
 
   // Boost defensivo pasivo de clima (Arena: SpD roca x1.5, Nieve: Def hielo x1.5)
   defStat = Math.floor(defStat * weatherDefenseMultiplier(dmgClass, field?.weather, defender.types));

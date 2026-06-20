@@ -77,7 +77,7 @@ function findChrome() {
 
 async function waitForEndpoint(port) {
   const started = Date.now();
-  while (Date.now() - started < 8000) {
+  while (Date.now() - started < 25000) {
     try {
       return await requestJson(`http://127.0.0.1:${port}/json/version`);
     } catch {

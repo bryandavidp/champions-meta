@@ -10865,3 +10865,13 @@ body[data-ui-mode="live"] #matrixPanel { order: -2; }
   text-align: right;
 }
 .ev-total.is-over { color: var(--intent-danger); }
+
+
+/* === Fase F: nota de cobertura del meta en ajustes =========== */
+.settings-meta-note {
+  margin: 0;
+  font-size: var(--fs-micro);
+  line-height: 1.35;
+  color: var(--muted);
+}
+.settings-meta-note strong { color: var(--intent-danger); }
